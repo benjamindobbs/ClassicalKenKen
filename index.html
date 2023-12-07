@@ -22,7 +22,7 @@
         </style>
     </head>
     <body>
-        <script src="https://apis.google.com/js/api.js"></script>
+        <script src="https://accounts.google.com/gsi/client" async></script>
 <script>
         /**
          * Sample JavaScript code for sheets.spreadsheets.values.append
@@ -73,7 +73,22 @@
                 gapi.auth2.init({client_id: "245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"});
             });
         </script>
-        <button onclick="authenticate().then(loadClient)">authorize and load</button>
+        <div id="g_id_onload"
+        data-client_id="245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"
+        data-context="signin"
+        data-ux_mode="popup"
+        data-login_uri="https://classicaltech.org"
+        data-auto_prompt="false">
+   </div>
+   
+   <div class="g_id_signin"
+        data-type="standard"
+        data-shape="rectangular"
+        data-theme="outline"
+        data-text="signin_with"
+        data-size="large"
+        data-logo_alignment="left">
+   </div>
         <button onclick="appendValues('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc','A1','RAW','test')">execute</button>
 
         <h1>Classical KenKen</h1>
