@@ -42,23 +42,23 @@
                 .then(function() { console.log("GAPI client loaded for API"); },
                     function(err) { console.error("Error loading GAPI client for API", err); });
         }
-        // Make sure the client is loaded and sign-in is complete before calling this method.
-        function execute() {
-                        let values = [
+
+        function appendValues(spreadsheetId, range, valueInputOption, _values, callback) {
+            let values = [
                 [
-                "tesst"
+                // Cell values ...
                 ],
                 // Additional rows ...
             ];
+            values = _values;
             const body = {
                 values: values,
             };
             try {
                 gapi.client.sheets.spreadsheets.values.append({
-                spreadsheetId: "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
-                range: "A1",
-                valueInputOption: "RAW",
-                insertDataOption:"INSERT_ROWS",
+                spreadsheetId: spreadsheetId,
+                range: range,
+                valueInputOption: valueInputOption,
                 resource: body,
                 }).then((response) => {
                 const result = response.result;
@@ -66,18 +66,13 @@
                 if (callback) callback(response);
                 });
             } catch (err) {
-                console.log(err.message);
+                document.getElementById('content').innerText = err.message;
                 return;
             }
-            return gapi.client.sheets.spreadsheets.values.append({
-            })
-        }
-        gapi.load("client:auth2", function() {
-            gapi.auth2.init({client_id: "245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"});
-        });
+            }
         </script>
         <button onclick="authenticate().then(loadClient)">authorize and load</button>
-        <button onclick="execute()">execute</button>
+        <button onclick="appendValues('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc','A1','RAW','test')">execute</button>
 
         <h1>Classical KenKen</h1>
         <select id="difficultySelect">
