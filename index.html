@@ -39,7 +39,7 @@
                     function(err) { console.error("Error signing in", err); });
         }
         function loadClient() {
-            gapi.client.setApiKey("AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw");
+            gapi.client.setApiKey("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");
             return gapi.client.load("https://sheets.googleapis.com/$discovery/rest?version=v4")
                 .then(function() { console.log("GAPI client loaded for API"); },
                     function(err) { console.error("Error loading GAPI client for API", err); });
@@ -49,7 +49,7 @@
             let values = [
                 [
                 "test"
-                ],
+                ]
                 // Additional rows ...
             ];
             const body = {
@@ -59,7 +59,7 @@
             "spreadsheetId": "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
             "range": "A1",
             "valueInputOption": "RAW",
-            "access_token": "AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw",
+            "access_token": "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",
             "resource": body
             })
                 .then(function(response) {
