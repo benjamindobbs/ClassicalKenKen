@@ -57,7 +57,7 @@
             try {
                 gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc',
-                range: range,
+                range: "A1",
                 valueInputOption: valueInputOption,
                 resource: body,
                 }).then((response) => {
