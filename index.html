@@ -4,7 +4,16 @@
         <title>Classical KenKen</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="google-signin-client_id" content="245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com.apps.googleusercontent.com">
+        <meta name="google-signin-client_id" content="245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com">
+        <script src="https://www.gstatic.com/firebasejs/8.0/firebase.js"></script>
+        <script>
+        var config = {
+            apiKey: "AIzaSyCQk9z4pmlpWT0QTjT0e9wD0VDsXN11FTU",
+            authDomain: "classicaltechweb.firebaseapp.com",
+        };
+        firebase.initializeApp(config);
+        </script>
+        <script src="https://apis.google.com/js/platform.js" async defer></script>
         <style>
             body {
                 color: #000000;
@@ -36,7 +45,30 @@
         </style>
     </head>
     <body>
-        <div id="googleSignInBtn" onclick="startGoogleSignIn();">Sign in with Google</div>
+        <div id="googleSignInBtn">Sign in with Google</div>
+        <script>
+            function onSuccess(googleUser) {
+              var profile = googleUser.getBasicProfile();
+              console.log('Logged in as: ' + profile.getName());
+              // You can perform further actions here, like sending the user data to your server
+            }
+        
+            function onFailure(error) {
+              console.log('Error signing in: ', error);
+            }
+        
+            function startGoogleSignIn() {
+              gapi.auth2.getAuthInstance().signIn().then(onSuccess, onFailure);
+            }
+        
+            document.getElementById('googleSignInBtn').addEventListener('click', function() {
+              if (typeof gapi.auth2 === 'undefined') {
+                console.log('Google API not loaded yet.');
+                return;
+              }
+              startGoogleSignIn();
+            });
+          </script>
         <h1>Classical KenKen</h1>
         <select id="difficultySelect">
             <option selected>Easy</option>
@@ -53,28 +85,5 @@
 
     </body>
 </html>
-<script src="https://www.gstatic.com/firebasejs/8.0/firebase.js"></script>
-<script>
-  var config = {
-    apiKey: "AIzaSyCQk9z4pmlpWT0QTjT0e9wD0VDsXN11FTU",
-    authDomain: "classicaltechweb.firebaseapp.com",
-  };
-  firebase.initializeApp(config);
-</script>
-<script src="https://apis.google.com/js/platform.js" async defer></script>
- <script>
-    function onSuccess(googleUser) {
-      var profile = googleUser.getBasicProfile();
-      console.log('Logged in as: ' + profile.getName());
-      // You can perform further actions here, like sending the user data to your server
-    }
 
-    function onFailure(error) {
-      console.log('Error signing in: ', error);
-    }
-
-    function startGoogleSignIn() {
-      gapi.auth2.getAuthInstance().signIn().then(onSuccess, onFailure);
-    }
-  </script>
 
