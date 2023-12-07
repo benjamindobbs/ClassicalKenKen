@@ -44,17 +44,38 @@
         }
         // Make sure the client is loaded and sign-in is complete before calling this method.
         function execute() {
+                        let values = [
+                [
+                "tesst"
+                ],
+                // Additional rows ...
+            ];
+            values = _values;
+            const body = {
+                values: values,
+            };
+            try {
+                gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc',
+                range: range,
+                valueInputOption: valueInputOption,
+                resource: body,
+                }).then((response) => {
+                const result = response.result;
+                console.log(`${result.updates.updatedCells} cells appended.`);
+                if (callback) callback(response);
+                });
+            } catch (err) {
+                document.getElementById('content').innerText = err.message;
+                return;
+            }
             return gapi.client.sheets.spreadsheets.values.append({
-            "spreadsheetId": "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
-            "range": "A1",
-            "access_token": "AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw",
-            "resource": {test}
             })
-                .then(function(response) {
-                        // Handle the results here (response.result has the parsed body).
-                        console.log("Response", response);
-                    },
-                    function(err) { console.error("Execute error", err); });
+            .then(function(response) {
+                    // Handle the results here (response.result has the parsed body).
+                    console.log("Response", response);
+                },
+                function(err) { console.error("Execute error", err); });
         }
         gapi.load("client:auth2", function() {
             gapi.auth2.init({client_id: "245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"});
