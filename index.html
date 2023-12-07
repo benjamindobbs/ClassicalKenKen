@@ -65,16 +65,11 @@
                 if (callback) callback(response);
                 });
             } catch (err) {
-                document.getElementById('content').innerText = err.message;
+                console.log(err.message);
                 return;
             }
             return gapi.client.sheets.spreadsheets.values.append({
             })
-            .then(function(response) {
-                    // Handle the results here (response.result has the parsed body).
-                    console.log("Response", response);
-                },
-                function(err) { console.error("Execute error", err); });
         }
         gapi.load("client:auth2", function() {
             gapi.auth2.init({client_id: "245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"});
