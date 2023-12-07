@@ -22,6 +22,47 @@
         </style>
     </head>
     <body>
+        <script src="https://apis.google.com/js/api.js"></script>
+<script>
+        /**
+         * Sample JavaScript code for sheets.spreadsheets.values.append
+         * See instructions for running APIs Explorer code samples locally:
+         * https://developers.google.com/explorer-help/code-samples#javascript
+         */
+
+        function authenticate() {
+            return gapi.auth2.getAuthInstance()
+                .signIn({scope: "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets"})
+                .then(function() { console.log("Sign-in successful"); },
+                    function(err) { console.error("Error signing in", err); });
+        }
+        function loadClient() {
+            gapi.client.setApiKey("AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw");
+            return gapi.client.load("https://sheets.googleapis.com/$discovery/rest?version=v4")
+                .then(function() { console.log("GAPI client loaded for API"); },
+                    function(err) { console.error("Error loading GAPI client for API", err); });
+        }
+        // Make sure the client is loaded and sign-in is complete before calling this method.
+        function execute() {
+            return gapi.client.sheets.spreadsheets.values.append({
+            "spreadsheetId": "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
+            "range": "A1",
+            "access_token": "AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw",
+            "resource": {test}
+            })
+                .then(function(response) {
+                        // Handle the results here (response.result has the parsed body).
+                        console.log("Response", response);
+                    },
+                    function(err) { console.error("Execute error", err); });
+        }
+        gapi.load("client:auth2", function() {
+            gapi.auth2.init({client_id: "245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com"});
+        });
+        </script>
+        <button onclick="authenticate().then(loadClient)">authorize and load</button>
+        <button onclick="execute()">execute</button>
+
         <h1>Classical KenKen</h1>
         <select id="difficultySelect">
             <option selected>Easy</option>
@@ -35,11 +76,8 @@
         <div id="container"></div>
 
         <script src="kenken.js"></script>
-        <script src="https://apis.google.com/js/api.js"></script>
-        <script src="submitscore.js"></script>
-        <script>
-        // Call the handleClientLoad function when the Google API client library is loaded
-        gapi.load('client:auth2', handleClientLoad);
+
+
         </script>
     </body>
 </html>
