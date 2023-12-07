@@ -1,12 +1,14 @@
-// Function to load the Google Sheets API client library
+// Load the Google Sheets API client library and authenticate using OAuth2
 function loadSheetsApi() {
     gapi.load('client', function () {
       gapi.client.init({
         apiKey: 'AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw', // Replace with your API key
+        clientId: '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com', // Replace with your OAuth2 client ID
         discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
       }).then(function () {
         console.log('Google Sheets API client loaded');
-        appendToSheet();
+        gapi.auth2.getAuthInstance().signIn().then(appendToSheet);
       }, function (error) {
         console.error('Error loading Google Sheets API client:', error);
       });
@@ -35,7 +37,7 @@ function loadSheetsApi() {
     });
   }
   
-  // Load the Google API client library and authenticate
+  // Load the Google API client library and initiate authentication
   function handleClientLoad() {
     gapi.load('client:auth2', loadSheetsApi);
   }
