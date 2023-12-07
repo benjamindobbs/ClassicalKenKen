@@ -19,9 +19,23 @@
                 font-size: 150%;
             }
 
+             /* Optional: Customize button appearance */
+            #googleSignInBtn {
+            width: 200px;
+            height: 40px;
+            background-color: #4285f4;
+            color: white;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+    }
         </style>
     </head>
     <body>
+        <div id="googleSignInBtn" onclick="startGoogleSignIn();">Sign in with Google</div>
         <h1>Classical KenKen</h1>
         <select id="difficultySelect">
             <option selected>Easy</option>
@@ -38,3 +52,28 @@
 
     </body>
 </html>
+<script src="https://www.gstatic.com/firebasejs/8.0/firebase.js"></script>
+<script>
+  var config = {
+    apiKey: "AIzaSyCQk9z4pmlpWT0QTjT0e9wD0VDsXN11FTU",
+    authDomain: "classicaltechweb.firebaseapp.com",
+  };
+  firebase.initializeApp(config);
+</script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+ <script>
+    function onSuccess(googleUser) {
+      var profile = googleUser.getBasicProfile();
+      console.log('Logged in as: ' + profile.getName());
+      // You can perform further actions here, like sending the user data to your server
+    }
+
+    function onFailure(error) {
+      console.log('Error signing in: ', error);
+    }
+
+    function startGoogleSignIn() {
+      gapi.auth2.getAuthInstance().signIn().then(onSuccess, onFailure);
+    }
+  </script>
+
