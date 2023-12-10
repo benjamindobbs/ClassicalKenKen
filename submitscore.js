@@ -1,44 +1,135 @@
-// Load the Google Sheets API client library and authenticate using OAuth2
-function loadSheetsApi() {
-    gapi.load('client', function () {
-      gapi.client.init({
-        apiKey: 'AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw', // Replace with your API key
-        clientId: '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com', // Replace with your OAuth2 client ID
-        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
-      }).then(function () {
-        console.log('Google Sheets API client loaded');
-        gapi.auth2.getAuthInstance().signIn().then(appendToSheet);
-      }, function (error) {
-        console.error('Error loading Google Sheets API client:', error);
+/* exported gapiLoaded */
+/* exported gisLoaded */
+/* exported handleAuthClick */
+/* exported handleSignoutClick */
+
+// TODO(developer): Set to client ID and API key from the Developer Console
+const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw';
+
+// Discovery doc URL for APIs used by the quickstart
+const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+
+// Authorization scopes required by the API; multiple scopes can be
+// included, separated by spaces.
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+
+document.getElementById('authorize_button').style.visibility = 'hidden';
+document.getElementById('signout_button').style.visibility = 'hidden';
+
+/**
+ * Callback after api.js is loaded.
+ */
+function gapiLoaded() {
+    gapi.load('client', initializeGapiClient);
+}
+
+/**
+ * Callback after the API client is loaded. Loads the
+ * discovery doc to initialize the API.
+ */
+async function initializeGapiClient() {
+    await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: [DISCOVERY_DOC],
+    });
+    gapiInited = true;
+    maybeEnableButtons();
+}
+
+/**
+ * Callback after Google Identity Services are loaded.
+ */
+function gisLoaded() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+    });
+    gisInited = true;
+    maybeEnableButtons();
+}
+
+/**
+ * Enables user interaction after all libraries are loaded.
+ */
+function maybeEnableButtons() {
+    if (gapiInited && gisInited) {
+        document.getElementById('authorize_button').style.visibility = 'visible';
+    }
+}
+
+/**
+ *  Sign in the user upon button click.
+ */
+function handleAuthClick() {
+    tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+            throw (resp);
+        }
+        document.getElementById('signout_button').style.visibility = 'visible';
+        document.getElementById('authorize_button').innerText = 'Refresh';
+        console.log(gapi);
+        var auth2 = gapi.auth2.BasicProfile();
+        console.log(auth2);
+        
+        // var profile = auth2.currentUser.get().getBasicProfile();
+        // console.log(profile.getName());
+        // console.log(profile.getEmail());
+    };
+
+    if (gapi.client.getToken() === null) {
+        // Prompt the user to select a Google Account and ask for consent to share their data
+        // when establishing a new session.
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+        // Skip display of account chooser and consent dialog for an existing session.
+        tokenClient.requestAccessToken({ prompt: '' });
+    }
+}
+
+/**
+ *  Sign out the user upon button click.
+ */
+function handleSignoutClick() {
+    const token = gapi.client.getToken();
+    if (token !== null) {
+        google.accounts.oauth2.revoke(token.access_token);
+        gapi.client.setToken('');
+        document.getElementById('content').innerText = '';
+        document.getElementById('authorize_button').innerText = 'Authorize';
+        document.getElementById('signout_button').style.visibility = 'hidden';
+    }
+}
+
+async function writeScore(identity,score) {
+  let response;
+  var resource = {
+  "majorDimension": "ROWS",
+  "values": [[Date.now()],[identity],[score]]
+  }
+  try {
+      // Fetch first 10 files
+      response = await gapi.client.sheets.spreadsheets.values.append({
+          "spreadsheetId": "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
+          "range": "A1",
+          "insertDataOption": "INSERT_ROWS",
+          "responseValueRenderOption": "UNFORMATTED_VALUE",
+          "valueInputOption": "RAW",
+          "resource": resource
       });
-    });
+      console.log(response);
+  } catch (err) {
+      document.getElementById('content').innerText = err.message;
+      return;
   }
-  
-  // Function to append a value to a specific cell in a Google Sheet
-  function appendToSheet() {
-    const spreadsheetId = '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc'; // Replace with your spreadsheet ID
-    const value = 'Hello, Google Sheets!';
-    const range = 'Sheet1!A1';
-  
-    const request = gapi.client.sheets.spreadsheets.values.append({
-      spreadsheetId: spreadsheetId,
-      range: range,
-      valueInputOption: 'RAW',
-      resource: {
-        values: [[value]],
-      },
-    });
-  
-    request.then(function (response) {
-      console.log('Value added successfully:', response.result);
-    }, function (error) {
-      console.error('There was a problem adding the value:', error.result.error.message);
-    });
+  const range = response.result;
+  if (!range || !range.values || range.values.length == 0) {
+      document.getElementById('content').innerText = 'No values found.';
+      return;
   }
-  
-  // Load the Google API client library and initiate authentication
-  function handleClientLoad() {
-    gapi.load('client:auth2', loadSheetsApi);
-  }
-  
+}
