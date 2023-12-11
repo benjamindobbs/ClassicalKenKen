@@ -21,12 +21,16 @@ let gisInited = false;
 document.getElementById('authorize_button').style.visibility = 'hidden';
 document.getElementById('signout_button').style.visibility = 'hidden';
 
+
+
 /**
  * Callback after api.js is loaded.
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
     console.log("gapiLoaded");
+    document.getElementById('create_button').style.visibility = 'hidden';
+    document.getElementById('clear_button').style.visibility = 'hidden';
 }
 
 /**
@@ -66,6 +70,7 @@ function gisLoaded() {
 function maybeEnableButtons() {
     if (gapiInited && gisInited) {
         document.getElementById('authorize_button').style.visibility = 'visible';
+
     }
 }
 
@@ -79,6 +84,8 @@ function handleAuthClick() {
         }
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
+        document.getElementById('create_button').style.visibility = 'visible';
+        document.getElementById('clear_button').style.visibility = 'visible';
         // var profile = auth2.currentUser.get().getBasicProfile();
         // console.log(profile.getName());
         // console.log(profile.getEmail());
