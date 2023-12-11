@@ -81,6 +81,9 @@ var spentTime = 0;
 var gameOver = false;
 var hintsGiven = false;
 var hintLocations =[];
+var guesses = 0;
+var score = 0;
+var rank =1;
 
 function iterateCells(func) {
   for (var iy = 0; iy < size; iy++) {
@@ -104,6 +107,7 @@ function hide() {
   iterateCells(function (ix, iy) {
       var valueDiv = document.getElementById('r' + iy + 'c' + ix);
       valueDiv.style.display = 'none';
+      startTime = Date.now();
   });
 
   hintLocations.forEach(function(item){
@@ -118,6 +122,7 @@ function showWinMessage() {
 
 function checkAnswer() {
   var correct = true;
+  
   iterateCells(function (ix, iy) {
       var valueDiv = document.getElementById('r' + iy + 'c' + ix);
       // String based comparison because valueDiv may contain whitespace
@@ -128,6 +133,10 @@ function checkAnswer() {
       showWinMessage();
       gameOver = true;
       finishTime = Date.now();
+      
+      score = ((Math.floor((1/guesses)) + (2/Math.floor((finishTime - startTime) / 1000)))*rank)*100;
+      console.log('score',score);
+      writeScore(score);
   }
 }
 
@@ -136,10 +145,11 @@ function updateTime(evt) {
   document.getElementById("time").innerHTML = Math.floor((endTime - startTime) / 1000 + spentTime);
 }
 
-window.onload = function () {
+ function startGame(){
   generateBoard();
-  
   setInterval(updateTime, 1000);
+  var playerData = document.getElementById("playerData");
+  playerData.innerHTML = "Current Rank " + Math.floor(rank);
 }
 
 function createElements() {
@@ -255,6 +265,7 @@ function createElements() {
               valueDiv.style.display = 'block';
               valueDiv.innerHTML = this.innerHTML;
               checkAnswer();
+              guesses=guesses+1;
           }
       };
   }
@@ -396,6 +407,7 @@ function setOperatorElems(region) {
 function generateBoard() {
   try{
       generateBoardInt();
+
   }
   catch(e){
       var debug = document.getElementById("debug");
@@ -403,10 +415,9 @@ function generateBoard() {
   }
 }
 
-function generateBoardInt() {
-  var difficultySelectElement = document.getElementById("difficultySelect");
-  var difficultyStr = difficultySelectElement.options[difficultySelectElement.selectedIndex].text;
-  setBoardDifficulty(difficultyStr);
+async function generateBoardInt() {
+  rank = await getRank();
+  setBoardDifficulty(rank);
   hintsGiven=false;
   board = new Array(size * size);
   region = new Array(size * size);
@@ -926,7 +937,7 @@ function generateBoardInt() {
   // debugText.innerHTML = 'labelTries: ' + allTries.toString()
   //     + ', latinSquareTries: ' + latinSquareTries.toString()
   //     + ', solveTries: ' + solveTries;
-  giveHints(setHintDifficulty(difficultyStr));
+  giveHints(setHintDifficulty(rank));
 };
 
 function getSaveData(auto = false) {
@@ -1074,29 +1085,38 @@ function giveHints(numHints){
   }
 }
 
-  function setBoardDifficulty(difficultyStr){
+  function setBoardDifficulty(difficultyRating){
     //determines board sized based on difficulty
-
-    if(difficultyStr=="Easy"){
-      size = 3;
-    }
-    if(difficultyStr=="Medium"){
-      size = 4;
-    }
-    if(difficultyStr=="Hard"){
-      size = 5;
+    console.log('Difficulty @ Set Difficulty',difficultyRating);
+    if(Math.floor(difficultyRating)<7){
+    size = Math.floor(difficultyRating)+2;
+    }else{
+        size=9;
     }
   }
 
-  function setHintDifficulty(difficultyStr){
+  function setHintDifficulty(difficultyRating){
     //determines the number of hints based on difficulty
-    if(difficultyStr=="Easy"){
-      return Math.floor(size*size/3);
+    var partialRank = difficultyRating - Math.floor(difficultyRating);
+    console.log('Partial Rank Set to',partialRank);
+    if(difficultyRating<7){
+        if(partialRank<.1){
+            return Math.floor(size*size/3);
+          }
+          else if(partialRank<.3){
+            return Math.floor(size*size/4);
+          }
+          else if(partialRank<.5){
+            return Math.floor(size*size/5);
+          }
+          else if(partialRank<.8){
+              return Math.floor(size*size/6);
+            }
+          else if(partialRank>.8){
+          return Math.floor(size*size/7);
+          }
+    }else{
+        return 0;
     }
-    if(difficultyStr=="Medium"){
-      return Math.floor(size*size/3);
-    }
-    if(difficultyStr=="Hard"){
-      return Math.floor(size*size/3);
-    }
+
   }

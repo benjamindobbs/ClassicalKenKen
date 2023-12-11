@@ -8,11 +8,11 @@ const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleuser
 const API_KEY = 'AIzaSyBC-ZQ8kUACSO71K-1UVM4vj8hl6ZU9Bhw';
 
 // Discovery doc URL for APIs used by the quickstart
-const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4","https://gmail.googleapis.com/$discovery/rest?version=v1"];
 
 // Authorization scopes required by the API; multiple scopes can be
 // included, separated by spaces.
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email';
 
 let tokenClient;
 let gapiInited = false;
@@ -26,6 +26,7 @@ document.getElementById('signout_button').style.visibility = 'hidden';
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
+    console.log("gapiLoaded");
 }
 
 /**
@@ -35,10 +36,12 @@ function gapiLoaded() {
 async function initializeGapiClient() {
     await gapi.client.init({
         apiKey: API_KEY,
-        discoveryDocs: [DISCOVERY_DOC],
+        discoveryDocs: DISCOVERY_DOCS,
     });
     gapiInited = true;
     maybeEnableButtons();
+    console.log("initializeGapiClient");
+
 }
 
 /**
@@ -52,6 +55,9 @@ function gisLoaded() {
     });
     gisInited = true;
     maybeEnableButtons();
+    console.log("gisLoaded");
+    // generateBoard();
+    // setInterval(updateTime, 1000);
 }
 
 /**
@@ -73,10 +79,6 @@ function handleAuthClick() {
         }
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
-        console.log(gapi);
-        var auth2 = gapi.auth2.BasicProfile();
-        console.log(auth2);
-        
         // var profile = auth2.currentUser.get().getBasicProfile();
         // console.log(profile.getName());
         // console.log(profile.getEmail());
@@ -90,6 +92,8 @@ function handleAuthClick() {
         // Skip display of account chooser and consent dialog for an existing session.
         tokenClient.requestAccessToken({ prompt: '' });
     }
+    console.log("handleAuthClick");
+
 }
 
 /**
@@ -104,13 +108,21 @@ function handleSignoutClick() {
         document.getElementById('authorize_button').innerText = 'Authorize';
         document.getElementById('signout_button').style.visibility = 'hidden';
     }
+    console.log("handleSignoutClick");
+}
+async function getIdentity(){
+    response = await gapi.client.gmail.users.getProfile({
+    "userId": "me"
+  });
+      return response.result.emailAddress;
 }
 
-async function writeScore(identity,score) {
+async function writeScore(score) {
+  let identity = await getIdentity();
   let response;
   var resource = {
   "majorDimension": "ROWS",
-  "values": [[Date.now()],[identity],[score]]
+  "values": [[Date.now(),identity,score]]
   }
   try {
       // Fetch first 10 files
@@ -124,12 +136,33 @@ async function writeScore(identity,score) {
       });
       console.log(response);
   } catch (err) {
-      document.getElementById('content').innerText = err.message;
+      console.log(err.message);
       return;
   }
-  const range = response.result;
-  if (!range || !range.values || range.values.length == 0) {
-      document.getElementById('content').innerText = 'No values found.';
-      return;
-  }
+}
+
+async function getRank() {
+    rankResponse = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc',
+      range: 'Ranks!A2:C',
+    });
+    var identity = await getIdentity();
+    // console.log('Response',rankResponse.result);
+    var emailColumn = rankResponse.result.values.map(function(value,index){return value[0]});
+    var userRow = emailColumn.indexOf(identity);
+    if (userRow >-1){
+      var rankColumn = rankResponse.result.values.map(function(value,index){return value[2]});
+      var userRank = rankColumn[userRow];
+    }else{
+      userRank=1;
+    }
+
+    // console.log('Idendity',identity);
+    // console.log('All Emails', emailColumn);
+    // console.log('User Row Index',userRow);
+    // console.log('All Ranks', rankColumn);
+    console.log('Expected Rank',userRank);
+   return userRank;
+
+
 }

@@ -25,29 +25,18 @@
 </head>
 
 <body>
-    <p>Sheets API Quickstart</p>
-
     <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize_button" onclick="handleAuthClick()">Authorize</button>
-    <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
-
-    <pre id="content" style="white-space: pre-wrap;"></pre>
-
-   
+    <button id="authorize_button" onclick="handleAuthClick()">Sign In</button>
+    <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>  
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <h1>Classical KenKen</h1>
-    <select id="difficultySelect">
-        <option selected>Easy</option>
-        <option>Medium</option>
-        <option>Hard</option>
-    </select>
-    <input type="button" onclick="generateBoard()" value="Create">
+    <button id="create_button" onclick="startGame()">Create Game</button>
     <input type="button" onclick="hide()" value="Clear">
     <hr>
     Time: <span id="time" class="timer"></span>s
     <div id="container"></div>
-
+    <div id="info"><h3 id="playerData"></h3></div>
     <script src="kenken.js"></script>
 
 
