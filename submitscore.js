@@ -18,8 +18,6 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-document.getElementById('authorize_button').style.visibility = 'hidden';
-document.getElementById('signout_button').style.visibility = 'hidden';
 
 
 
@@ -28,7 +26,6 @@ document.getElementById('signout_button').style.visibility = 'hidden';
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
-    console.log("gapiLoaded");
     document.getElementById('create_button').style.visibility = 'hidden';
     document.getElementById('clear_button').style.visibility = 'hidden';
 }
@@ -44,7 +41,7 @@ async function initializeGapiClient() {
     });
     gapiInited = true;
     maybeEnableButtons();
-    console.log("initializeGapiClient");
+
 
 }
 
@@ -59,7 +56,7 @@ function gisLoaded() {
     });
     gisInited = true;
     maybeEnableButtons();
-    console.log("gisLoaded");
+
     // generateBoard();
     // setInterval(updateTime, 1000);
 }
@@ -99,7 +96,7 @@ function handleAuthClick() {
         // Skip display of account chooser and consent dialog for an existing session.
         tokenClient.requestAccessToken({ prompt: '' });
     }
-    console.log("handleAuthClick");
+
 
 }
 
@@ -115,7 +112,7 @@ function handleSignoutClick() {
         document.getElementById('authorize_button').innerText = 'Authorize';
         document.getElementById('signout_button').style.visibility = 'hidden';
     }
-    console.log("handleSignoutClick");
+
 }
 async function getIdentity(){
     response = await gapi.client.gmail.users.getProfile({
@@ -142,8 +139,10 @@ async function writeScore(score) {
           "resource": resource
       });
       console.log(response);
+      document.getElementById('submitMessage').innerHTML=("Successfully Submitted Score");
   } catch (err) {
       console.log(err.message);
+      document.getElementById('submitMessage').innerHTML=("Error Submitting Score. Have Instructor Check Console Log");
       return;
   }
 }
@@ -168,7 +167,7 @@ async function getRank() {
     // console.log('All Emails', emailColumn);
     // console.log('User Row Index',userRow);
     // console.log('All Ranks', rankColumn);
-    console.log('Expected Rank',userRank);
+    // console.log('Expected Rank',userRank);
    return userRank;
 
 

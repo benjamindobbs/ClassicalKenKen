@@ -83,7 +83,7 @@ var hintsGiven = false;
 var hintLocations =[];
 var guesses = 0;
 var score = 0;
-var rank =1;
+var rank;
 
 function iterateCells(func) {
   for (var iy = 0; iy < size; iy++) {
@@ -107,17 +107,14 @@ function hide() {
   iterateCells(function (ix, iy) {
       var valueDiv = document.getElementById('r' + iy + 'c' + ix);
       valueDiv.style.display = 'none';
-      startTime = Date.now();
+      valueDiv.innerHTML = '';
   });
-
-  hintLocations.forEach(function(item){
-    var valueDiv = document.getElementById('r' + item[0] + 'c' + item[1]);
-    valueDiv.style.display = 'block';
-  });
+  hintsGiven=false;
+  giveHints(setHintDifficulty(rank));
 }
 
 function showWinMessage() {
-  messageElem.innerHTML = "Congratulations!<br>You've solved the puzzle!";
+  messageElem.innerHTML = "Congratulations!<br>Score: " + Math.floor(score);
 }
 
 function checkAnswer() {
@@ -130,13 +127,12 @@ function checkAnswer() {
           correct = false;
   });
   if (correct) {
-      showWinMessage();
       gameOver = true;
       finishTime = Date.now();
-      
       score = ((Math.floor((1/guesses)) + (2/Math.floor((finishTime - startTime) / 1000)))*rank)*100;
-      console.log('score',score);
+    //   console.log('score',score);
       writeScore(score);
+      showWinMessage();
   }
 }
 
@@ -148,8 +144,7 @@ function updateTime(evt) {
  function startGame(){
   generateBoard();
   setInterval(updateTime, 1000);
-  var playerData = document.getElementById("playerData");
-  playerData.innerHTML = "Current Rank " + Math.floor(rank);
+
 }
 
 function createElements() {
@@ -938,6 +933,8 @@ async function generateBoardInt() {
   //     + ', latinSquareTries: ' + latinSquareTries.toString()
   //     + ', solveTries: ' + solveTries;
   giveHints(setHintDifficulty(rank));
+  var playerData = document.getElementById("playerData");
+  playerData.innerHTML = "Current Rank " + Math.floor(rank);
 };
 
 function getSaveData(auto = false) {
@@ -1087,7 +1084,7 @@ function giveHints(numHints){
 
   function setBoardDifficulty(difficultyRating){
     //determines board sized based on difficulty
-    console.log('Difficulty @ Set Difficulty',difficultyRating);
+    // console.log('Difficulty @ Set Difficulty',difficultyRating);
     if(Math.floor(difficultyRating)<7){
     size = Math.floor(difficultyRating)+2;
     }else{
@@ -1098,7 +1095,7 @@ function giveHints(numHints){
   function setHintDifficulty(difficultyRating){
     //determines the number of hints based on difficulty
     var partialRank = difficultyRating - Math.floor(difficultyRating);
-    console.log('Partial Rank Set to',partialRank);
+    // console.log('Partial Rank Set to',partialRank);
     if(difficultyRating<7){
         if(partialRank<.1){
             return Math.floor(size*size/3);
