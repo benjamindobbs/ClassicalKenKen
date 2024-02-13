@@ -113,12 +113,12 @@ async function getIdentity(){
       return response.result.emailAddress;
 }
 
-async function writeScore(score) {
+async function writeScore(score,domain) {
   let identity = await getIdentity();
   let response;
   var resource = {
   "majorDimension": "ROWS",
-  "values": [[Date.now(),identity,score]]
+  "values": [[Date.now(),identity,score,domain]]
   }
   try {
       response = await gapi.client.sheets.spreadsheets.values.append({

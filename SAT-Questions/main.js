@@ -3,8 +3,9 @@ import craft from './craft-structure.json' assert { type: 'json' };
 import expression from './expression-ideas.json' assert { type: 'json' };
 import standards from './standard-conventions.json' assert { type: 'json' };
 const questionTypes = [information,craft,expression,standards];
+const domains = ["Information","Craft","Expression","Standards"];
 var json =  '';
-
+var domain = "";
 document.getElementById('Rationale').style.visibility = 'hidden';
 document.getElementById('nextquestion').disabled=true;
 document.getElementById('submit').disabled=true;
@@ -22,7 +23,6 @@ function buildQuestion(index){
     document.getElementById('questionDiv').style.display = 'block';
     document.getElementById('Rationale').style.visibility = 'hidden';
     document.getElementById('nextquestion').disabled=true;
-
     document.getElementById('Question').innerHTML=json[index].Question
     document.getElementById('A Button').innerHTML=json[index].A;
     document.getElementById('B Button').innerHTML=json[index].B;
@@ -41,10 +41,10 @@ export function submit(){
     console.log(selectedAnswer);
     if(selectedAnswer==json[1].Answer){
         console.log("Correct!")
-        writeScore(1);
+        writeScore(1,domain);
     }
     else{
-        writeScore(0);
+        writeScore(0,domain);
     }
     document.getElementById('Rationale').style.visibility = 'visible';
     document.getElementById('nextquestion').disabled=false;
@@ -53,8 +53,10 @@ export function submit(){
 }
 
 export function nextQuestion(){
-    json = questionTypes[Math.floor(Math.random()*questionTypes.length)];
-    var roll = Math.floor(Math.random()*json.length);
+    var domainRoll = Math.floor(Math.random()*questionTypes.length)
+    domain = domains[domainRoll];
+    json = questionTypes[domainRoll];
+    roll = Math.floor(Math.random()*json.length);
     buildQuestion(roll);
     document.getElementById('A').disabled=false;
     document.getElementById('B').disabled=false;
