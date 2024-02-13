@@ -19,6 +19,7 @@ radio.addEventListener('click', function () {
 
 
 function buildQuestion(index){
+    document.getElementById('questionDiv').style.display = 'block';
     document.getElementById('Rationale').style.visibility = 'hidden';
     document.getElementById('nextquestion').disabled=true;
 
@@ -40,10 +41,12 @@ export function submit(){
     console.log(selectedAnswer);
     if(selectedAnswer==json[1].Answer){
         console.log("Correct!")
+        writeScore(1);
     }
     document.getElementById('Rationale').style.visibility = 'visible';
     document.getElementById('nextquestion').disabled=false;
     document.getElementById('Rationale').innerHTML = json[1].Rationale;
+    writeScore(0);
 }
 
 export function nextQuestion(){

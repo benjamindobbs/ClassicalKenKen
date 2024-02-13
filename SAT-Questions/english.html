@@ -1,21 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
-
+    <title>Classical SAT Practice</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
+<style>
+    body {
+        color: #000000;
+        font-family: Monospace;
+        font-size: 15px;
+        text-align: center;
 
-    <h2 id="Question"></h2>
-    <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
-    <br>
-    <label>B</label><input type="radio" name="answer" id="B"/><label id="B Button"></label>
-    <br>
-    <label>C</label> <input type="radio" name="answer" id="C"/> <label id="C Button"></label>
-    <br>
-    <label>D</label><input type="radio" name="answer" id="D" /><label id="D Button"></label>
-    <br>
-    <input type="button" id="submit" onclick="window.submit()">Submit</input> 
-    <br>
-    <h3 id="Rationale"></h3>
-    <input type="button" id="nextquestion" onclick="window.nextQuestion()">Next Question</input>
+        background-color: #f0f0f0;
+        margin: 0px;
+    }
+
+    .timer {
+        font-size: 150%;
+    }
+</style>
+<script src="SATsubmit.js"></script>
+<body>
+    <!--Add buttons to initiate auth sequence and sign out-->
+    <button id="authorize_button" onclick="handleAuthClick()">Sign In</button>
+    <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>  
+
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+   
+    <button id="create_button" onclick="window.nextQuestion()">Begin</button>
+    <div id="questionDiv" display="none">
+      <h2 id="Question"></h2>
+      <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
+      <br>
+      <label>B</label><input type="radio" name="answer" id="B"/><label id="B Button"></label>
+      <br>
+      <label>C</label> <input type="radio" name="answer" id="C"/> <label id="C Button"></label>
+      <br>
+      <label>D</label><input type="radio" name="answer" id="D" /><label id="D Button"></label>
+      <br>
+      <input type="button" id="submit" onclick="window.submit()">Submit</input> 
+      <br>
+      <h3 id="Rationale"></h3>
+      <input type="button" id="nextquestion" onclick="window.nextQuestion()">Next Question</input>
+    </div>
+    <div id="info">
+      <h5 id="submitMessage"></h5></div>
     <script type="module">
         import { submit } from "./main.js";
         window.submitFromModule = submit;
