@@ -1,0 +1,26 @@
+<head>
+
+</head>
+<body>
+
+    <h2 id="Question"></h2>
+    <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
+    <br>
+    <label>B</label><input type="radio" name="answer" id="B"/><label id="B Button"></label>
+    <br>
+    <label>C</label> <input type="radio" name="answer" id="C"/> <label id="C Button"></label>
+    <br>
+    <label>D</label><input type="radio" name="answer" id="D" /><label id="D Button"></label>
+    <br>
+    <input type="button" id="submit" onclick="window.submit()">Submit</input> 
+    <br>
+    <h3 id="Rationale"></h3>
+    <input type="button" id="nextquestion" onclick="window.nextQuestion()">Next Question</input>
+    <script type="module">
+        import { submit } from "./main.js";
+        window.submitFromModule = submit;
+
+        import {nextQuestion} from "./main.js"
+        window.nextQuestionFromModule = nextQuestion;
+      </script>
+</body>
