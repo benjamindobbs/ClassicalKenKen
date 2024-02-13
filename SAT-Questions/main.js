@@ -56,7 +56,7 @@ export function nextQuestion(){
     var domainRoll = Math.floor(Math.random()*questionTypes.length)
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
-    roll = Math.floor(Math.random()*json.length);
+    var roll = Math.floor(Math.random()*json.length);
     buildQuestion(roll);
     document.getElementById('A').disabled=false;
     document.getElementById('B').disabled=false;
