@@ -4,7 +4,7 @@ import expression from './expression-ideas.json' assert { type: 'json' };
 import standards from './standard-conventions.json' assert { type: 'json' };
 const questionTypes = [information,craft,expression,standards];
 var json =  '';
-nextQuestion();
+
 document.getElementById('Rationale').style.visibility = 'hidden';
 document.getElementById('nextquestion').disabled=true;
 document.getElementById('submit').disabled=true;
@@ -43,10 +43,13 @@ export function submit(){
         console.log("Correct!")
         writeScore(1);
     }
+    else{
+        writeScore(0);
+    }
     document.getElementById('Rationale').style.visibility = 'visible';
     document.getElementById('nextquestion').disabled=false;
     document.getElementById('Rationale').innerHTML = json[1].Rationale;
-    writeScore(0);
+    
 }
 
 export function nextQuestion(){
