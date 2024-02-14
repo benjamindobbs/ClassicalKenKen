@@ -160,8 +160,7 @@ async function getQuestionData() {
       }else{
         difficultyPull="Easy";
       }
-      console.log(domainPull);
-      console.log(difficultyPull);
+      console.log([domainPull,difficultyPull]);
       var questionReturn = [domainPull,difficultyPull];
    return questionReturn;
 

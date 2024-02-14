@@ -61,6 +61,7 @@ export function nextQuestion(){
     var domainRoll = pulledData[0];
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
+    console.log(json);
     while(!found){
         roll = Math.floor(Math.random()*json.length);
         if(json[roll].Difficulty==pulledData[1]){
