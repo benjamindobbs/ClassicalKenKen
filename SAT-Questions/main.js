@@ -56,7 +56,7 @@ export function submit(){
 export function nextQuestion(){
     var found = false;
     //pull appropiate domain/difficulty
-    pulledData = getQuestionData();
+    var pulledData = getQuestionData();
     //set domain globally
     var domainRoll = pulledData[0];
     domain = domains[domainRoll];
@@ -67,7 +67,7 @@ export function nextQuestion(){
             found=true;
         }
     }
-    
+
     buildQuestion();
     document.getElementById('A').disabled=false;
     document.getElementById('B').disabled=false;
