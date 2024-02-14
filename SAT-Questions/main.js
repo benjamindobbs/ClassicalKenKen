@@ -6,6 +6,7 @@ const questionTypes = [information,craft,expression,standards];
 const domains = ["Information","Craft","Expression","Standards"];
 var json =  '';
 var domain = "";
+var roll = 0;
 document.getElementById('Rationale').style.visibility = 'hidden';
 document.getElementById('nextquestion').disabled=true;
 document.getElementById('submit').disabled=true;
@@ -19,15 +20,15 @@ radio.addEventListener('click', function () {
 });
 
 
-function buildQuestion(index){
+function buildQuestion(){
     document.getElementById('questionDiv').style.display = 'block';
     document.getElementById('Rationale').style.visibility = 'hidden';
     document.getElementById('nextquestion').disabled=true;
-    document.getElementById('Question').innerHTML=json[index].Question
-    document.getElementById('A Button').innerHTML=json[index].A;
-    document.getElementById('B Button').innerHTML=json[index].B;
-    document.getElementById('C Button').innerHTML=json[index].C;
-    document.getElementById('D Button').innerHTML=json[index].D;
+    document.getElementById('Question').innerHTML=json[roll].Question
+    document.getElementById('A Button').innerHTML=json[roll].A;
+    document.getElementById('B Button').innerHTML=json[roll].B;
+    document.getElementById('C Button').innerHTML=json[roll].C;
+    document.getElementById('D Button').innerHTML=json[roll].D;
     
 }
 
@@ -39,7 +40,7 @@ export function submit(){
     document.getElementById('D').disabled=true;
     document.getElementById('submit').disabled=true;
     console.log(selectedAnswer);
-    if(selectedAnswer==json[1].Answer){
+    if(selectedAnswer==json[roll].Answer){
         console.log("Correct!")
         writeScore(1,domain);
     }
@@ -48,7 +49,7 @@ export function submit(){
     }
     document.getElementById('Rationale').style.visibility = 'visible';
     document.getElementById('nextquestion').disabled=false;
-    document.getElementById('Rationale').innerHTML = json[1].Rationale;
+    document.getElementById('Rationale').innerHTML = json[roll].Rationale;
     
 }
 
@@ -56,8 +57,8 @@ export function nextQuestion(){
     var domainRoll = Math.floor(Math.random()*questionTypes.length)
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
-    var roll = Math.floor(Math.random()*json.length);
-    buildQuestion(roll);
+    roll = Math.floor(Math.random()*json.length);
+    buildQuestion();
     document.getElementById('A').disabled=false;
     document.getElementById('B').disabled=false;
     document.getElementById('C').disabled=false;
