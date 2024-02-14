@@ -26,7 +26,7 @@ let gisInited = false;
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
-    document.getElementById('create_button').style.display = 'none';
+    document.getElementById('create_button').style.visibility = 'hidden';
     document.getElementById('questionDiv').style.display="none";
     document.getElementById('submissionButtons').style.display="none";
 }
