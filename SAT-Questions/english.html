@@ -11,21 +11,40 @@
         color: #000000;
         font-family: Monospace;
         font-size: 15px;
-        text-align: left;
-
+        text-align: center;
         background-color: #f0f0f0;
         margin: 2ch;
     }
+    .answers input{
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    label {
+      display: inline-block;
+      text-align: left;
+    }​
     button{
       text-align: center;
       display:inline-block;
       margin: auto;
     }
+    .answers{
+      border:.25em solid; 
+      width:50%; 
+      margin:auto; 
+      border-radius: 1em; 
+      padding:2em;
+      text-align: left;
+    }
+    .buttonGroup{
+      padding:.5em;
+    }
+    
 </style>
 <script src="SATsubmit.js"></script>
 
 <body>
-    <!--Add buttons to initiate auth sequence and sign out-->
+          <!--Add buttons to initiate auth sequence and sign out-->
     <button id="authorize_button" onclick="handleAuthClick()">Sign In</button>
     <button id="signout_button" onclick="handleSignoutClick()" >Sign Out </button>  
 
@@ -33,22 +52,34 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
    
     <button id="create_button" onclick="window.nextQuestion()">Begin</button>
-    <div id="questionDiv" display="none">
       <h2 id="Question"></h2>
-      <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
+      <div class = "answers">
+          <div class="buttonGroup">
+            <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
+          </div>
+          
+
+          <div class="buttonGroup">
+            <label>B</label><input type="radio" name="answer" id="B"/><label id="B Button"></label>
+        
+          </div>
+          
+          <div class="buttonGroup">
+            <label>C</label><input type="radio" name="answer" id="C"/><label id="C Button"></label>
+          </div>
+          
+          <div class="buttonGroup">
+            <label>D</label><input type="radio" name="answer" id="D" /><label id="D Button"></label>
+          </div>
+          
+          <h3 id="Rationale"></h3>
+      </div>
       <br>
-      <label>B</label><input type="radio" name="answer" id="B"/><label id="B Button"></label>
+      <button type="button" id="submit" onclick="window.submit()"> Submit </button>
       <br>
-      <label>C</label> <input type="radio" name="answer" id="C"/> <label id="C Button"></label>
-      <br>
-      <label>D</label><input type="radio" name="answer" id="D" /><label id="D Button"></label>
-      <br>
-      <input type="button" id="submit" onclick="window.submit()">Submit</input> 
-      <br>
-      <h3 id="Rationale"></h3>
-      <input type="button" id="nextquestion" onclick="window.nextQuestion()">Next Question</input>
+      
+      <button id="nextquestion" onclick="window.nextQuestion()">Next Question</button>
     </div>
-    <div id="info">
       <h5 id="submitMessage"></h5></div>
     <script type="module">
         import { submit } from "./main.js";

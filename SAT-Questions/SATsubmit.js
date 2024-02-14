@@ -27,7 +27,7 @@ let gisInited = false;
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
     document.getElementById('create_button').style.visibility = 'hidden';
-    document.getElementById('questionDiv').style.display="none";
+    // document.getElementById('questionDiv').style.display="none";
 }
 
 /**
@@ -101,7 +101,7 @@ function handleSignoutClick() {
     if (token !== null) {
         google.accounts.oauth2.revoke(token.access_token);
         gapi.client.setToken('');
-        document.getElementById('content').innerText = '';
+        // document.getElementById('content').innerText = '';
         document.getElementById('authorize_button').innerText = 'Authorize';
         document.getElementById('signout_button').style.visibility = 'hidden';
     }
