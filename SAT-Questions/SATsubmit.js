@@ -139,28 +139,29 @@ async function writeScore(score,domain) {
   }
 }
 
-// async function getRank() {
-//     rankResponse = await gapi.client.sheets.spreadsheets.values.get({
-//       spreadsheetId: '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc',
-//       range: 'Ranks!A2:C',
-//     });
-//     var identity = await getIdentity();
-//     // console.log('Response',rankResponse.result);
-//     var emailColumn = rankResponse.result.values.map(function(value,index){return value[0]});
-//     var userRow = emailColumn.indexOf(identity);
-//     if (userRow >-1){
-//       var rankColumn = rankResponse.result.values.map(function(value,index){return value[2]});
-//       var userRank = rankColumn[userRow];
-//     }else{
-//       userRank=1;
-//     }
+async function getQuestionData() {
+    questionResponse = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: '1XwcpzjVgcBBuKAW6OY9afcW0PW6xFQ5Y_l1kGDwCTzo',
+      range: 'Fall 23 Scores!R3:T240',
+    });
+    var identity = await getIdentity();
+    // console.log('Response',rankResponse.result);
+    var emailColumn = questionResponse.result.values.map(function(value,index){return value[0]});
+    var userRow = emailColumn.indexOf(identity);
+    if (userRow >-1){
+      var domainColumn = questionResponse.result.values.map(function(value,index){return value[1]});
+      var domainPull = domainColumn[userRow];
+    }else{
+      domainPull=3;
+    }
+    if (userRow >-1){
+        var difficultyColumn = questionResponse.result.values.map(function(value,index){return value[2]});
+        var difficultyPull = difficultyColumn[userRow];
+      }else{
+        difficultyPull="Easy";
+      }
+      var questionReturn = [domainPull,difficultyPull];
+   return questionReturn;
 
-//     // console.log('Idendity',identity);
-//     // console.log('All Emails', emailColumn);
-//     // console.log('User Row Index',userRow);
-//     // console.log('All Ranks', rankColumn);
-//     // console.log('Expected Rank',userRank);
-//    return userRank;
 
-
-// }
+}

@@ -54,10 +54,20 @@ export function submit(){
 }
 
 export function nextQuestion(){
-    var domainRoll = Math.floor(Math.random()*questionTypes.length)
+    var found = false;
+    //pull appropiate domain/difficulty
+    pulledData = getQuestionData();
+    //set domain globally
+    var domainRoll = pulledData[0];
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
-    roll = Math.floor(Math.random()*json.length);
+    while(!found){
+        roll = Math.floor(Math.random()*json.length);
+        if(json[roll].Difficulty==pulledData[1]){
+            found=true;
+        }
+    }
+    
     buildQuestion();
     document.getElementById('A').disabled=false;
     document.getElementById('B').disabled=false;
