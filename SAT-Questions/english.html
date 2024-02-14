@@ -36,6 +36,14 @@
       padding:2em;
       text-align: left;
     }
+    #question{
+      border:.25em solid; 
+      width:75%; 
+      margin:auto; 
+      border-radius: 1em; 
+      padding:2em;
+      text-align: left;
+    }
     .buttonGroup{
       padding:.5em;
     }
@@ -52,8 +60,8 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
    
     <button id="create_button" onclick="window.nextQuestion()">Begin</button>
-      <h2 id="Question"></h2>
-      <div class = "answers">
+      <h2 id="Question" ></h2>
+      <div class = "answers" id="questionDiv">
           <div class="buttonGroup">
             <label>A</label><input type="radio" name="answer" id="A" /><label id="A Button"></label>
           </div>
@@ -74,11 +82,12 @@
           
           <h3 id="Rationale"></h3>
       </div>
-      <br>
-      <button type="button" id="submit" onclick="window.submit()"> Submit </button>
-      <br>
+      <div id="submissionButtons">
+      <button id="submit" onclick="window.submit()"> Submit </button>
       
       <button id="nextquestion" onclick="window.nextQuestion()">Next Question</button>
+      </div>
+ 
     </div>
       <h5 id="submitMessage"></h5></div>
     <script type="module">

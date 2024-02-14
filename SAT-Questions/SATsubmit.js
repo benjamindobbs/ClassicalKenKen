@@ -26,8 +26,9 @@ let gisInited = false;
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
-    document.getElementById('create_button').style.visibility = 'hidden';
-    // document.getElementById('questionDiv').style.display="none";
+    document.getElementById('create_button').style.display = 'none';
+    document.getElementById('questionDiv').style.display="none";
+    document.getElementById('submissionButtons').style.display="none";
 }
 
 /**
@@ -78,7 +79,7 @@ function handleAuthClick() {
         }
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
-        document.getElementById('create_button').style.visibility = 'visible';
+        document.getElementById('create_button').style.display = 'inline';
     };
 
     if (gapi.client.getToken() === null) {
