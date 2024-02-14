@@ -145,7 +145,7 @@ async function getQuestionData() {
       range: 'Fall 23 Scores!R3:T240',
     });
     var identity = await getIdentity();
-    // console.log('Response',rankResponse.result);
+    console.log('Response',questionResponse.result);
     var emailColumn = questionResponse.result.values.map(function(value,index){return value[0]});
     var userRow = emailColumn.indexOf(identity);
     if (userRow >-1){
