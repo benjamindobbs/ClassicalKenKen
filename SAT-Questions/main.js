@@ -55,10 +55,10 @@ export function submit(){
 
 export function nextQuestion(){
     var found = false;
-    //pull appropiate domain/difficulty
+    //pull appropiate domain/difficultys
     var pulledData = getQuestionData();
     //set domain globally
-    var domainRoll = pulledData[0];
+    var domainRoll = Number(pulledData[0]);
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
     console.log(json);
