@@ -57,8 +57,10 @@ export function nextQuestion(){
     var found = false;
     //pull appropiate domain/difficultys
     var pulledData = getQuestionData();
+    console.log(pulledData);
     //set domain globally
     var domainRoll = Number(pulledData[0]);
+    console.log(domainRoll);
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
     console.log(json);
