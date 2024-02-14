@@ -53,10 +53,10 @@ export function submit(){
     
 }
 
-export function nextQuestion(){
+export async function nextQuestion(){
     var found = false;
     //pull appropiate domain/difficultys
-    var pulledData = getQuestionData();
+    var pulledData = await getQuestionData();
     console.log(pulledData);
     //set domain globally
     var domainRoll = Number(pulledData[0]);
