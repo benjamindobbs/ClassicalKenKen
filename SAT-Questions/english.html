@@ -84,8 +84,8 @@
       </div>
       <div id="submissionButtons">
       <button id="submit" onclick="window.submit()"> Submit </button>
-      
       <button id="nextquestion" onclick="window.nextQuestion()">Next Question</button>
+      <button id="report" onclick="window.reportQuestion()">Report Question</button>
       </div>
  
     </div>
@@ -96,5 +96,8 @@
 
         import {nextQuestion} from "./main.js"
         window.nextQuestionFromModule = nextQuestion;
+
+        import {reportQuestion} from "./main.js"
+        window.reportQuestionFromModule = reportQuestion;
       </script>
 </body>

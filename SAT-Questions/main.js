@@ -55,6 +55,7 @@ export function submit(){
 }
 
 export async function nextQuestion(){
+    document.getElementById('create_button').style.display = 'none';
     document.getElementById('Rationale').innerHTML = '';
     var found = false;
     //pull appropiate domain/difficultys
@@ -85,5 +86,32 @@ export async function nextQuestion(){
     document.getElementById('D').checked=false;
 
 }
+
+export async function reportQuestion(){
+    var identity = await getIdentity();
+    var resource = {
+    "majorDimension": "ROWS",
+    "values": [[Date.now(),identity,json[roll].ID]]
+    }
+    try {
+        response = await gapi.client.sheets.spreadsheets.values.append({
+            "spreadsheetId": "1XwcpzjVgcBBuKAW6OY9afcW0PW6xFQ5Y_l1kGDwCTzo",
+            "range": "Reported Questions!A1",
+            "insertDataOption": "INSERT_ROWS",
+            "responseValueRenderOption": "UNFORMATTED_VALUE",
+            "valueInputOption": "RAW",
+            "resource": resource
+        });
+        console.log(response);
+        document.getElementById('submitMessage').innerHTML=("Successfully Reported Question");
+    } catch (err) {
+        console.log(err.message);
+        document.getElementById('submitMessage').innerHTML=("Error Submitting Report. Have Instructor Check Console Log");
+        return;
+    }
+    nextQuestion();
+    
+}
+window.reportQuestion = reportQuestion;
 window.submit = submit;
 window.nextQuestion = nextQuestion;
