@@ -79,7 +79,7 @@ function handleAuthClick() {
         }
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
-        document.getElementById('create_button').style.display = 'inline';
+        document.getElementById('create_button').style.visibility = 'visible';
     };
 
     if (gapi.client.getToken() === null) {
