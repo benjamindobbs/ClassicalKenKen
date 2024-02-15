@@ -55,6 +55,7 @@ export function submit(){
 }
 
 export async function nextQuestion(){
+    document.getElementById('Rationale').innerHTML = '';
     var found = false;
     //pull appropiate domain/difficultys
     var pulledData = await getQuestionData();
