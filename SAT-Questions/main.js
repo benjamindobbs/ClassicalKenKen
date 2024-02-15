@@ -22,7 +22,7 @@ radio.addEventListener('click', function () {
 
 function buildQuestion(){
     document.getElementById('questionDiv').style.display = 'block';
-    document.getElementById('submissionButtons').style.visbility='visible';
+    document.getElementById('submissionButtons').style.visibility='visible';
     document.getElementById('Rationale').style.visibility = 'hidden';
     document.getElementById('nextquestion').disabled=true;
     document.getElementById('Question').innerHTML=json[roll].Question
