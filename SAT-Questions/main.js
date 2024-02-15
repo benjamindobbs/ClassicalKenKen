@@ -91,7 +91,7 @@ export async function reportQuestion(){
     var identity = await getIdentity();
     var resource = {
     "majorDimension": "ROWS",
-    "values": [[Date.now(),identity,json[roll].ID]]
+    "values": [[Date.now(),identity,json[roll].ID,domain]]
     }
     try {
         response = await gapi.client.sheets.spreadsheets.values.append({
