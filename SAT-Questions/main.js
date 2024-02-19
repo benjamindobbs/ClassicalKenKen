@@ -4,21 +4,24 @@ import expression from './expression-ideas.json' assert { type: 'json' };
 import standards from './standard-conventions.json' assert { type: 'json' };
 const questionTypes = [information,craft,expression,standards];
 const domains = ["Information","Craft","Expression","Standards"];
+
 var json =  '';
 var domain = "";
 var roll = 0;
+
 document.getElementById('Rationale').style.visibility = 'hidden';
 document.getElementById('nextquestion').disabled=true;
 document.getElementById('submit').disabled=true;
+
 var selectedAnswer =""
 const radios = document.querySelectorAll('input[name="answer"]');
+
 radios.forEach(radio => {
 radio.addEventListener('click', function () {
     document.getElementById('submit').disabled=false;
     selectedAnswer = radio.id;
 });
 });
-
 
 function buildQuestion(){
     document.getElementById('questionDiv').style.display = 'block';
@@ -29,8 +32,7 @@ function buildQuestion(){
     document.getElementById('A Button').innerHTML=json[roll].A;
     document.getElementById('B Button').innerHTML=json[roll].B;
     document.getElementById('C Button').innerHTML=json[roll].C;
-    document.getElementById('D Button').innerHTML=json[roll].D;
-    
+    document.getElementById('D Button').innerHTML=json[roll].D;   
 }
 
 
