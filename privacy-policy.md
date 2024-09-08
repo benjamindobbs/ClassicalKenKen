@@ -1,22 +1,21 @@
 # Privacy Policy for Classical Ken Ken
 
-Last updated: 2/7/2024
+Last updated: 2/19/2024
 
-Thank you for using Classical Ken Ken! This privacy policy explains how we collect, use, and protect your information when you use our application.
+Thank you for using Classical Ken Ken! This privacy policy explains how we collect, use, and protect your information when you use our application. This app complies with the Google API Services User Data Policy, including the Limited Use requirements. You can find these requirements here.
 
 ## Information We Collect
 
 - **Google Account Information:** We request access to the following Google API scopes for our application:
   - [https://www.googleapis.com/auth/spreadsheets](https://www.googleapis.com/auth/spreadsheets)
-  - [https://www.googleapis.com/auth/gmail.readonly](https://www.googleapis.com/auth/gmail.readonly)
   - [https://www.googleapis.com/auth/userinfo.email](https://www.googleapis.com/auth/userinfo.email)
 
 ## How We Use Your Information
 
 We collect and use your Google Account email address solely for the purpose of:
-- Providing personalized experiences in our logic puzzle application.
+- Providing personalized experiences in our logic puzzle and SAT practice application.
 - Storing your scores and progress in a Google Sheet associated with your account.
-- Scaling the difficulty of puzzles based on your performance.
+- Scaling the difficulty of puzzles/questions based on your performance.
 
 ## Data Storage and Retention
 

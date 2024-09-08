@@ -2,45 +2,587 @@
 <html lang="en">
 
 <head>
-    <title>Classical KenKen</title>
+    <title>Classical Technology</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <style>
-    body {
-        color: #000000;
-        font-family: Monospace;
-        font-size: 15px;
-        text-align: center;
-
+    body{
         background-color: #f0f0f0;
-        margin: 0px;
+    }
+    .navbar{
+        height: 10%;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+    }
+    a{
+        display: block;
+        color: black;
+        padding: 16px;
+        text-decoration: none;
+        
+    }
+    a:hover{
+        background-color: lightgray;
+    }
+    h1,h2,h4,h3{
+        text-align: center;
+    }
+    .readme{
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
     }
 
-    .timer {
-        font-size: 150%;
+    .readme div{
+        padding: 1em;
+        text-align: justify;
+    }
+    .readme th{
+        text-align: left;
+    }
+    img{
+        width: 25%;
+        margin: auto;
+        display: block;
     }
 </style>
-<script src="submitscore.js"></script>
-</head>
-
 <body>
-    <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize_button" onclick="handleAuthClick()">Sign In</button>
-    <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>  
-
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <h1>Classical KenKen</h1>
-    <button id="create_button" onclick="startGame()">New Game</button>
-    <button id="clear_button" onclick="hide()">Reset</button>
+    <div class="navbar">
+        <a href=".//KenKen/kenken.html">Play KenKen</a>
+        <a href=".//SAT-Questions/english.html">Practice SAT</a>
+        <a href="./privacy-policy.html">Read Our Privacy Policy</a>
+    </div>
+    <h1>
+        Classical Technology
+    </h1>
+    <h4>
+        Educational Technology Tools
+    </h4>
+    <img src="./assets/CMSTech.png">
     <hr>
-    Time: <span id="time" class="timer"></span>s
-    <div id="container"></div>
-    <div id="info">
-        <h3 id="playerData"></h3>
-        <h5 id="submitMessage"></h5></div>
-    <script src="kenken.js"></script>
-</body>
+    <h2> Read About This App</h2>
+    <div class="readme">
+        <div>
+<h2 id="credit">Credit</h2>
+<p>This is a fork of the <a href="https://github.com/msakuta/WebKenKen?tab=readme-ov-file">https://github.com/msakuta/WebKenKen?tab=readme-ov-file</a> project made by msakuta. Special thank you to Sid Challa who walked me through how to set up a google cloud application. </p>
+<h2 id="purpose">Purpose</h2>
+<p>This project serves as a digital version of a daily Do Now that I used to do on paper with my students. Myself and a colleague were manually creating puzzles, converting them to PDFs, printing, cutting, and grading 100+ KenKen puzzles a day. Over the course of a year we grades over 6,000 individual KenKen puzzles</p>
+<p>Below are our findings from this data comparing students across the 9th grade to 9th grade students who participated in the course using the KenKen puzzles (ECS):</p>
+<table>
+<thead>
+<tr>
+<th>PSAT Breakdown</th>
+<th>Overall Growth</th>
+<th>Growth in Math</th>
+<th>Growth in Reading</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9th Grade</td>
+<td>25.8</td>
+<td>12.6</td>
+<td>13.3</td>
+</tr>
+<tr>
+<td>ECS Students</td>
+<td>31.9</td>
+<td>16.5</td>
+<td>15.4</td>
+</tr>
+</tbody>
+</table>
+<p>This table shows the same data, but seperates students into bands of average grade on the KenKen puzzles</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">ECS Students Per Daily Puzzle Grade Band</th>
+<th>Overall Growth</th>
+<th>Growth in Math</th>
+<th>Growth in Reading</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">&gt;80%</td>
+<td>41.7</td>
+<td>20.6</td>
+<td>21.1</td>
+</tr>
+<tr>
+<td style="text-align:center">60%-79%</td>
+<td>22.2</td>
+<td>2.2</td>
+<td>20.0</td>
+</tr>
+<tr>
+<td style="text-align:center">&lt;60%</td>
+<td>7.7</td>
+<td>7.7</td>
+<td>0.0</td>
+</tr>
+</tbody>
+</table>
 
-</html>
+<p>This data was used in our student learning objectives for the 22-23 school year.</p>
+<p>After reviewing the data we decided that we should continue utilizing KenKen puzzles to help improve build up fundemental skills in logic and math in our freshman. The issue was that making and grading the KenKen puzzles just was not worth the time. To provide the content to the students I decided to make an online version of KenKen that tracked student progress, which is this project.</p>
+<h2 id="project-objectives">Project Objectives</h2>
+<ul>
+<li>Students log in with their school accounts for verification/tracking</li>
+<li>A score is earned upon completing a puzzle that measures the number of guesses, time to completion, and difficulty of the puzzle</li>
+<li>Student scores are stored in a spreadsheet/db and are identified with student id numbers</li>
+<li>Serve puzzles based on student ability</li>
+<li>Scores determine a grade that is relative to difficulty</li>
+</ul>
+</div>
+<div>
+<h2 id="functionality">Functionality</h2>
+<ol>
+<li>Student signs in using school issued account</li>
+<li>Student generates a puzzle that is built with a difficulty determined by their rank</li>
+<li><p>Upon completion score is stored in spreadsheet with timestamp, email address, and score</p>
+</li>
+<li><p>Teachers can access the spreadsheet and have a tab for each class period</p>
+</li>
+<li>Each tab has the proper PowerSchool grading template</li>
+<li>Teacher can select a day in the tab</li>
+<li>Spreadsheet pulls the max score for each student for the given day</li>
+<li>Spreadsheet converts the KenKen score to a point value</li>
+<li>Tab sheet can be downloaded as CSV then uploaded directly to PowerSchool assignment</li>
+</ol>
+<h2 id="notes">Notes</h2>
+<h3 id="calculating-kenken-score">Calculating KenKen Score</h3>
+<p>Score = (1/Number of Guesses + 2/Time to Complete) <em> Rank^2 </em> 100</p>
+<h3 id="calculating-a-grade">Calculating a Grade</h3>
+<p>Teachers can set the following variables: Max Score, Min Score (For Completed), Min Score (For Non-Completed)
+Max Score of Day / (Min Score Required for Student Current Rank/2) * Max Assignment Score, if this number &gt; max assignment it is set to the max; if this score &lt; min score, score is set to min; if there is no games played that day, score is set to missing score variable.</p>
+<h3 id="determining-difficulty">Determining Difficulty</h3>
+<p>The difficulty of the puzzle is controlled by 2 variables. The size of the grid, and the number of hints. The size of the grid is rank + 2 and maxes out at 8 x 8. The number of hints are determined by the sub-rank (the decimal place of the rank) and as the rank increases less hints are provided. The rank is pulled from a lookup table based on average KenKen score.</p>
+<h3 id="rank-table">Rank Table</h3>
+<table>
+    <thead>
+    <tr>
+    <th style="text-align:center">Rank Threshholds</th>
+    <th style="text-align:center"></th>
+    <th style="text-align:center"></th>
+    <th style="text-align:center"></th>
+    <th style="text-align:center"></th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+    <td style="text-align:center">Size</td>
+    <td style="text-align:center">Guesses</td>
+    <td style="text-align:center">Time</td>
+    <td style="text-align:center">Difficulty</td>
+    <td style="text-align:center">Score Min</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">9</td>
+    <td style="text-align:center">11</td>
+    <td style="text-align:center">44</td>
+    <td style="text-align:center">1</td>
+    <td style="text-align:center">14</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">16</td>
+    <td style="text-align:center">20</td>
+    <td style="text-align:center">80</td>
+    <td style="text-align:center">2</td>
+    <td style="text-align:center">30</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">25</td>
+    <td style="text-align:center">31</td>
+    <td style="text-align:center">124</td>
+    <td style="text-align:center">3</td>
+    <td style="text-align:center">44</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">36</td>
+    <td style="text-align:center">45</td>
+    <td style="text-align:center">180</td>
+    <td style="text-align:center">4</td>
+    <td style="text-align:center">53</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">49</td>
+    <td style="text-align:center">61</td>
+    <td style="text-align:center">244</td>
+    <td style="text-align:center">5</td>
+    <td style="text-align:center">61</td>
+    </tr>
+    <tr>
+    <td style="text-align:center">64</td>
+    <td style="text-align:center">80</td>
+    <td style="text-align:center">320</td>
+    <td style="text-align:center">6</td>
+    <td style="text-align:center">68</td>
+    </tr>
+    </tbody>
+    </table>
+</div>
+<div>
+<h3 id="full-rank-lookup-table">Full Rank Lookup Table</h3>
+<table>
+    <thead>
+    <tr>
+    <th>Level</th>
+    <th>Average Game Score</th>
+    <th>Rank</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+    <td>1</td>
+    <td>0</td>
+    <td>1.00</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>1</td>
+    <td>1.07</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>2</td>
+    <td>1.15</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>3</td>
+    <td>1.22</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>4</td>
+    <td>1.29</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>5</td>
+    <td>1.37</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>6</td>
+    <td>1.44</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>7</td>
+    <td>1.51</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>8</td>
+    <td>1.59</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>9</td>
+    <td>1.66</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>10</td>
+    <td>1.73</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>11</td>
+    <td>1.81</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>12</td>
+    <td>1.88</td>
+    </tr>
+    <tr>
+    <td>1</td>
+    <td>13</td>
+    <td>1.95</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>14</td>
+    <td>2.47</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>15</td>
+    <td>2.50</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>16</td>
+    <td>2.14</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>17</td>
+    <td>2.21</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>18</td>
+    <td>2.27</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>19</td>
+    <td>2.33</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>20</td>
+    <td>2.39</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>21</td>
+    <td>2.45</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>22</td>
+    <td>2.51</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>23</td>
+    <td>2.57</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>24</td>
+    <td>2.63</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>25</td>
+    <td>2.69</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>26</td>
+    <td>2.76</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>27</td>
+    <td>2.82</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>28</td>
+    <td>2.88</td>
+    </tr>
+    <tr>
+    <td>2</td>
+    <td>29</td>
+    <td>2.94</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>30</td>
+    <td>3.00</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>31</td>
+    <td>3.07</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>32</td>
+    <td>3.15</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>33</td>
+    <td>3.22</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>34</td>
+    <td>3.30</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>35</td>
+    <td>3.37</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>36</td>
+    <td>3.44</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>37</td>
+    <td>3.52</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>38</td>
+    <td>3.59</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>39</td>
+    <td>3.66</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>40</td>
+    <td>3.74</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>41</td>
+    <td>3.81</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>42</td>
+    <td>3.89</td>
+    </tr>
+    <tr>
+    <td>3</td>
+    <td>43</td>
+    <td>3.96</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>44</td>
+    <td>4.05</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>45</td>
+    <td>4.15</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>46</td>
+    <td>4.25</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>47</td>
+    <td>4.35</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>48</td>
+    <td>4.45</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>49</td>
+    <td>4.56</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>50</td>
+    <td>4.66</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>51</td>
+    <td>4.76</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>52</td>
+    <td>4.86</td>
+    </tr>
+    <tr>
+    <td>4</td>
+    <td>53</td>
+    <td>4.97</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>54</td>
+    <td>5.08</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>55</td>
+    <td>5.20</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>56</td>
+    <td>5.33</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>57</td>
+    <td>5.45</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>58</td>
+    <td>5.57</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>59</td>
+    <td>5.70</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>60</td>
+    <td>5.82</td>
+    </tr>
+    <tr>
+    <td>5</td>
+    <td>61</td>
+    <td>5.94</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>62</td>
+    <td>6.09</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>63</td>
+    <td>6.25</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>64</td>
+    <td>6.42</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>65</td>
+    <td>6.59</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>66</td>
+    <td>6.75</td>
+    </tr>
+    <tr>
+    <td>6</td>
+    <td>67</td>
+    <td>6.92</td>
+    </tr>
+    <tr>
+    <td>7</td>
+    <td>68</td>
+    <td>7.00</td>
+    </tr>
+    </tbody>
+    </table>
+</div>
+    </div>
+
+</body>
