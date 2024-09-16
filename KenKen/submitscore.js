@@ -115,7 +115,7 @@ function handleSignoutClick() {
 
 }
 async function getIdentity(){
-    const token = gapi.client.getToken();
+    const token = gapi.client.getToken().access_token;
     let response = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?access_token='+token);
     let parsed = response.json();
     return parsed.email;
