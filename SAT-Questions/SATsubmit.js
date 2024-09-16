@@ -12,7 +12,7 @@ const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v
 
 // Authorization scopes required by the API; multiple scopes can be
 // included, separated by spaces.
-const SCOPES = 'https://www.googleapis.com/auth/drive.file  https://www.googleapis.com/auth/gmail.metadata https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile'
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile'
 
 let tokenClient;
 let gapiInited = false;
@@ -109,10 +109,10 @@ function handleSignoutClick() {
 
 }
 async function getIdentity(){
-    response = await gapi.client.gmail.users.getProfile({
-    "userId": "me"
-  });
-      return response.result.emailAddress;
+    const token = gapi.client.getToken();
+    let response = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?access_token='+token);
+    let parsed = response.json();
+    return parsed.email;
 }
 
 async function writeScore(score,domain) {
