@@ -36,7 +36,7 @@ function buildQuestion(){
 }
 
 
-export function submit(){
+function submit(){
     document.getElementById('A').disabled=true;
     document.getElementById('B').disabled=true;
     document.getElementById('C').disabled=true;
@@ -56,7 +56,7 @@ export function submit(){
     
 }
 
-export async function nextQuestion(){
+async function nextQuestion(){
     document.getElementById('create_button').style.display = 'none';
     document.getElementById('Rationale').innerHTML = '';
     var found = false;
@@ -89,7 +89,7 @@ export async function nextQuestion(){
 
 }
 
-export async function reportQuestion(){
+async function reportQuestion(){
     var identity = await getIdentity();
     var resource = {
     "majorDimension": "ROWS",
@@ -114,6 +114,3 @@ export async function reportQuestion(){
     nextQuestion();
     
 }
-window.reportQuestion = reportQuestion;
-window.submit = submit;
-window.nextQuestion = nextQuestion;
