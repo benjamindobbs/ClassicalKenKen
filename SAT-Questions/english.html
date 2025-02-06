@@ -60,7 +60,7 @@
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
    
-    <button id="create_button" onclick="window.nextQuestion()">Begin</button>
+    <button id="create_button" onclick="nextQuestion()">Begin</button>
       <h2 id="Question" ></h2>
       <div class = "answers" id="questionDiv">
           <div class="buttonGroup">
@@ -84,14 +84,14 @@
           <h3 id="Rationale"></h3>
       </div>
       <div id="submissionButtons">
-      <button id="submit" onclick="window.submit()"> Submit </button>
-      <button id="nextquestion" onclick="window.nextQuestion()">Next Question</button>
-      <button id="report" onclick="window.reportQuestion()">Report Question</button>
+      <button id="submit" onclick="submit()"> Submit </button>
+      <button id="nextquestion" onclick="nextQuestion()">Next Question</button>
+      <button id="report" onclick="reportQuestion()">Report Question</button>
       </div>
  
     </div>
       <h5 id="submitMessage"></h5></div>
-    <script type="module">
+    <!-- <script type="module">
         import { submit } from "./main.js";
         window.submitFromModule = submit;
 
@@ -100,5 +100,5 @@
 
         import {reportQuestion} from "./main.js"
         window.reportQuestionFromModule = reportQuestion;
-      </script>
+      </script> -->
 </body>
