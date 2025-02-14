@@ -90,7 +90,7 @@ function handleAuthClick() {
             .setOAuthToken(accessToken)
             .setDeveloperKey(API_KEY)
             .setAppId('245572615958')
-            // .setFileIds("1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc")
+            // .setFileIds("1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0")
             .build();
         picker.setVisible(true);
       }
@@ -153,7 +153,7 @@ async function writeScore(score) {
   try {
       // Fetch first 10 files
       response = await gapi.client.sheets.spreadsheets.values.append({
-          "spreadsheetId": "1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc",
+          "spreadsheetId": "1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0",
           "range": "A1",
           "insertDataOption": "INSERT_ROWS",
           "responseValueRenderOption": "UNFORMATTED_VALUE",
@@ -171,7 +171,7 @@ async function writeScore(score) {
 
 async function getRank() {
     rankResponse = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: '1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc',
+      spreadsheetId: '1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0',
       range: 'Ranks!A2:C',
     });
     var identity = await getIdentity();
