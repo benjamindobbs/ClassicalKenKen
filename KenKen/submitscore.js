@@ -182,6 +182,7 @@ async function getRank() {
 }
 
 function createPicker(){
+    const token = gapi.client.getToken().access_token;
     const picker = new google.picker.PickerBuilder()
     .setOAuthtoken(token)
     .setAppId('245572615958')  // Cloud Project number
