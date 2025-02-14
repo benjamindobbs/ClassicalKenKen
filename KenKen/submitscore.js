@@ -14,9 +14,11 @@ const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v
 // included, separated by spaces.
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 
+
 let tokenClient;
 let gapiInited = false;
 let gisInited = false;
+let pickerInited = false;
 
 
 
@@ -26,6 +28,7 @@ let gisInited = false;
  */
 function gapiLoaded() {
     gapi.load('client', initializeGapiClient);
+    gapi.load('picker', onPickerApiLoad);
     document.getElementById('create_button').style.visibility = 'hidden';
     document.getElementById('clear_button').style.visibility = 'hidden';
 }
@@ -44,6 +47,10 @@ async function initializeGapiClient() {
 
 
 }
+function onPickerApiLoad() {
+    pickerInited = true;
+    createPicker();
+  }
 
 /**
  * Callback after Google Identity Services are loaded.
@@ -172,4 +179,17 @@ async function getRank() {
    return userRank;
 
 
+}
+
+function createPicker(){
+    const picker = new google.picker.PickerBuilder()
+    .setOAuthtoken(token)
+    .setAppId('245572615958')  // Cloud Project number
+    .addView(google.picker.ViewId.DOCS)
+    .setFileIds('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc')
+    .setCallback((data) => {
+    console.log(data);
+    })
+    .build();
+    picker.setVisible(true);
 }
