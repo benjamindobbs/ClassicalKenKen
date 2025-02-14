@@ -50,7 +50,6 @@ async function initializeGapiClient() {
 }
 function onPickerApiLoad() {
     pickerInited = true;
-    createPicker();
   }
 
 /**
@@ -83,10 +82,25 @@ function maybeEnableButtons() {
  *  Sign in the user upon button click.
  */
 function handleAuthClick() {
+    //create and show picker
+    const showPicker = () => {
+        // TODO(developer): Replace with your API key
+        const picker = new google.picker.PickerBuilder()
+            .addView(google.picker.ViewId.DOCS)
+            .setOAuthToken(accessToken)
+            .setDeveloperKey(API_KEY)
+            .setAppId(245572615958)
+            .setFileIds('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc')
+            .build();
+        picker.setVisible(true);
+      }
+
     tokenClient.callback = async (resp) => {
         if (resp.error !== undefined) {
             throw (resp);
         }
+        accessToken = resp.access_token;
+        showPicker();
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
         document.getElementById('create_button').style.visibility = 'visible';
@@ -95,7 +109,6 @@ function handleAuthClick() {
         // console.log(profile.getName());
         // console.log(profile.getEmail());
     };
-
     if (gapi.client.getToken() === null) {
         // Prompt the user to select a Google Account and ask for consent to share their data
         // when establishing a new session.
@@ -183,36 +196,3 @@ async function getRank() {
 }
 
 
-    // Create and render a Google Picker object for selecting from Drive.
-    function createPicker() {
-        const showPicker = () => {
-          // TODO(developer): Replace with your API key
-          const picker = new google.picker.PickerBuilder()
-              .addView(google.picker.ViewId.DOCS)
-              .setOAuthToken(accessToken)
-              .setDeveloperKey(API_KEY)
-              .setAppId(245572615958)
-              .setFileIds('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc')
-              .build();
-          picker.setVisible(true);
-        }
-  
-        // Request an access token.
-        tokenClient.callback = async (response) => {
-          if (response.error !== undefined) {
-            throw (response);
-          }
-          accessToken = response.access_token;
-          showPicker();
-        };
-  
-        if (accessToken === null) {
-          // Prompt the user to select a Google Account and ask for consent to share their data
-          // when establishing a new session.
-          tokenClient.requestAccessToken({prompt: 'consent'});
-        } else {
-          // Skip display of account chooser and consent dialog for an existing session.
-          tokenClient.requestAccessToken({prompt: ''});
-        }
-      }
-      
