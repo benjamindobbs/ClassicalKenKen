@@ -16,6 +16,7 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapi
 
 
 let tokenClient;
+let accessToken = null;
 let gapiInited = false;
 let gisInited = false;
 let pickerInited = false;
@@ -181,16 +182,37 @@ async function getRank() {
 
 }
 
-function createPicker(){
-    const token = gapi.client.getToken().access_token;
-    const picker = new google.picker.PickerBuilder()
-    .setOAuthtoken(token)
-    .setAppId('245572615958')  // Cloud Project number
-    .addView(google.picker.ViewId.DOCS)
-    .setFileIds('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc')
-    .setCallback((data) => {
-    console.log(data);
-    })
-    .build();
-    picker.setVisible(true);
-}
+
+    // Create and render a Google Picker object for selecting from Drive.
+    function createPicker() {
+        const showPicker = () => {
+          // TODO(developer): Replace with your API key
+          const picker = new google.picker.PickerBuilder()
+              .addView(google.picker.ViewId.DOCS)
+              .setOAuthToken(accessToken)
+              .setDeveloperKey(API_KEY)
+              .setAppId(245572615958)
+              .setFileIds('1Vdi4qN39bKY7nUumtKDzwhhJERcHdtelAPikodLBtwc')
+              .build();
+          picker.setVisible(true);
+        }
+  
+        // Request an access token.
+        tokenClient.callback = async (response) => {
+          if (response.error !== undefined) {
+            throw (response);
+          }
+          accessToken = response.access_token;
+          showPicker();
+        };
+  
+        if (accessToken === null) {
+          // Prompt the user to select a Google Account and ask for consent to share their data
+          // when establishing a new session.
+          tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+          // Skip display of account chooser and consent dialog for an existing session.
+          tokenClient.requestAccessToken({prompt: ''});
+        }
+      }
+      
