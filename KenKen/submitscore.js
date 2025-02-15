@@ -97,30 +97,23 @@ function handleAuthClick() {
         if (resp.error !== undefined) {
             throw (resp);
         }
-        accessToken = resp.access_token;
-        //see if client already granted access to doc, if not prompt to
-        try{
-            getRank();
-        }
-        catch(err){
-            showPicker();      
-        }
-        
+        accessToken = resp.access_token;        
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
         document.getElementById('create_button').style.visibility = 'visible';
         document.getElementById('clear_button').style.visibility = 'visible';
-        // var profile = auth2.currentUser.get().getBasicProfile();
-        // console.log(profile.getName());
-        // console.log(profile.getEmail());
+
     };
     if (gapi.client.getToken() === null) {
         // Prompt the user to select a Google Account and ask for consent to share their data
         // when establishing a new session.
         tokenClient.requestAccessToken({ prompt: 'consent' });
+        //if no active session, prompt user to grant doc permission
+        showPicker();
     } else {
         // Skip display of account chooser and consent dialog for an existing session.
         tokenClient.requestAccessToken({ prompt: '' });
+        startGame();
     }
 
 
