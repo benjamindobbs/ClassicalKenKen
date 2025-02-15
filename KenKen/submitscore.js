@@ -83,23 +83,29 @@ function maybeEnableButtons() {
  */
 function handleAuthClick() {
     //create and show picker
-    const showPicker = () => {
-        // TODO(developer): Replace with your API key
-        const picker = new google.picker.PickerBuilder()
-            .setOAuthToken(accessToken)
-            .setDeveloperKey(API_KEY)
-            .setAppId('245572615958')
-            .addView(new google.picker.DocsView().setFileIds('1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0'))
-            .build();
-        picker.setVisible(true);
-      }
-
+        const showPicker = () => {
+            const picker = new google.picker.PickerBuilder()
+                .setOAuthToken(accessToken)
+                .setDeveloperKey(API_KEY)
+                .setAppId('245572615958')
+                .addView(new google.picker.DocsView().setFileIds('1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0'))
+                .setTitle("Grant Permission to Access Database")
+                .build();
+            picker.setVisible(true);
+        }
     tokenClient.callback = async (resp) => {
         if (resp.error !== undefined) {
             throw (resp);
         }
         accessToken = resp.access_token;
-        showPicker();
+        //see if client already granted access to doc, if not prompt to
+        try{
+            getRank();
+        }
+        catch(err){
+            showPicker();      
+        }
+        
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
         document.getElementById('create_button').style.visibility = 'visible';
