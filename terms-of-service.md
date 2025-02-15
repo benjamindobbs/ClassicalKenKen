@@ -1,6 +1,6 @@
 # Terms of Service for Classical Ken Ken
 
-Last updated: [Date]
+Last updated: 2/15/2025
 
 Please read these Terms of Service carefully before using Classical Ken Ken operated by Ben Dobbs.
 
@@ -8,7 +8,7 @@ Your access to and use of the Application is conditioned on your acceptance of a
 
 ## 1. Account Information and Permissions
 
-1.1 **Google Account Information:** The Application may request access to specific Google API scopes, including but not limited to [https://www.googleapis.com/auth/spreadsheets](https://www.googleapis.com/auth/spreadsheets), [https://www.googleapis.com/auth/gmail.readonly](https://www.googleapis.com/auth/gmail.readonly), and [https://www.googleapis.com/auth/userinfo.email](https://www.googleapis.com/auth/userinfo.email). You agree to provide accurate and complete information when prompted and to grant the necessary permissions for the Application to function.
+1.1 **Google Account Information:** The Application may request access to specific Google API scopes, including but not limited to [https://www.googleapis.com/drive.file](https://www.googleapis.com/drive.file), and [https://www.googleapis.com/auth/userinfo.email](https://www.googleapis.com/auth/userinfo.email). You agree to provide accurate and complete information when prompted and to grant the necessary permissions for the Application to function.
 
 ## 2. Use of the Application
 

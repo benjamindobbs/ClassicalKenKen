@@ -1,13 +1,13 @@
 # Privacy Policy for Classical Ken Ken
 
-Last updated: 2/19/2024
+Last updated: 2/15/2025
 
 Thank you for using Classical Ken Ken! This privacy policy explains how we collect, use, and protect your information when you use our application. This app complies with the Google API Services User Data Policy, including the Limited Use requirements. You can find these requirements here.
 
 ## Information We Collect
 
 - **Google Account Information:** We request access to the following Google API scopes for our application:
-  - [https://www.googleapis.com/auth/spreadsheets](https://www.googleapis.com/auth/spreadsheets)
+  - [https://www.googleapis.com/drive.file](https://www.googleapis.com/drive.file)
   - [https://www.googleapis.com/auth/userinfo.email](https://www.googleapis.com/auth/userinfo.email)
 
 ## How We Use Your Information
