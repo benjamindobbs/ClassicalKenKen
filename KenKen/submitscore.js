@@ -82,6 +82,7 @@ function maybeEnableButtons() {
  *  Sign in the user upon button click.
  */
 function handleAuthClick() {
+    var activeSession = false;
     //create and show picker
         const showPicker = () => {
             const picker = new google.picker.PickerBuilder()
@@ -97,7 +98,10 @@ function handleAuthClick() {
         if (resp.error !== undefined) {
             throw (resp);
         }
-        accessToken = resp.access_token;        
+        accessToken = resp.access_token;
+        if(!activeSession){
+            showPicker(); 
+        }    
         document.getElementById('signout_button').style.visibility = 'visible';
         document.getElementById('authorize_button').innerText = 'Refresh';
         document.getElementById('create_button').style.visibility = 'visible';
@@ -108,12 +112,10 @@ function handleAuthClick() {
         // Prompt the user to select a Google Account and ask for consent to share their data
         // when establishing a new session.
         tokenClient.requestAccessToken({ prompt: 'consent' });
-        //if no active session, prompt user to grant doc permission
-        showPicker();
     } else {
         // Skip display of account chooser and consent dialog for an existing session.
         tokenClient.requestAccessToken({ prompt: '' });
-        startGame();
+        activeSession=true;
     }
 
 
