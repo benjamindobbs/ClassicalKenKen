@@ -86,12 +86,10 @@ function handleAuthClick() {
     const showPicker = () => {
         // TODO(developer): Replace with your API key
         const picker = new google.picker.PickerBuilder()
-            .addView(google.picker.DocsView(google.picker.ViewId.SPREADSHEETS))
-            .setFileIds('1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0')
             .setOAuthToken(accessToken)
             .setDeveloperKey(API_KEY)
             .setAppId('245572615958')
-            // .setFileIds("1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0")
+            .addView(new google.picker.DocsView().setFileIds('1jlp-iDAbyPX-Rj2jwaK4w1W2sa4QeF7wT0cFo973jM0'))
             .build();
         picker.setVisible(true);
       }
