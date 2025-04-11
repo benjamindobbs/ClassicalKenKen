@@ -130,7 +130,7 @@ function checkAnswer() {
       gameOver = true;
       finishTime = Date.now();
       score = ((Math.floor((1/guesses)) + (2/Math.floor((finishTime - startTime) / 1000)))*(rank*rank))*100;
-    //   console.log('score',score);
+      console.log(guesses, (finishTime-startTime)/1000, rank);
       writeScore(score);
       showWinMessage();
   }
@@ -142,6 +142,7 @@ function updateTime(evt) {
 }
 
  function startGame(){
+  guesses=0;
   generateBoard();
   setInterval(updateTime, 1000);
 
