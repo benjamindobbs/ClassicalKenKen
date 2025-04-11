@@ -129,7 +129,7 @@ function checkAnswer() {
   if (correct) {
       gameOver = true;
       finishTime = Date.now();
-      score = ((Math.floor((1/guesses)) + (2/Math.floor((finishTime - startTime) / 1000)))*(rank*rank))*100;
+      score = Math.floor((1/guesses + 2/((finishTime-startTime)/1000))*(rank*rank)*100);
       console.log(guesses, (finishTime-startTime)/1000, rank);
       writeScore(score);
       showWinMessage();
