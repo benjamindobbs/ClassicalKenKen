@@ -63,9 +63,6 @@ function gisLoaded() {
     });
     gisInited = true;
     maybeEnableButtons();
-
-    // generateBoard();
-    // setInterval(updateTime, 1000);
 }
 
 /**
@@ -160,7 +157,6 @@ async function writeScore(score) {
           "valueInputOption": "RAW",
           "resource": resource
       });
-      console.log(response);
       document.getElementById('submitMessage').innerHTML=("Successfully Submitted Score");
   } catch (err) {
       console.log(err.message);
@@ -175,7 +171,6 @@ async function getRank() {
       range: 'Ranks!A2:C',
     });
     var identity = await getIdentity();
-    // console.log('Response',rankResponse.result);
     var emailColumn = rankResponse.result.values.map(function(value,index){return value[0]});
     var userRow = emailColumn.indexOf(identity);
     if (userRow >-1){
@@ -184,12 +179,6 @@ async function getRank() {
     }else{
       userRank=1;
     }
-
-    // console.log('Idendity',identity);
-    // console.log('All Emails', emailColumn);
-    // console.log('User Row Index',userRow);
-    // console.log('All Ranks', rankColumn);
-    // console.log('Expected Rank',userRank);
    return userRank;
 
 

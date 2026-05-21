@@ -2,7 +2,7 @@
 ## Credit 
 This is a fork of the https://github.com/msakuta/WebKenKen?tab=readme-ov-file project made by msakuta. Special thank you to Sid Challa who walked me through how to set up a google cloud application. 
 ## Purpose
-This project serves as a digital version of a daily Do Now that I used to do on paper with my students. Myself and a colleague were manually creating puzzles, converting them to PDFs, printing, cutting, and grading 100+ KenKen puzzles a day. Over the course of a year we grades over 6,000 individual KenKen puzzles
+This project serves as a digital version of a daily Do Now that I used to do on paper with my students. Myself and a colleague were manually creating puzzles, converting them to PDFs, printing, cutting, and grading 100+ KenKen puzzles a day. Over the course of a year we graded over 6,000 individual KenKen puzzles
 
 Below are our findings from this data comparing students across the 9th grade to 9th grade students who participated in the course using the KenKen puzzles (ECS):
 
@@ -11,7 +11,7 @@ Below are our findings from this data comparing students across the 9th grade to
 | 9th Grade      |           25.8 |           12.6 |              13.3 |
 | ECS Students   |           31.9 |           16.5 |              15.4 |
 
-This table shows the same data, but seperates students into bands of average grade on the KenKen puzzles
+This table shows the same data, but separates students into bands of average grade on the KenKen puzzles
 
 | ECS Students Per Daily Puzzle Grade Band | Overall Growth | Growth in Math | Growth in Reading |
 |:----------------------------------------:|----------------|----------------|-------------------|

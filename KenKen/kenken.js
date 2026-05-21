@@ -74,7 +74,6 @@ var memos;
 var selectedCell = null;
 var selectedCoords = null;
 var messageElem;
-var debugText;
 var startTime;
 var finishTime;
 var spentTime = 0;
@@ -130,7 +129,6 @@ function checkAnswer() {
       gameOver = true;
       finishTime = Date.now();
       score = Math.floor(((1/guesses) + (2/((finishTime-startTime)/1000)))*(rank*rank)*100);
-      console.log(guesses, (finishTime-startTime)/1000, rank);
       writeScore(score);
       showWinMessage();
   }
@@ -193,7 +191,6 @@ function createElements() {
           var cell = document.createElement("div");
           cellElems[ix + iy * size] = cell;
           cell.innerHTML = "";
-          //cell.style.backgroundColor = colors[region[ix + iy * size] % 4];
           cell.style.width = '3.5em';
           cell.style.height = '3.5em';
           cell.style.position = 'absolute';
@@ -298,8 +295,6 @@ function createElements() {
       }
   }
 
-  debugText = document.createElement('div');
-  container.appendChild(debugText);
 }
 
 function selectCell(sel) {
@@ -401,13 +396,10 @@ function setOperatorElems(region) {
 }
 
 function generateBoard() {
-  try{
+  try {
       generateBoardInt();
-
-  }
-  catch(e){
-      var debug = document.getElementById("debug");
-      debug.innerHTML = e.what();
+  } catch(e) {
+      console.error(e);
   }
 }
 
@@ -930,9 +922,6 @@ async function generateBoardInt() {
       break;
   }
 
-  // debugText.innerHTML = 'labelTries: ' + allTries.toString()
-  //     + ', latinSquareTries: ' + latinSquareTries.toString()
-  //     + ', solveTries: ' + solveTries;
   giveHints(setHintDifficulty(rank));
   var playerData = document.getElementById("playerData");
   playerData.innerHTML = "Current Rank " + Math.floor(rank);
@@ -1007,7 +996,6 @@ function loadSaveData(saveData, length) {
   updateTime();
   if (gameOver)
       showWinMessage();
-  // debugText.innerHTML = 'loaded ' + length + ' bytes';
 }
 
 function load(auto = false) {
@@ -1032,32 +1020,6 @@ window.addEventListener('pageshow', function () {
 window.addEventListener('beforeunload', function () {
   save(true);
 });
-
-function copyToClipboard(text) {
-  window.prompt("Copy to clipboard: Ctrl+C, Enter", text);
-}
-
-function clip() {
-  if (!window.JSON) {
-      alert('Your browser cannot copy to clibboard.');
-      return;
-  }
-  copyToClipboard(JSON.stringify(prepareSaveData()));
-}
-
-function pasteFromClipboard() {
-  return window.prompt("Paste from clipboard: Ctrl+V, Enter");
-}
-
-function paste() {
-  if (!window.JSON) {
-      alert('Your browser cannot paste from clibboard.');
-      return;
-  }
-  var ret = pasteFromClipboard();
-  if (ret !== null && ret !== '')
-      loadSaveData(JSON.parse(ret), ret.length);
-}
 
 function giveHints(numHints){
   hintLocations=[];
@@ -1084,8 +1046,6 @@ function giveHints(numHints){
 }
 
   function setBoardDifficulty(difficultyRating){
-    //determines board sized based on difficulty
-    // console.log('Difficulty @ Set Difficulty',difficultyRating);
     if(Math.floor(difficultyRating)<7){
     size = Math.floor(difficultyRating)+2;
     }else{
@@ -1094,9 +1054,7 @@ function giveHints(numHints){
   }
 
   function setHintDifficulty(difficultyRating){
-    //determines the number of hints based on difficulty
     var partialRank = difficultyRating - Math.floor(difficultyRating);
-    // console.log('Partial Rank Set to',partialRank);
     if(difficultyRating<7){
         if(partialRank<.1){
             return Math.floor(size*size/3);

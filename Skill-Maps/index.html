@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Skill Maps &mdash; Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.ico">
+    <link rel="stylesheet" href="../assets/style.css">
+    <style>
+        .page-header {
+            background: #0f172a;
+            padding: 3.5rem 2rem;
+            text-align: center;
+        }
+
+        .page-header h1 { color: #f1f5f9; margin-bottom: 0.4rem; }
+        .page-header p { color: #64748b; font-size: 0.9375rem; }
+
+        .maps-section {
+            max-width: 900px;
+            margin: 3rem auto;
+            padding: 0 1.5rem 5rem;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .maps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .map-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+        }
+
+        .map-card:hover {
+            box-shadow: var(--shadow);
+            transform: translateY(-3px);
+            border-color: #93c5fd;
+            color: inherit;
+        }
+
+        .map-card-dept {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.625rem;
+            display: block;
+        }
+
+        .map-card h2 {
+            font-size: 1.0625rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .map-card p {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin: 0 0 1.25rem;
+        }
+
+        .map-card-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .map-card-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .coming-soon {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: default;
+        }
+
+        .coming-soon-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: #f1f5f9;
+            color: #94a3b8;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-top: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/kenken.html">Play KenKen</a>
+            <a href="../SAT-Questions/english.html">Practice SAT</a>
+            <a href="./index.html" class="active">Skill Maps</a>
+            <a href="../readme.html">ReadMe</a>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <h1>Skill Maps</h1>
+        <p>Interactive visual maps of course skills and career cluster connections</p>
+    </div>
+
+    <div class="maps-section">
+        <span class="section-label">Available Courses</span>
+        <div class="maps-grid">
+
+            <a class="map-card" href="./graphics-printing/skill-map.html">
+                <span class="map-card-dept">CTE &mdash; Applied Arts</span>
+                <h2>Graphics &amp; Printing Technology</h2>
+                <p>Vector design, screen printing, embroidery, DTF, wide-format signmaking, and school-based enterprise.</p>
+                <div class="map-card-meta">
+                    <span>9 topics</span>
+                    <span>40+ skills</span>
+                </div>
+            </a>
+
+            <!-- Add new skill map cards here as courses are developed -->
+
+        </div>
+    </div>
+</body>
+</html>

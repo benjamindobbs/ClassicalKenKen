@@ -42,9 +42,7 @@ function submit(){
     document.getElementById('C').disabled=true;
     document.getElementById('D').disabled=true;
     document.getElementById('submit').disabled=true;
-    console.log(selectedAnswer);
     if(selectedAnswer==json[roll].Answer){
-        console.log("Correct!")
         writeScore(1,domain);
     }
     else{
@@ -62,13 +60,9 @@ async function nextQuestion(){
     var found = false;
     //pull appropiate domain/difficultys
     var pulledData = await getQuestionData();
-    console.log(pulledData);
-    //set domain globally
     var domainRoll = Number(pulledData[0]);
-    console.log(domainRoll);
     domain = domains[domainRoll];
     json = questionTypes[domainRoll];
-    console.log(json);
     while(!found){
         roll = Math.floor(Math.random()*json.length);
         if(json[roll].Difficulty==pulledData[1]){
@@ -104,10 +98,9 @@ async function reportQuestion(){
             "valueInputOption": "RAW",
             "resource": resource
         });
-        console.log(response);
         document.getElementById('submitMessage').innerHTML=("Successfully Reported Question");
     } catch (err) {
-        console.log(err.message);
+        console.error(err);
         document.getElementById('submitMessage').innerHTML=("Error Submitting Report. Have Instructor Check Console Log");
         return;
     }

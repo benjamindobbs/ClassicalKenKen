@@ -102,7 +102,6 @@ function handleSignoutClick() {
     if (token !== null) {
         google.accounts.oauth2.revoke(token.access_token);
         gapi.client.setToken('');
-        // document.getElementById('content').innerText = '';
         document.getElementById('authorize_button').innerText = 'Authorize';
         document.getElementById('signout_button').style.visibility = 'hidden';
     }
@@ -131,10 +130,9 @@ async function writeScore(score,domain) {
           "valueInputOption": "RAW",
           "resource": resource
       });
-      console.log(response);
       document.getElementById('submitMessage').innerHTML=("Successfully Submitted Score");
   } catch (err) {
-      console.log(err.message);
+      console.error(err);
       document.getElementById('submitMessage').innerHTML=("Error Submitting Score. Have Instructor Check Console Log");
       return;
   }
@@ -146,7 +144,6 @@ async function getQuestionData() {
       range: 'Fall 23 Scores!R3:T240',
     });
     var identity = await getIdentity();
-    console.log('Response',questionResponse.result);
     var emailColumn = questionResponse.result.values.map(function(value,index){return value[0]});
     var userRow = emailColumn.indexOf(identity);
     if (userRow >-1){
