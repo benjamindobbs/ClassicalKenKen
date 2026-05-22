@@ -1,13 +1,13 @@
-// ── Career Cluster color reference (Modernized National Career Clusters Framework) ──
-// Creating & Experiencing  → Arts, Entertainment & Design  #C2185B
-// Building & Moving        → Advanced Manufacturing         #D84315
-//                          → Supply Chain & Transportation  #795548
-// Connecting & Supporting  → Management & Entrepreneurship  #7B1FA2  (cross-cutting)
-//                          → Marketing & Sales              #6A1B9A  (cross-cutting)
-//                          → Digital Technology             #4527A0  (cross-cutting)
-// Caring for Communities   → Education                      #0277BD
-// Investing in the Future  → Financial Services             #E65100
-// Framework center         → Career Ready Practices         #546E7A
+﻿// â”€â”€ Career Cluster color reference (Modernized National Career Clusters Framework) â”€â”€
+// Creating & Experiencing  â†’ Arts, Entertainment & Design  #C2185B
+// Building & Moving        â†’ Advanced Manufacturing         #D84315
+//                          â†’ Supply Chain & Transportation  #795548
+// Connecting & Supporting  â†’ Management & Entrepreneurship  #7B1FA2  (cross-cutting)
+//                          â†’ Marketing & Sales              #6A1B9A  (cross-cutting)
+//                          â†’ Digital Technology             #4527A0  (cross-cutting)
+// Caring for Communities   â†’ Education                      #0277BD
+// Investing in the Future  â†’ Financial Services             #E65100
+// Framework center         â†’ Career Ready Practices         #546E7A
 
 const C = {
   ARTS:    '#C2185B',
@@ -53,7 +53,7 @@ const topics = [
       },
       {
         name: "Commitment to Excellence",
-        description: "Hold every project—regardless of complexity—to the highest standard you are capable of. Excellence is a habit built through intentional, consistent practice.",
+        description: "Hold every projectâ€”regardless of complexityâ€”to the highest standard you are capable of. Excellence is a habit built through intentional, consistent practice.",
         clusterTags: [
           { label: "Career Ready Practices", color: C.CRP },
           { label: "Safety & Quality Assurance", color: C.MFG },
@@ -92,7 +92,7 @@ const topics = [
     skills: [
       {
         name: "Working in the Design Industry",
-        description: "Understand the professional landscape of graphic design—roles, workflows, client relationships, and industry expectations. Learn how designers collaborate and communicate in real-world studios.",
+        description: "Understand the professional landscape of graphic designâ€”roles, workflows, client relationships, and industry expectations. Learn how designers collaborate and communicate in real-world studios.",
         clusterTags: [
           { label: "Design & Digital Arts", color: C.ARTS },
           { label: "Leadership & Operations", color: C.MGMT },
@@ -215,7 +215,7 @@ const topics = [
     skills: [
       {
         name: "Design for Embroidery",
-        description: "Understand the constraints of embroidery as a medium—minimum detail size, stitch count, and how design decisions translate into thread, needle, and finished texture.",
+        description: "Understand the constraints of embroidery as a mediumâ€”minimum detail size, stitch count, and how design decisions translate into thread, needle, and finished texture.",
         clusterTags: [
           { label: "Design & Digital Arts", color: C.ARTS },
           { label: "Fashion & Interiors", color: C.ARTS },
@@ -367,7 +367,7 @@ const topics = [
         ]
       },
       {
-        name: "Design for Banners, Signs, Decals, Stickers, Window Graphics & Wall Wraps",
+        name: "Design for Banners, Signs, & More",
         description: "Apply design principles and technical knowledge to produce output-ready artwork for a wide range of signage, display, and branded environment applications.",
         clusterTags: [
           { label: "Design & Digital Arts", color: C.ARTS },
@@ -391,7 +391,7 @@ const topics = [
     skills: [
       {
         name: "Client Communication",
-        description: "Interact professionally with clients from initial inquiry through job completion—taking orders accurately, setting clear expectations, and following up to confirm satisfaction.",
+        description: "Interact professionally with clients from initial inquiry through job completionâ€”taking orders accurately, setting clear expectations, and following up to confirm satisfaction.",
         clusterTags: [
           { label: "Leadership & Operations", color: C.MGMT },
           { label: "Strategic Sales", color: C.MKTG },
@@ -515,8 +515,85 @@ const topics = [
   }
 ];
 
+
+// ── Node icons ───────────────────────────────────────────────────────────────
+const TOPIC_ICONS = {
+  1: 'psychology',       // Habits of Mind
+  2: 'brush',            // Adobe Illustrator
+  3: 'massage',          // Silk Screening
+  4: 'laundry',          // Embroidery
+  5: 'layers',           // Direct to Film
+  6: 'signpost',         // Digital Signmaking & Printing
+  7: 'local_shipping',   // Logistics & Operations
+  8: 'campaign',         // Marketing & Advertisement
+  9: 'storefront',       // Storefront & Enterprise
+};
+
+const SKILL_ICONS = {
+  // Habits of Mind
+  't1s0': 'fitness_center',       // Persistence
+  't1s1': 'menu_book',            // Academic Curiosity
+  't1s2': 'grade',                // Commitment to Excellence
+  't1s3': 'explore',              // Extending Knowledge
+  't1s4': 'bolt',                 // Application of Previous Knowledge
+  // Adobe Illustrator
+  't2s0': 'work',                 // Working in the Design Industry
+  't2s1': 'dashboard',            // Project Setup & Interface
+  't2s2': 'folder_open',          // Organizing Documents
+  't2s3': 'draw',                 // Creating & Modifying Visual Elements
+  't2s4': 'publish',              // Publishing Digital Media
+  // Silk Screening
+  't3s0': 'grid_on',              // Prepare Silk Screens
+  't3s1': 'image',                // Design Positives & Transparencies
+  't3s2': 'wb_sunny',             // Expose and Wash Out Frames
+  't3s3': 'tune',                 // Align & Set Up Print Jobs
+  't3s4': 'colorize',             // Prepare & Mix Plastisol Ink
+  't3s5': 'photo_library',        // Single & Multi-Color Printing
+  't3s6': 'local_fire_department',// Cure & Finish Prints
+  // Embroidery
+  't4s0': 'design_services',      // Design for Embroidery
+  't4s1': 'code',                 // Embroidery Digitizing
+  't4s2': 'build',                // Machine Maintenance and Setup
+  't4s3': 'settings',             // Machine Operation
+  // Direct to Film
+  't5s0': 'image',                // Design for the DTF Process
+  't5s1': 'handyman',             // Machine Maintenance and Setup
+  't5s2': 'computer',             // RasterLink 7 Print Setup and Operation
+  't5s3': 'whatshot',             // Heater/Shaker Setup, Operation, and Maintenance
+  't5s4': 'compress',             // Heat Press Setup, Operation, and Maintenance
+  't5s5': 'gps_fixed',            // Heat Press Laser Alignment Setup & Utilization
+  't5s6': 'touch_app',            // DTF Transfer Application
+  // Digital Signmaking & Printing
+  't6s0': 'landscape',            // Design for Digital Signmaking & Printing
+  't6s1': 'inventory',            // Media & Substrate Management
+  't6s2': 'content_cut',          // RasterLink 7 Print/Cut Setup and Operation
+  't6s3': 'print',                // Solvent Printer Setup, Operation, and Maintenance
+  't6s4': 'content_paste',        // Media Application
+  't6s5': 'panorama',             // Design for Banners, Signs, Decals, etc.
+  // Logistics & Operations
+  't7s0': 'forum',                // Client Communication
+  't7s1': 'unarchive',            // Procurement, Shipping & Receiving
+  't7s2': 'fact_check',           // Quality Control
+  't7s3': 'send',                 // Outgoing Packaging & Shipping
+  't7s4': 'assignment',           // Project Management
+  // Marketing & Advertisement
+  't8s0': 'analytics',            // Market Research
+  't8s1': 'photo_camera',         // Product Photography
+  't8s2': 'photo_album',          // Physical & Digital Marketing Design
+  // Storefront & Enterprise
+  't9s0': 'business',             // Operate School-Based Enterprise
+  't9s1': 'warehouse',            // Inventory Management
+  't9s2': 'point_of_sale',        // Point of Sale
+  't9s3': 'calculate',            // Bookkeeping
+};
+
+function iconHtml(name) {
+  return '<span class="material-symbols-rounded">' + name + '</span>';
+}
+
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const container  = document.getElementById('web-container');
+const stage      = document.getElementById('web-stage');
 const svg        = document.getElementById('svg-lines');
 const centerNode = document.getElementById('center-node');
 const infoPanel  = document.getElementById('info-panel');
@@ -525,16 +602,20 @@ const backBtn    = document.getElementById('back-btn');
 const hintEl     = document.getElementById('hint');
 const panelBody  = document.getElementById('panel-body');
 
-// ── State ───────────────────────────────────────────────────────────────────
-let currentView    = 'main';
-let currentTopic   = null;
-let activeNodeId   = null;
-let webRevealTimer = null;
+// ── State ────────────────────────────────────────────────────────────────────
+let currentTopic    = null;   // topic object when a topic is focused
+let activeNodeId    = null;   // 't{id}s{i}' when a skill node is selected
+let focusPanX       = 0;      // stage X when topic is focused, panel closed
+let focusPanY       = 0;
+let panTimer        = null;
+let panelSlideTimer = null;
 
 const MAIN_CENTER_HTML = 'Graphics &amp;<br>Printing<br>Technology';
-const PANEL_MS = 300; // matches CSS panel width transition
+const PANEL_W  = 340;
+const PANEL_MS = 300;
+const PAN_MS   = 480;
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function getCenter() {
   return { x: container.offsetWidth / 2, y: container.offsetHeight / 2 };
 }
@@ -558,21 +639,6 @@ function clusterTagHTML(tag) {
   return '<span class="cluster-tag" style="background:' + bg + ';color:' + tag.color + ';border:1px solid ' + border + '">' + tag.label + '</span>';
 }
 
-function fadeTransition(callback) {
-  clearTimeout(webRevealTimer);
-  container.style.opacity = ''; // clear any inline opacity so class can take over
-  container.classList.add('fading');
-  setTimeout(() => {
-    callback();
-    container.classList.remove('fading');
-  }, 160);
-}
-
-function clearCanvas() {
-  svg.innerHTML = '';
-  document.querySelectorAll('.topic-node').forEach(n => n.remove());
-}
-
 function drawLine(x1, y1, x2, y2, color, id) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
@@ -591,8 +657,8 @@ function setLineActive(id, active) {
   const line = document.getElementById('line-' + id);
   if (!line) return;
   if (active) {
-    line.setAttribute('stroke-opacity', '0.75');
-    line.setAttribute('stroke-width', '2.5');
+    line.setAttribute('stroke-opacity', '0.80');
+    line.setAttribute('stroke-width', '2');
     line.removeAttribute('stroke-dasharray');
   } else {
     line.setAttribute('stroke-opacity', '0.25');
@@ -616,158 +682,382 @@ function createNode(id, nx, ny, color, glow, bg, initials, label, extraClass) {
   return node;
 }
 
-// ── Main View ────────────────────────────────────────────────────────────────
-function buildMainWeb() {
+// ── Build (once on init and on resize) ───────────────────────────────────────
+function buildAll() {
+  svg.innerHTML = '';
+  document.querySelectorAll('.topic-node').forEach(n => n.remove());
+
   const { x: cx, y: cy } = getCenter();
-  const radius = Math.min(cx, cy) * 0.62;
+  const minR  = Math.min(cx, cy);
+  const mainR = Math.round(minR * 0.64);
+  const baseSkillR = Math.round(minR * 0.27);
+
+  svg.setAttribute('width',  container.offsetWidth);
+  svg.setAttribute('height', container.offsetHeight);
 
   centerNode.innerHTML = MAIN_CENTER_HTML;
   centerNode.removeAttribute('style');
   centerNode.classList.remove('sub-view');
-  centerNode.onclick = null;
-  centerNode.title = '';
+  centerNode.onclick = () => { if (currentTopic) goBack(); };
+  centerNode.title   = '';
   centerNode.style.left = cx + 'px';
   centerNode.style.top  = cy + 'px';
 
-  svg.setAttribute('width',  container.offsetWidth);
-  svg.setAttribute('height', container.offsetHeight);
-  clearCanvas();
-
-  backBtn.classList.remove('visible');
-  hintEl.textContent = 'Select a topic to explore';
-
   topics.forEach((topic, i) => {
-    const angle = (i / topics.length) * 2 * Math.PI - Math.PI / 2;
-    const nx = cx + radius * Math.cos(angle);
-    const ny = cy + radius * Math.sin(angle);
+    const tAngle = (i / topics.length) * 2 * Math.PI - Math.PI / 2;
+    const topicX = cx + mainR * Math.cos(tAngle);
+    const topicY = cy + mainR * Math.sin(tAngle);
 
-    drawLine(cx, cy, nx, ny, topic.color, 't' + topic.id);
+    drawLine(cx, cy, topicX, topicY, topic.color, 't' + topic.id);
 
-    const node = createNode(
-      't' + topic.id, nx, ny,
+    const topicNode = createNode(
+      't' + topic.id, topicX, topicY,
       topic.color, topic.glow, topic.bg,
-      topic.initials, topic.name, ''
+      iconHtml(TOPIC_ICONS[topic.id] || topic.initials), topic.name, ''
     );
-    node.addEventListener('click', () => enterSubView(topic.id));
-    container.appendChild(node);
+    topicNode.addEventListener('click', () => enterSubView(topic.id));
+    topicNode.dataset.compactLeft = topicX;
+    topicNode.dataset.compactTop  = topicY;
+    stage.appendChild(topicNode);
+
+    topic.skills.forEach((skill, j) => {
+      const sAngle  = (j / topic.skills.length) * 2 * Math.PI - Math.PI / 2;
+      const skillX  = topicX + baseSkillR * Math.cos(sAngle);
+      const skillY  = topicY + baseSkillR * Math.sin(sAngle);
+      const skillId = 't' + topic.id + 's' + j;
+
+      drawLine(topicX, topicY, skillX, skillY, topic.color, skillId);
+      document.getElementById('line-' + skillId).style.opacity = '0';
+
+      const skillNode = createNode(
+        skillId, skillX, skillY,
+        topic.color, topic.glow, topic.bg,
+        iconHtml(SKILL_ICONS[skillId] || toInitials(skill.name)), skill.name, 'skill-node'
+      );
+      skillNode.style.opacity       = '0';
+      skillNode.style.pointerEvents = 'none';
+      skillNode.dataset.compactLeft = skillX;
+      skillNode.dataset.compactTop  = skillY;
+      skillNode.addEventListener('click', () => selectSkill(skillId, skill));
+      stage.appendChild(skillNode);
+    });
+  });
+
+  hintEl.textContent = 'Select a topic to explore';
+  backBtn.classList.remove('visible');
+}
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+function applyPan(x, y, animated) {
+  if (animated) {
+    stage.style.transition = 'transform ' + PAN_MS + 'ms cubic-bezier(0.4, 0, 0.2, 1)';
+  } else {
+    stage.style.transition = 'none';
+    void stage.offsetWidth;
+  }
+  stage.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+}
+
+function adjacentIndices(topicId) {
+  const idx = topics.findIndex(t => t.id === topicId);
+  const n   = topics.length;
+  return new Set([ ((idx - 1) + n) % n, idx, ((idx + 1) + n) % n ]);
+}
+
+// ── Topic visibility ──────────────────────────────────────────────────────────
+function focusTopicVisibility(topicId) {
+  const adj = adjacentIndices(topicId);
+  topics.forEach((t, i) => {
+    const node = document.getElementById('node-t' + t.id);
+    const line = document.getElementById('line-t' + t.id);
+    let opacity;
+    if (t.id === topicId) opacity = '';
+    else if (adj.has(i))  opacity = '0.30';
+    else                  opacity = '0.07';
+    if (node) node.style.opacity = opacity;
+    if (line) line.style.opacity = opacity;
   });
 }
 
-// ── Sub View ─────────────────────────────────────────────────────────────────
-function buildSubWeb() {
-  const topic = currentTopic;
-  const { x: cx, y: cy } = getCenter();
-  const radius = Math.min(cx, cy) * 0.60;
-
-  centerNode.innerHTML = topic.name;
-  centerNode.classList.add('sub-view');
-  centerNode.style.left        = cx + 'px';
-  centerNode.style.top         = cy + 'px';
-  centerNode.style.borderColor = topic.color;
-  centerNode.style.color       = topic.color;
-  centerNode.style.background  = 'radial-gradient(circle at 40% 35%, ' + topic.bg + ', #0b0b1a)';
-  centerNode.style.boxShadow   = '0 0 0 8px ' + topic.bg + ', 0 0 40px ' + topic.glow;
-  centerNode.onclick = goBack;
-  centerNode.title = 'Back to overview';
-
-  svg.setAttribute('width',  container.offsetWidth);
-  svg.setAttribute('height', container.offsetHeight);
-  clearCanvas();
-
-  backBtn.classList.add('visible');
-  hintEl.textContent = 'Select a skill to learn more';
-
-  topic.skills.forEach((skill, i) => {
-    const angle = (i / topic.skills.length) * 2 * Math.PI - Math.PI / 2;
-    const nx = cx + radius * Math.cos(angle);
-    const ny = cy + radius * Math.sin(angle);
-    const nodeId = 's' + i;
-
-    drawLine(cx, cy, nx, ny, topic.color, nodeId);
-
-    const node = createNode(
-      nodeId, nx, ny,
-      topic.color, topic.glow, topic.bg,
-      toInitials(skill.name), skill.name, 'skill-node'
-    );
-
-    if (activeNodeId === nodeId) node.classList.add('active');
-
-    node.addEventListener('click', () => selectSkill(nodeId, skill));
-    container.appendChild(node);
+function restoreTopicVisibility() {
+  topics.forEach(t => {
+    const node = document.getElementById('node-t' + t.id);
+    const line = document.getElementById('line-t' + t.id);
+    if (node) node.style.opacity = '';
+    if (line) line.style.opacity = '';
   });
+}
+
+// ── Layout expansion ─────────────────────────────────────────────────────────
+function expandTopicLayout(topicId) {
+  const topic = topics.find(t => t.id === topicId);
+  if (!topic) return { expandedX: 0, expandedY: 0 };
+
+  const { x: cx, y: cy } = getCenter();
+  const topicNode = document.getElementById('node-t' + topicId);
+  if (!topicNode) return { expandedX: 0, expandedY: 0 };
+
+  const compactX = parseFloat(topicNode.dataset.compactLeft);
+  const compactY = parseFloat(topicNode.dataset.compactTop);
+  const dx   = compactX - cx;
+  const dy   = compactY - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const n          = topic.skills.length;
+  const baseR      = Math.round(Math.min(cx, cy) * 0.27);
+  const neededR    = n > 1 ? Math.ceil(120 / (2 * Math.sin(Math.PI / n))) : baseR;
+  const skillR     = Math.max(baseR, neededR);
+  const extraPush  = skillR - baseR;
+
+  const expandedX = cx + (dx / dist) * (dist + extraPush);
+  const expandedY = cy + (dy / dist) * (dist + extraPush);
+
+  topicNode.style.transition = 'none';
+  void topicNode.offsetWidth;
+  topicNode.style.left = expandedX + 'px';
+  topicNode.style.top  = expandedY + 'px';
+
+  const topicLine = document.getElementById('line-t' + topicId);
+  if (topicLine) {
+    topicLine.setAttribute('x2', expandedX);
+    topicLine.setAttribute('y2', expandedY);
+  }
+
+  topic.skills.forEach((skill, j) => {
+    const skillId   = 't' + topicId + 's' + j;
+    const sAngle    = (j / n) * 2 * Math.PI - Math.PI / 2;
+    const skillX    = expandedX + skillR * Math.cos(sAngle);
+    const skillY    = expandedY + skillR * Math.sin(sAngle);
+    const skillNode = document.getElementById('node-' + skillId);
+    const skillLine = document.getElementById('line-' + skillId);
+    if (skillNode) {
+      skillNode.style.transition = 'none';
+      skillNode.style.left = skillX + 'px';
+      skillNode.style.top  = skillY + 'px';
+    }
+    if (skillLine) {
+      skillLine.setAttribute('x1', expandedX);
+      skillLine.setAttribute('y1', expandedY);
+      skillLine.setAttribute('x2', skillX);
+      skillLine.setAttribute('y2', skillY);
+    }
+  });
+
+  return { expandedX, expandedY };
+}
+
+function restoreTopicLayout(topicId) {
+  const topic = topics.find(t => t.id === topicId);
+  if (!topic) return;
+
+  const topicNode = document.getElementById('node-t' + topicId);
+  if (!topicNode || !topicNode.dataset.compactLeft) return;
+
+  const compactX = parseFloat(topicNode.dataset.compactLeft);
+  const compactY = parseFloat(topicNode.dataset.compactTop);
+
+  topicNode.style.transition = 'none';
+  topicNode.style.left = compactX + 'px';
+  topicNode.style.top  = compactY + 'px';
+
+  const topicLine = document.getElementById('line-t' + topicId);
+  if (topicLine) {
+    topicLine.setAttribute('x2', compactX);
+    topicLine.setAttribute('y2', compactY);
+  }
+
+  topic.skills.forEach((skill, j) => {
+    const skillId   = 't' + topicId + 's' + j;
+    const skillNode = document.getElementById('node-' + skillId);
+    const skillLine = document.getElementById('line-' + skillId);
+    if (skillNode && skillNode.dataset.compactLeft) {
+      const csx = parseFloat(skillNode.dataset.compactLeft);
+      const csy = parseFloat(skillNode.dataset.compactTop);
+      skillNode.style.transition = 'none';
+      skillNode.style.left = csx + 'px';
+      skillNode.style.top  = csy + 'px';
+      if (skillLine) {
+        skillLine.setAttribute('x1', compactX);
+        skillLine.setAttribute('y1', compactY);
+        skillLine.setAttribute('x2', csx);
+        skillLine.setAttribute('y2', csy);
+      }
+    }
+  });
+}
+
+// ── Skill visibility ──────────────────────────────────────────────────────────
+function showTopicSkills(topicId) {
+  const topic = topics.find(t => t.id === topicId);
+  if (!topic) return;
+  topic.skills.forEach((skill, j) => {
+    const skillId   = 't' + topicId + 's' + j;
+    const skillNode = document.getElementById('node-' + skillId);
+    const skillLine = document.getElementById('line-' + skillId);
+    if (skillNode) {
+      skillNode.style.animationDelay = (j * 0.05) + 's';
+      skillNode.classList.remove('skill-entering');
+      void skillNode.offsetWidth;
+      skillNode.classList.add('skill-entering');
+      skillNode.style.opacity       = '';
+      skillNode.style.pointerEvents = '';
+    }
+    if (skillLine) skillLine.style.opacity = '';
+  });
+}
+
+function hideTopicSkills(topicId) {
+  const topic = topics.find(t => t.id === topicId);
+  if (!topic) return;
+  topic.skills.forEach((skill, j) => {
+    const skillId   = 't' + topicId + 's' + j;
+    const skillNode = document.getElementById('node-' + skillId);
+    const skillLine = document.getElementById('line-' + skillId);
+    if (skillNode) {
+      skillNode.classList.remove('skill-entering');
+      skillNode.style.opacity       = '0';
+      skillNode.style.pointerEvents = 'none';
+    }
+    if (skillLine) skillLine.style.opacity = '0';
+    if (activeNodeId === skillId) {
+      if (skillNode) skillNode.classList.remove('active');
+      setLineActive(skillId, false);
+    }
+  });
+  restoreTopicLayout(topicId);
 }
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 function enterSubView(topicId) {
+  clearTimeout(panTimer);
+  if (currentTopic && currentTopic.id === topicId) return;
+
+  const prevTopic = currentTopic;
+
+  if (activeNodeId) {
+    const an = document.getElementById('node-' + activeNodeId);
+    if (an) an.classList.remove('active');
+    setLineActive(activeNodeId, false);
+    activeNodeId = null;
+  }
+  if (infoPanel.classList.contains('open')) {
+    infoPanel.classList.remove('open');
+    stage.style.transition = 'none';
+    void stage.offsetWidth;
+  }
+
+  if (prevTopic) hideTopicSkills(prevTopic.id);
+
   currentTopic = topics.find(t => t.id === topicId);
-  currentView  = 'sub';
-  activeNodeId = null;
-  closePanel(false);
-  fadeTransition(buildSubWeb);
+
+  const { x: cx, y: cy } = getCenter();
+  const { expandedX, expandedY } = expandTopicLayout(topicId);
+  focusPanX = cx - expandedX;
+  focusPanY = cy - expandedY;
+
+  centerNode.style.cursor = 'pointer';
+  centerNode.title = 'Return to overview';
+  focusTopicVisibility(topicId);
+  applyPan(focusPanX, focusPanY, true);
+
+  panTimer = setTimeout(() => {
+    stage.style.transition = '';
+    showTopicSkills(topicId);
+    hintEl.textContent = 'Select a skill to learn more';
+    backBtn.classList.add('visible');
+  }, PAN_MS + 20);
 }
 
 function goBack() {
-  currentView  = 'main';
+  clearTimeout(panTimer);
+  if (!currentTopic) return;
+
+  if (activeNodeId) {
+    const an = document.getElementById('node-' + activeNodeId);
+    if (an) an.classList.remove('active');
+    setLineActive(activeNodeId, false);
+    activeNodeId = null;
+  }
+  if (infoPanel.classList.contains('open')) {
+    infoPanel.classList.remove('open');
+    stage.style.transition = 'none';
+    void stage.offsetWidth;
+  }
+
+  hideTopicSkills(currentTopic.id);
   currentTopic = null;
-  activeNodeId = null;
-  closePanel(false);
-  fadeTransition(buildMainWeb);
+
+  centerNode.style.cursor = '';
+  centerNode.title = '';
+  restoreTopicVisibility();
+  applyPan(0, 0, true);
+
+  panTimer = setTimeout(() => {
+    stage.style.transition = '';
+    hintEl.textContent = 'Select a topic to explore';
+    backBtn.classList.remove('visible');
+  }, PAN_MS + 20);
 }
 
-// ── Panel open/close ─────────────────────────────────────────────────────────
+// ── Panel ─────────────────────────────────────────────────────────────────────
 function openPanel() {
-  // 1. Instantly hide web (bypass the CSS opacity transition)
-  container.style.transition = 'opacity 0s';
-  container.style.opacity = '0';
-  void container.offsetWidth; // force reflow
-  container.style.transition = '';
-
-  // 2. Force panel to final width with no animation so buildWeb reads correct size
-  infoPanel.style.transition = 'none';
-  infoPanel.style.width = '340px';
-  void infoPanel.offsetWidth;
-  buildWeb();
-  infoPanel.style.width = '';
-  infoPanel.style.transition = '';
-
-  // 3. Slide panel in; reveal web only after panel is nearly settled
-  requestAnimationFrame(() => {
-    infoPanel.classList.add('open');
-    webRevealTimer = setTimeout(() => {
-      container.style.opacity = ''; // CSS takes over: 0 → 1 with 0.15s transition
-    }, PANEL_MS - 30);
-  });
+  clearTimeout(panelSlideTimer);
+  infoPanel.classList.add('open');
+  if (currentTopic) {
+    stage.style.transition = 'transform ' + PANEL_MS + 'ms ease-out';
+    stage.style.transform  = 'translate(' + (focusPanX - PANEL_W / 2) + 'px, ' + focusPanY + 'px)';
+    panelSlideTimer = setTimeout(() => { stage.style.transition = ''; }, PANEL_MS + 20);
+  }
 }
 
-// ── Skill Selection ──────────────────────────────────────────────────────────
+function closePanel(resetActive) {
+  if (resetActive === undefined) resetActive = true;
+  clearTimeout(panelSlideTimer);
+
+  if (resetActive && activeNodeId !== null) {
+    const an = document.getElementById('node-' + activeNodeId);
+    if (an) an.classList.remove('active');
+    setLineActive(activeNodeId, false);
+    activeNodeId = null;
+  }
+
+  if (infoPanel.classList.contains('open')) {
+    infoPanel.classList.remove('open');
+    if (currentTopic) {
+      stage.style.transition = 'transform ' + PANEL_MS + 'ms ease-out';
+      stage.style.transform  = 'translate(' + focusPanX + 'px, ' + focusPanY + 'px)';
+      panelSlideTimer = setTimeout(() => { stage.style.transition = ''; }, PANEL_MS + 20);
+    }
+  }
+}
+
+// ── Skill Selection ───────────────────────────────────────────────────────────
 function selectSkill(nodeId, skill) {
   const prev = activeNodeId;
 
   if (prev !== null) {
-    document.getElementById('node-' + prev)?.classList.remove('active');
+    const pn = document.getElementById('node-' + prev);
+    if (pn) pn.classList.remove('active');
     setLineActive(prev, false);
   }
 
   if (prev === nodeId) {
     activeNodeId = null;
-    closePanel(false, true);
+    closePanel(false);
     return;
   }
 
   activeNodeId = nodeId;
-  document.getElementById('node-' + nodeId)?.classList.add('active');
+  const sn = document.getElementById('node-' + nodeId);
+  if (sn) sn.classList.add('active');
   setLineActive(nodeId, true);
 
   populateSkillPanel(currentTopic, skill);
 
-  if (!infoPanel.classList.contains('open')) {
-    openPanel();
-  }
-  // Panel already open (switching skills): content updated above, no layout change
+  if (!infoPanel.classList.contains('open')) openPanel();
 }
 
-// ── Panel ────────────────────────────────────────────────────────────────────
+// ── Skill Panel Content ───────────────────────────────────────────────────────
 function populateSkillPanel(topic, skill) {
   const clusterSection = (topic.clusterTags && topic.clusterTags.length)
     ? '<div class="cluster-section">' +
@@ -798,43 +1088,48 @@ function populateSkillPanel(topic, skill) {
     subClusterSection;
 }
 
-function closePanel(resetActive = true, withAnimation = false) {
-  clearTimeout(webRevealTimer);
-
-  if (resetActive && activeNodeId !== null) {
-    document.getElementById('node-' + activeNodeId)?.classList.remove('active');
-    setLineActive(activeNodeId, false);
-    activeNodeId = null;
-  }
-
-  if (withAnimation && infoPanel.classList.contains('open')) {
-    // Instantly hide web, slide panel shut, rebuild and reveal after
-    container.style.transition = 'opacity 0s';
-    container.style.opacity = '0';
-    void container.offsetWidth;
-    container.style.transition = '';
-
-    infoPanel.classList.remove('open');
-
-    webRevealTimer = setTimeout(() => {
-      buildWeb();
-      container.style.opacity = ''; // CSS takes over: 0 → 1 with 0.15s transition
-    }, PANEL_MS + 20);
-  } else {
-    infoPanel.classList.remove('open');
-    container.style.opacity = ''; // clear any lingering inline style
-  }
-}
-
 // ── Init ─────────────────────────────────────────────────────────────────────
-function buildWeb() {
-  if (currentView === 'main') buildMainWeb();
-  else buildSubWeb();
-}
-
-closeBtn.addEventListener('click', () => closePanel(true, true));
+closeBtn.addEventListener('click', () => closePanel(true));
 backBtn.addEventListener('click', goBack);
-window.addEventListener('resize', buildWeb);
 
+window.addEventListener('resize', () => {
+  clearTimeout(panTimer);
+  const prevTopic  = currentTopic;
+  const prevActive = activeNodeId;
+  const panelOpen  = infoPanel.classList.contains('open');
 
-buildWeb();
+  stage.style.transition = 'none';
+  stage.style.transform  = '';
+  currentTopic = null;
+  activeNodeId = null;
+
+  buildAll();
+
+  if (prevTopic) {
+    currentTopic = prevTopic;
+
+    const { x: cx, y: cy } = getCenter();
+    const topicNode = document.getElementById('node-t' + prevTopic.id);
+    if (topicNode) {
+      const { expandedX, expandedY } = expandTopicLayout(prevTopic.id);
+      focusPanX = cx - expandedX;
+      focusPanY = cy - expandedY;
+      const panelOffset = panelOpen ? -(PANEL_W / 2) : 0;
+      applyPan(focusPanX + panelOffset, focusPanY, false);
+    }
+
+    focusTopicVisibility(prevTopic.id);
+    showTopicSkills(prevTopic.id);
+    backBtn.classList.add('visible');
+    hintEl.textContent = 'Select a skill to learn more';
+
+    if (prevActive) {
+      const an = document.getElementById('node-' + prevActive);
+      if (an) an.classList.add('active');
+      setLineActive(prevActive, true);
+      activeNodeId = prevActive;
+    }
+  }
+});
+
+buildAll();
