@@ -6,12 +6,12 @@ const { requireAuth } = require('../auth');
 const router = Router();
 router.use(requireAuth);
 
-function getRankForUser(userKey) {
+function getRankDataForUser(userKey) {
     const row = db.prepare(
         'SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?'
     ).get(userKey);
     const avg = row && row.avg != null ? row.avg : 0;
-    return lookupRank(avg);
+    return { rank: lookupRank(avg), avg };
 }
 
 // POST /api/kenken/score  { score, size }
@@ -23,13 +23,12 @@ router.post('/score', (req, res) => {
         'INSERT INTO kenken_scores(user_key, score, size, submitted_at) VALUES(?, ?, ?, ?)'
     ).run(req.userKey, Number(score), Number(size), Date.now());
 
-    const rank = getRankForUser(req.userKey);
-    res.json({ rank });
+    res.json(getRankDataForUser(req.userKey));
 });
 
 // GET /api/kenken/rank
 router.get('/rank', (req, res) => {
-    res.json({ rank: getRankForUser(req.userKey) });
+    res.json(getRankDataForUser(req.userKey));
 });
 
 module.exports = router;

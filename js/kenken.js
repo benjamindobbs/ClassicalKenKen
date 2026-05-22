@@ -132,7 +132,9 @@ function checkAnswer() {
       gameOver = true;
       finishTime = Date.now();
       score = Math.floor(((1/guesses) + (2/((finishTime-startTime)/1000)))*(rank*rank)*100);
-      writeScore(score, size);
+      writeScore(score, size).then(function(avg) {
+          if (avg != null) setTimeout(function() { showRankProgress(avg); }, 1000);
+      });
       showWinMessage();
   }
 }
@@ -161,6 +163,9 @@ function createElements() {
   if (container)
       outerContainer.removeChild(container);
   container = document.createElement("div");
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.alignItems = 'center';
   outerContainer.appendChild(container);
 
   table = document.createElement("div");
@@ -169,7 +174,6 @@ function createElements() {
   table.style.borderColor = '#0f172a';
   table.style.boxShadow = '0 4px 24px rgba(0,0,0,0.10)';
   table.style.position = 'relative';
-  table.style.left = '50%';
   table.style.width = (size * 4. + 0.5) + 'em';
   table.style.height = (size * 4. + 0.5) + 'em';
 
@@ -254,14 +258,10 @@ function createElements() {
           cell.appendChild(memoElem);
       }
   }
-  // Set the margin after contents are initialized
-  r = table.getBoundingClientRect()
-  table.style.marginLeft = Math.round(-(r.right - r.left) / 2) + 'px';
-
   var answers = document.createElement('div');
   container.appendChild(answers);
   answers.style.fontSize = '1rem';
-  answers.style.padding = '1.5rem 0 0.5rem';
+  answers.style.padding = '0.875rem 0 0.5rem';
   answers.style.display = 'flex';
   answers.style.gap = '0.5rem';
   answers.style.alignItems = 'center';
@@ -341,6 +341,106 @@ function createElements() {
       }
   }
 
+}
+
+// ── Rank progress bar ────────────────────────────────────────────────────────
+// First avg score that places a player into each rank level (1–7).
+var LEVEL_STARTS = [0, 14, 30, 44, 54, 62, 68];
+
+function computeRankProgress(avg) {
+  var level = 1;
+  for (var i = LEVEL_STARTS.length - 1; i >= 0; i--) {
+    if (avg >= LEVEL_STARTS[i]) { level = i + 1; break; }
+  }
+  if (level >= 7) return { level: 7, next: null, pct: 1.0 };
+  var start = LEVEL_STARTS[level - 1];
+  var end   = LEVEL_STARTS[level];
+  var pct   = Math.max(0, Math.min(1, (avg - start) / (end - start)));
+  return { level: level, next: level + 1, pct: pct };
+}
+
+function showRankProgress(avg) {
+  var existing = document.getElementById('rank-progress-bar');
+  if (existing) existing.remove();
+
+  var p = computeRankProgress(avg);
+  var gridPx = table.offsetWidth;
+
+  var wrapper = document.createElement('div');
+  wrapper.id = 'rank-progress-bar';
+  wrapper.style.width = gridPx + 'px';
+  wrapper.style.marginTop = '1.25rem';
+  wrapper.style.opacity = '0';
+  wrapper.style.transition = 'opacity 0.3s ease';
+
+  // Header
+  var header = document.createElement('div');
+  header.textContent = 'Rank Progress';
+  header.style.fontSize = '0.6875rem';
+  header.style.fontWeight = '700';
+  header.style.letterSpacing = '0.09em';
+  header.style.textTransform = 'uppercase';
+  header.style.color = '#94a3b8';
+  header.style.marginBottom = '0.5rem';
+  wrapper.appendChild(header);
+
+  // Rank labels
+  var labels = document.createElement('div');
+  labels.style.display = 'flex';
+  labels.style.justifyContent = 'space-between';
+  labels.style.fontSize = '0.875rem';
+  labels.style.fontWeight = '700';
+  labels.style.marginBottom = '0.375rem';
+
+  var lLeft = document.createElement('span');
+  lLeft.textContent = 'Rank ' + p.level;
+  lLeft.style.color = '#0f172a';
+
+  var lRight = document.createElement('span');
+  lRight.textContent = p.next ? 'Rank ' + p.next : 'Max';
+  lRight.style.color = '#94a3b8';
+
+  labels.appendChild(lLeft);
+  labels.appendChild(lRight);
+  wrapper.appendChild(labels);
+
+  // Track
+  var track = document.createElement('div');
+  track.style.width = '100%';
+  track.style.height = '10px';
+  track.style.background = '#e2e8f0';
+  track.style.borderRadius = '9999px';
+  track.style.overflow = 'hidden';
+  wrapper.appendChild(track);
+
+  // Fill (starts at 0, animates to target)
+  var fill = document.createElement('div');
+  fill.style.height = '100%';
+  fill.style.width = '0%';
+  fill.style.borderRadius = '9999px';
+  fill.style.background = 'linear-gradient(90deg, #2563eb, #60a5fa)';
+  fill.style.transition = 'width 1s cubic-bezier(0.4, 0, 0.2, 1)';
+  track.appendChild(fill);
+
+  // Percentage caption
+  var caption = document.createElement('div');
+  caption.textContent = Math.round(p.pct * 100) + '% to next rank';
+  caption.style.fontSize = '0.75rem';
+  caption.style.color = '#64748b';
+  caption.style.marginTop = '0.4rem';
+  caption.style.textAlign = 'right';
+  if (!p.next) caption.textContent = 'Maximum rank reached';
+  wrapper.appendChild(caption);
+
+  container.appendChild(wrapper);
+
+  // Fade in and animate fill on next two frames
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      wrapper.style.opacity = '1';
+      fill.style.width = Math.round(p.pct * 100) + '%';
+    });
+  });
 }
 
 function selectCell(sel) {
@@ -452,7 +552,8 @@ function generateBoard() {
 }
 
 async function generateBoardInt() {
-  rank = await getRank();
+  const rankData = await getRank();
+  rank = rankData.rank;
   setBoardDifficulty(rank);
   hintsGiven=false;
   board = new Array(size * size);

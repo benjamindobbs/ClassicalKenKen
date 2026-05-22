@@ -76,4 +76,52 @@ router.get('/next', (req, res) => {
     res.json(pick);
 });
 
+// GET /api/sat/session?since=<ms>  — today's answers grouped by domain → skill → difficulty
+router.get('/session', (req, res) => {
+    const since = Number(req.query.since) || (() => {
+        const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime();
+    })();
+
+    const DOMAIN_NAMES = [
+        'Information and Ideas',
+        'Craft and Structure',
+        'Expression of Ideas',
+        'Standard English Conventions',
+    ];
+
+    const rows = db.prepare(`
+        SELECT domain_idx, skill, difficulty, correct
+        FROM sat_scores
+        WHERE user_key = ? AND submitted_at >= ?
+        ORDER BY submitted_at
+    `).all(req.userKey, since);
+
+    // Build: domainIdx → skill → difficulty → { total, correct }
+    const domainMap = {};
+    for (const row of rows) {
+        const di = row.domain_idx;
+        if (!domainMap[di]) domainMap[di] = {};
+        const sk = row.skill || '';
+        if (!domainMap[di][sk]) domainMap[di][sk] = {};
+        const diff = row.difficulty;
+        if (!domainMap[di][sk][diff]) domainMap[di][sk][diff] = { total: 0, correct: 0 };
+        domainMap[di][sk][diff].total++;
+        if (row.correct) domainMap[di][sk][diff].correct++;
+    }
+
+    const domains = Object.entries(domainMap)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([idx, skillMap]) => ({
+            idx: Number(idx),
+            name: DOMAIN_NAMES[Number(idx)] || `Domain ${idx}`,
+            skills: Object.entries(skillMap).map(([skill, diffMap]) => {
+                let total = 0, correct = 0;
+                for (const d of Object.values(diffMap)) { total += d.total; correct += d.correct; }
+                return { skill, total, correct, byDifficulty: diffMap };
+            }),
+        }));
+
+    res.json({ domains });
+});
+
 module.exports = router;

@@ -1,15 +1,16 @@
 async function onSignedIn() {
     try {
-        const rank = await getRank();
+        const data = await getRank();
         const pd = document.getElementById('playerData');
-        if (pd) pd.innerHTML = 'Current Rank ' + Math.floor(rank);
+        if (pd) pd.innerHTML = 'Current Rank ' + Math.floor(data.rank);
     } catch (e) {}
 }
 
+// Returns the player's new avg score after submitting, or null in local/error cases.
 async function writeScore(score, size) {
     if (localMode) {
         document.getElementById('submitMessage').innerHTML = 'Local mode — score not saved';
-        return 1;
+        return null;
     }
     try {
         const res = await authFetch('/api/kenken/score', {
@@ -18,22 +19,22 @@ async function writeScore(score, size) {
         });
         const data = await res.json();
         document.getElementById('submitMessage').innerHTML = 'Score submitted';
-        return data.rank;
+        return data.avg;
     } catch (err) {
         console.error(err);
         document.getElementById('submitMessage').innerHTML = 'Error submitting score';
-        return 1;
+        return null;
     }
 }
 
+// Returns { rank, avg } for the current player.
 async function getRank() {
-    if (localMode) return 1;
+    if (localMode) return { rank: 1, avg: 0 };
     try {
         const res = await authFetch('/api/kenken/rank');
-        const data = await res.json();
-        return data.rank;
+        return await res.json();
     } catch (err) {
         console.error(err);
-        return 1;
+        return { rank: 1, avg: 0 };
     }
 }

@@ -72,7 +72,7 @@
             <ul>
                 <li>Students log in with their school accounts for verification and tracking</li>
                 <li>A score is earned upon completing a puzzle that measures guesses, time, and difficulty</li>
-                <li>Student scores are stored in a spreadsheet identified by student email</li>
+                <li>Student scores are stored in a server-side database identified by student email</li>
                 <li>Puzzles are served based on student ability (rank)</li>
                 <li>Scores determine a grade relative to puzzle difficulty</li>
             </ul>
@@ -132,12 +132,12 @@
             <span class="section-tag">Functionality</span>
             <h2>How It Works</h2>
             <ol>
-                <li>Student signs in using their school-issued Google account</li>
+                <li>Student signs in using their school-issued Google account via Google Identity Services (OAuth 2.0)</li>
+                <li>The server validates the Google access token using the Google OAuth2 tokeninfo API, then issues a persistent session token</li>
+                <li>The session token is stored in the browser's <code>localStorage</code> so the student stays signed in across page loads and return visits</li>
                 <li>A puzzle is generated with difficulty determined by the student's current rank</li>
-                <li>Upon completion, the score is stored in a spreadsheet with a timestamp, email, and score</li>
-                <li>Teachers access the spreadsheet — each class period has its own tab with a PowerSchool grading template</li>
-                <li>Teachers select a day; the sheet pulls the max score per student and converts it to a point value</li>
-                <li>The tab is downloaded as CSV and uploaded directly to a PowerSchool assignment</li>
+                <li>Upon completion, the score is stored in the server-side database with a timestamp and the student's email</li>
+                <li>Teachers access the Teacher portal to view all stored student scores, filterable and sortable by name or ID</li>
             </ol>
 
             <h3 style="margin-top: 1.5rem;">Determining Difficulty</h3>
@@ -281,7 +281,7 @@
         <div class="section privacy-section" id="privacy">
             <span class="section-tag">Legal</span>
             <h2>Privacy Policy</h2>
-            <p class="policy-meta">Last updated: 2/15/2025</p>
+            <p class="policy-meta">Last updated: 5/21/2026</p>
 
             <p>
                 Thank you for using Classical KenKen. This privacy policy explains how we collect, use, and protect
@@ -291,24 +291,30 @@
             </p>
 
             <h2>Information We Collect</h2>
-            <p>We request access to the following Google API scopes:</p>
+            <p>We request access to the following Google API scope:</p>
             <ul>
-                <li><strong>drive.file</strong> — to write your score to our database</li>
                 <li><strong>userinfo.email</strong> — to identify and track your progress using your email address</li>
             </ul>
+            <p>
+                Sign-in is handled by <strong>Google Identity Services</strong> (OAuth 2.0 implicit token flow).
+                The Google access token is verified server-side using the Google OAuth2 tokeninfo API
+                (<code>googleapis.com/oauth2/v1/tokeninfo</code>). We never receive your Google password.
+            </p>
 
             <h2>How We Use Your Information</h2>
             <p>We collect and use your Google Account email address solely for:</p>
             <ul>
                 <li>Providing personalized experiences in our logic puzzle and SAT practice application</li>
-                <li>Storing your scores and progress in a Google Sheet associated with your account</li>
+                <li>Storing your scores and progress in our server-side database, keyed to your email address</li>
                 <li>Scaling the difficulty of puzzles and questions based on your performance</li>
             </ul>
 
             <h2>Data Storage and Retention</h2>
             <ul>
-                <li>Your email address is stored securely in a Google Sheet and retained for a maximum of 365 days</li>
-                <li>After this period, your data will be automatically deleted and not used for any purpose</li>
+                <li>Your email address and scores are stored in a SQLite database hosted on our application server</li>
+                <li>A session token (a random UUID) is issued upon sign-in and stored in your browser's <code>localStorage</code> to keep you signed in; it is never shared with third parties</li>
+                <li>Only users signing in from an authorized school domain (<code>hartfordschools.org</code>) are permitted to store data</li>
+                <li>Data may be removed upon request — contact us at the address below</li>
             </ul>
 
             <h2>Third-Party Disclosure</h2>

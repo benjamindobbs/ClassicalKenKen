@@ -526,11 +526,13 @@ const hintEl     = document.getElementById('hint');
 const panelBody  = document.getElementById('panel-body');
 
 // ── State ───────────────────────────────────────────────────────────────────
-let currentView  = 'main';
-let currentTopic = null;
-let activeNodeId = null;
+let currentView    = 'main';
+let currentTopic   = null;
+let activeNodeId   = null;
+let webRevealTimer = null;
 
 const MAIN_CENTER_HTML = 'Graphics &amp;<br>Printing<br>Technology';
+const PANEL_MS = 300; // matches CSS panel width transition
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function getCenter() {
@@ -557,11 +559,13 @@ function clusterTagHTML(tag) {
 }
 
 function fadeTransition(callback) {
+  clearTimeout(webRevealTimer);
+  container.style.opacity = ''; // clear any inline opacity so class can take over
   container.classList.add('fading');
   setTimeout(() => {
     callback();
     container.classList.remove('fading');
-  }, 200);
+  }, 160);
 }
 
 function clearCanvas() {
@@ -711,6 +715,31 @@ function goBack() {
   fadeTransition(buildMainWeb);
 }
 
+// ── Panel open/close ─────────────────────────────────────────────────────────
+function openPanel() {
+  // 1. Instantly hide web (bypass the CSS opacity transition)
+  container.style.transition = 'opacity 0s';
+  container.style.opacity = '0';
+  void container.offsetWidth; // force reflow
+  container.style.transition = '';
+
+  // 2. Force panel to final width with no animation so buildWeb reads correct size
+  infoPanel.style.transition = 'none';
+  infoPanel.style.width = '340px';
+  void infoPanel.offsetWidth;
+  buildWeb();
+  infoPanel.style.width = '';
+  infoPanel.style.transition = '';
+
+  // 3. Slide panel in; reveal web only after panel is nearly settled
+  requestAnimationFrame(() => {
+    infoPanel.classList.add('open');
+    webRevealTimer = setTimeout(() => {
+      container.style.opacity = ''; // CSS takes over: 0 → 1 with 0.15s transition
+    }, PANEL_MS - 30);
+  });
+}
+
 // ── Skill Selection ──────────────────────────────────────────────────────────
 function selectSkill(nodeId, skill) {
   const prev = activeNodeId;
@@ -733,25 +762,9 @@ function selectSkill(nodeId, skill) {
   populateSkillPanel(currentTopic, skill);
 
   if (!infoPanel.classList.contains('open')) {
-    // Web repositions first, then panel slides in:
-    // 1. Fade web out
-    container.classList.add('fading');
-    setTimeout(() => {
-      // 2. Temporarily give panel its final width (no transition) so getCenter()
-      //    reads the correct container size, then rebuild the web there.
-      infoPanel.style.transition = 'none';
-      infoPanel.style.width = '340px';
-      void infoPanel.offsetWidth; // force reflow
-      buildWeb();
-      // Clear inline styles so the CSS transition + .open class can take over
-      infoPanel.style.width = '';
-      infoPanel.style.transition = '';
-      // 3. Fade web back in and slide panel open simultaneously
-      container.classList.remove('fading');
-      requestAnimationFrame(() => infoPanel.classList.add('open'));
-    }, 200);
+    openPanel();
   }
-  // If panel already open (switching skills): content updated above, no layout change
+  // Panel already open (switching skills): content updated above, no layout change
 }
 
 // ── Panel ────────────────────────────────────────────────────────────────────
@@ -786,20 +799,30 @@ function populateSkillPanel(topic, skill) {
 }
 
 function closePanel(resetActive = true, withAnimation = false) {
+  clearTimeout(webRevealTimer);
+
   if (resetActive && activeNodeId !== null) {
     document.getElementById('node-' + activeNodeId)?.classList.remove('active');
     setLineActive(activeNodeId, false);
     activeNodeId = null;
   }
+
   if (withAnimation && infoPanel.classList.contains('open')) {
-    container.classList.add('fading');
+    // Instantly hide web, slide panel shut, rebuild and reveal after
+    container.style.transition = 'opacity 0s';
+    container.style.opacity = '0';
+    void container.offsetWidth;
+    container.style.transition = '';
+
     infoPanel.classList.remove('open');
-    setTimeout(() => {
+
+    webRevealTimer = setTimeout(() => {
       buildWeb();
-      container.classList.remove('fading');
-    }, 395);
+      container.style.opacity = ''; // CSS takes over: 0 → 1 with 0.15s transition
+    }, PANEL_MS + 20);
   } else {
     infoPanel.classList.remove('open');
+    container.style.opacity = ''; // clear any lingering inline style
   }
 }
 
