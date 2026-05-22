@@ -976,14 +976,17 @@ async function generateBoardInt() {
 };
 
 function getSaveData(auto = false) {
-  var storage = localStorage.getItem(auto ? 'WebKenKenAutoSave' : 'WebKenKen');
+  var key = auto ? 'WebKenKenAutoSave' : 'WebKenKen';
+  var storage = localStorage.getItem(key);
   if (!storage)
       return null;
   content = JSON.parse(storage);
-  if (content['save'] && content['save']['save'])
-      return content['save']['save'];
-  else
+  var data = content['save'] && content['save']['save'];
+  if (!data || !Number.isInteger(data.size) || data.size < 3) {
+      localStorage.removeItem(key);
       return null;
+  }
+  return data;
 }
 
 function prepareSaveData() {

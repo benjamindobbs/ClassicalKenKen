@@ -1,4 +1,4 @@
-const { upsertUser } = require('./db');
+const { db, upsertUser } = require('./db');
 
 const ALLOWED_DOMAINS = ['hartfordschools.org', 'students.hartfordschools.org'];
 
@@ -49,12 +49,20 @@ async function requireAuth(req, res, next) {
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) return res.status(401).json({ error: 'Missing token' });
 
+    // Check our own session tokens first (fast, no network call)
+    const session = db.prepare('SELECT user_key FROM sessions WHERE token = ?').get(token);
+    if (session) {
+        db.prepare('UPDATE sessions SET last_seen = ? WHERE token = ?').run(Date.now(), token);
+        req.userKey = session.user_key;
+        return next();
+    }
+
+    // Fall back to verifying as a raw Google access token
     const identity = await verifyToken(token);
     if (!identity) return res.status(403).json({ error: 'Invalid or unauthorized token' });
 
     upsertUser(identity.userKey, identity.email);
     req.userKey = identity.userKey;
-    req.userEmail = identity.email;
     next();
 }
 

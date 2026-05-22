@@ -722,7 +722,7 @@ function selectSkill(nodeId, skill) {
 
   if (prev === nodeId) {
     activeNodeId = null;
-    closePanel(false);
+    closePanel(false, true);
     return;
   }
 
@@ -731,7 +731,27 @@ function selectSkill(nodeId, skill) {
   setLineActive(nodeId, true);
 
   populateSkillPanel(currentTopic, skill);
-  infoPanel.classList.add('open');
+
+  if (!infoPanel.classList.contains('open')) {
+    // Web repositions first, then panel slides in:
+    // 1. Fade web out
+    container.classList.add('fading');
+    setTimeout(() => {
+      // 2. Temporarily give panel its final width (no transition) so getCenter()
+      //    reads the correct container size, then rebuild the web there.
+      infoPanel.style.transition = 'none';
+      infoPanel.style.width = '340px';
+      void infoPanel.offsetWidth; // force reflow
+      buildWeb();
+      // Clear inline styles so the CSS transition + .open class can take over
+      infoPanel.style.width = '';
+      infoPanel.style.transition = '';
+      // 3. Fade web back in and slide panel open simultaneously
+      container.classList.remove('fading');
+      requestAnimationFrame(() => infoPanel.classList.add('open'));
+    }, 200);
+  }
+  // If panel already open (switching skills): content updated above, no layout change
 }
 
 // ── Panel ────────────────────────────────────────────────────────────────────
@@ -765,13 +785,22 @@ function populateSkillPanel(topic, skill) {
     subClusterSection;
 }
 
-function closePanel(resetActive = true) {
+function closePanel(resetActive = true, withAnimation = false) {
   if (resetActive && activeNodeId !== null) {
     document.getElementById('node-' + activeNodeId)?.classList.remove('active');
     setLineActive(activeNodeId, false);
     activeNodeId = null;
   }
-  infoPanel.classList.remove('open');
+  if (withAnimation && infoPanel.classList.contains('open')) {
+    container.classList.add('fading');
+    infoPanel.classList.remove('open');
+    setTimeout(() => {
+      buildWeb();
+      container.classList.remove('fading');
+    }, 395);
+  } else {
+    infoPanel.classList.remove('open');
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -780,8 +809,9 @@ function buildWeb() {
   else buildSubWeb();
 }
 
-closeBtn.addEventListener('click', () => closePanel(true));
+closeBtn.addEventListener('click', () => closePanel(true, true));
 backBtn.addEventListener('click', goBack);
 window.addEventListener('resize', buildWeb);
+
 
 buildWeb();

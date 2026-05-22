@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Teacher Portal &mdash; Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.ico">
+    <link rel="stylesheet" href="../assets/style.css">
+    <style>
+        .portal-wrap { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+        .portal-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2.5rem; }
+        .portal-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .portal-table th { background: #f8fafc; padding: 0.625rem 0.875rem; text-align: left; font-weight: 600; color: #475569; cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid var(--border); }
+        .portal-table th:hover { background: #f1f5f9; color: #0f172a; }
+        .portal-table th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+        .portal-table th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+        .portal-table td { padding: 0.5rem 0.875rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .portal-table tr:last-child td { border-bottom: none; }
+        .portal-table tr:hover td { background: #f8fafc; }
+        .section-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 2rem 0 0.625rem; }
+        .section-count { font-size: 0.875rem; font-weight: 400; color: #64748b; margin-left: 0.4rem; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/kenken.html">Play KenKen</a>
+            <a href="../SAT-Questions/english.html">Practice SAT</a>
+            <a href="../Skill-Maps/index.html">Skill Maps</a>
+            <a href="../readme.html">ReadMe</a>
+            <a href="./index.html" class="active nav-teacher">Teacher</a>
+        </div>
+    </nav>
+
+    <div id="login-view" class="landing" style="display:none">
+        <div class="landing-card">
+            <h1>Teacher Portal</h1>
+            <p>Enter the teacher password to access student data.</p>
+            <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%">
+                <input type="password" id="password-input" placeholder="Password"
+                    style="width:100%;padding:0.625rem 0.875rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;box-sizing:border-box;outline:none;" />
+                <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+            </div>
+            <p class="landing-status" id="login-status" style="display:none;color:#dc2626"></p>
+        </div>
+    </div>
+
+    <div id="portal-view" style="display:none">
+        <div class="page-header">
+            <h1>Teacher Portal</h1>
+            <p>Debug view &mdash; all stored data</p>
+        </div>
+        <div class="portal-wrap" id="data-content">
+            <p style="color:var(--muted)">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/teacher/check')
+            .then(r => r.ok ? showPortal() : showLogin())
+            .catch(() => showLogin());
+
+        function showLogin() {
+            document.getElementById('login-view').style.display = 'flex';
+        }
+        function showPortal() {
+            document.getElementById('portal-view').style.display = 'block';
+            loadData();
+        }
+
+        async function doLogin() {
+            const pw = document.getElementById('password-input').value;
+            const statusEl = document.getElementById('login-status');
+            const res = await fetch('/api/teacher/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw }),
+            });
+            if (res.ok) {
+                document.getElementById('login-view').style.display = 'none';
+                showPortal();
+            } else {
+                statusEl.innerText = 'Incorrect password.';
+                statusEl.style.display = '';
+            }
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && document.getElementById('login-view').style.display !== 'none') doLogin();
+        });
+
+        let rawData = null;
+
+        async function loadData() {
+            const res = await fetch('/api/teacher/data');
+            rawData = await res.json();
+            renderAll();
+        }
+
+        function renderAll() {
+            const el = document.getElementById('data-content');
+            el.innerHTML =
+                renderSection('Users',         rawData.users,  ['user_key','email','first_seen']) +
+                renderSection('KenKen Scores', rawData.kenken, ['id','user_key','email','score','size','submitted_at']) +
+                renderSection('SAT Scores',    rawData.sat,    ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
+            el.querySelectorAll('th[data-col]').forEach(th => {
+                th.addEventListener('click', () => sortTable(th));
+            });
+        }
+
+        function renderSection(title, rows, cols) {
+            const id = title.replace(/\s+/g, '-').toLowerCase();
+            const heads = cols.map(c =>
+                `<th data-table="${id}" data-col="${c}">${c}</th>`
+            ).join('');
+            const body = rows.map(r =>
+                '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
+            ).join('');
+            return `
+                <div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
+                <div class="portal-table-wrap">
+                    <table class="portal-table" id="tbl-${id}">
+                        <thead><tr>${heads}</tr></thead>
+                        <tbody>${body}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function fmt(col, val) {
+            if (val === null || val === undefined) return '&mdash;';
+            if (col === 'submitted_at' || col === 'first_seen')
+                return new Date(val).toLocaleString();
+            return String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function sortTable(th) {
+            const tableId = th.getAttribute('data-table');
+            const col     = th.getAttribute('data-col');
+            const table   = document.getElementById('tbl-' + tableId);
+            const wasAsc  = th.classList.contains('sort-asc');
+
+            table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
+            th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
+            const asc = !wasAsc;
+
+            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : 'sat';
+            const cols = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
+            const sorted = [...rawData[dataKey]].sort((a, b) => {
+                const av = a[col], bv = b[col];
+                if (av === bv) return 0;
+                return (av < bv ? -1 : 1) * (asc ? 1 : -1);
+            });
+            table.querySelector('tbody').innerHTML = sorted.map(r =>
+                '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
+            ).join('');
+        }
+    </script>
+</body>
+</html>

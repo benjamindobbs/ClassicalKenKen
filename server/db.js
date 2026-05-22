@@ -35,8 +35,16 @@ db.exec(`
         submitted_at INTEGER NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_kenken_user ON kenken_scores(user_key);
-    CREATE INDEX IF NOT EXISTS idx_sat_user ON sat_scores(user_key);
+    CREATE TABLE IF NOT EXISTS sessions (
+        token      TEXT    PRIMARY KEY,
+        user_key   TEXT    NOT NULL REFERENCES users(user_key),
+        created_at INTEGER NOT NULL,
+        last_seen  INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_kenken_user  ON kenken_scores(user_key);
+    CREATE INDEX IF NOT EXISTS idx_sat_user     ON sat_scores(user_key);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_key);
 `);
 
 function upsertUser(userKey, email) {

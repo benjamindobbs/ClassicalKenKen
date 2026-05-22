@@ -77,6 +77,24 @@ body {
     background: rgba(255,255,255,0.1);
 }
 
+.nav-links a.nav-teacher {
+    color: #7dd3fc;
+    border: 1px solid rgba(125,211,252,0.25);
+    margin-left: 0.5rem;
+}
+
+.nav-links a.nav-teacher:hover {
+    color: #e0f2fe;
+    background: rgba(125,211,252,0.1);
+    border-color: rgba(125,211,252,0.5);
+}
+
+.nav-links a.nav-teacher.active {
+    color: #e0f2fe;
+    background: rgba(125,211,252,0.15);
+    border-color: rgba(125,211,252,0.4);
+}
+
 /* === BUTTONS === */
 .btn {
     display: inline-flex;
@@ -545,8 +563,9 @@ label[id$=" Button"] {
 
 .maps-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 340px));
     gap: 1.25rem;
+    justify-content: center;
 }
 
 .map-card {
@@ -914,19 +933,21 @@ body.skill-map {
 .topic-node.active .node-label { color: rgba(255, 255, 255, 0.9); }
 
 #info-panel {
-    width: 340px;
+    width: 0;
+    min-width: 0;
     flex-shrink: 0;
     background: #10102b;
-    border-left: 1px solid rgba(255, 255, 255, 0.07);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transform: translateX(100%);
-    transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+    transition: width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-#info-panel.open { transform: translateX(0); }
+#info-panel.open {
+    width: 340px;
+    border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
 
 #panel-inner {
     padding: 20px 26px 32px;
@@ -935,6 +956,13 @@ body.skill-map {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+#info-panel.open #panel-inner {
+    opacity: 1;
+    transition-delay: 0.22s;
 }
 
 #panel-header {
