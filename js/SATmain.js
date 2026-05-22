@@ -22,7 +22,7 @@ async function ensureQuestionsLoaded() {
     if (questionTypes) return;
     const all = await fetch('../SAT-Questions/2026-SAT-Questions.json').then(r => r.json());
     const DOMAINS = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', ''];
-    const valid = all.filter(q => DOMAINS.includes(q.Domain) && q.Skill && q.Skill.trim());
+    const valid = all.filter(q => DOMAINS.includes(q.Domain) && (q.Domain === '' || (q.Skill && q.Skill.trim())));
     questionTypes = DOMAINS.map(d => valid.filter(q => q.Domain === d));
 }
 
