@@ -3,7 +3,16 @@
     "allow": [
       "PowerShell(Get-ChildItem -Recurse -Depth 2 | Where-Object { $_.FullName -notmatch 'node_modules' } | Sort-Object FullName | Select-Object @{n='Path';e={$_.FullName.Replace\\(\\(Get-Location\\).Path + '\\\\', ''\\)}} | Format-Table -AutoSize)",
       "Bash(Remove-Item \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\\\\KenKen\\\\main.js\")",
-      "Bash(rm \"c:/Users/benja/Documents/GitHub/ClassicalKenKen/KenKen/main.js\")"
+      "Bash(rm \"c:/Users/benja/Documents/GitHub/ClassicalKenKen/KenKen/main.js\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\" -Recurse -File)",
+      "Bash(Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\" -Recurse -File | ForEach-Object { $_.FullName } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\" -Exclude \"node_modules\" -Recurse -File | Where-Object { $_.Extension -in @\\(\".html\", \".css\", \".js\"\\) } | ForEach-Object { $_.FullName })",
+      "PowerShell(node --version)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\\\\server\\\\routes\")",
+      "PowerShell(cd \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"server/index.js\" -PassThru -RedirectStandardOutput \"server_out.txt\" -RedirectStandardError \"server_err.txt\"; Start-Sleep -Seconds 3; $out = Get-Content \"server_out.txt\" -ErrorAction SilentlyContinue; $err = Get-Content \"server_err.txt\" -ErrorAction SilentlyContinue; $proc.Kill\\(\\); Remove-Item \"server_out.txt\",\"server_err.txt\" -ErrorAction SilentlyContinue; Write-Output \"STDOUT: $out\"; Write-Output \"STDERR: $err\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\benja\\Documents\\GitHub\\ClassicalKenKen\\KenKen"

@@ -1,5 +1,19 @@
 {
+  "name": "classical-kenken",
+  "version": "1.0.0",
+  "description": "Classical KenKen and SAT Practice",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "dependencies": {
+    "express": "^4.22.2"
+  },
+  "devDependencies": {
     "http-server": "^14.1.1"
   }
 }
