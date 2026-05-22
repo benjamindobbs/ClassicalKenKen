@@ -37,8 +37,15 @@ router.get('/next', (req, res) => {
     `).all(req.userKey);
 
     if (rows.length === 0) {
-        // No history — return random domain at Easy, no skill constraint
         return res.json({ domainIdx: Math.floor(Math.random() * 4), skill: '', difficulty: 'Easy' });
+    }
+
+    // Surface any domain the student hasn't attempted yet before repeating seen ones
+    const seenDomains = new Set(rows.map(r => r.domain_idx));
+    const unseenDomains = [0, 1, 2, 3].filter(d => !seenDomains.has(d));
+    if (unseenDomains.length > 0) {
+        const domainIdx = unseenDomains[Math.floor(Math.random() * unseenDomains.length)];
+        return res.json({ domainIdx, skill: '', difficulty: 'Easy' });
     }
 
     // Build accuracy map: key = `${domainIdx}|${skill}|${difficulty}` → { attempts, accuracy }
