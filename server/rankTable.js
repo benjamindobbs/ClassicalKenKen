@@ -1,80 +1,17 @@
-// Maps average score (integer) → rank value, from the ReadMe lookup table.
-// Index = avg score (0–68+); value = rank.
-const RANK_TABLE = [
-    1.00, // 0
-    1.07, // 1
-    1.15, // 2
-    1.22, // 3
-    1.29, // 4
-    1.37, // 5
-    1.44, // 6
-    1.51, // 7
-    1.59, // 8
-    1.66, // 9
-    1.73, // 10
-    1.81, // 11
-    1.88, // 12
-    1.95, // 13
-    2.47, // 14
-    2.50, // 15
-    2.14, // 16
-    2.21, // 17
-    2.27, // 18
-    2.33, // 19
-    2.39, // 20
-    2.45, // 21
-    2.51, // 22
-    2.57, // 23
-    2.63, // 24
-    2.69, // 25
-    2.76, // 26
-    2.82, // 27
-    2.88, // 28
-    2.94, // 29
-    3.00, // 30
-    3.07, // 31
-    3.15, // 32
-    3.22, // 33
-    3.30, // 34
-    3.37, // 35
-    3.44, // 36
-    3.52, // 37
-    3.59, // 38
-    3.66, // 39
-    3.74, // 40
-    3.81, // 41
-    3.89, // 42
-    3.96, // 43
-    4.05, // 44
-    4.15, // 45
-    4.25, // 46
-    4.35, // 47
-    4.45, // 48
-    4.56, // 49
-    4.66, // 50
-    4.76, // 51
-    4.86, // 52
-    4.97, // 53
-    5.08, // 54
-    5.20, // 55
-    5.33, // 56
-    5.45, // 57
-    5.57, // 58
-    5.70, // 59
-    5.82, // 60
-    5.94, // 61
-    6.09, // 62
-    6.25, // 63
-    6.42, // 64
-    6.59, // 65
-    6.75, // 66
-    6.92, // 67
-    7.00, // 68
-];
+// Rank is a float: integer part = grid size tier (1–7), fractional part = sub-rank (controls hints).
+// Thresholds must stay in sync with LEVEL_STARTS in js/kenken.js.
+const LEVEL_STARTS = [0, 25, 42, 58, 72, 84, 94];
 
 function lookupRank(avgScore) {
-    const idx = Math.min(Math.round(avgScore), RANK_TABLE.length - 1);
-    return RANK_TABLE[Math.max(0, idx)];
+    let level = 1;
+    for (let i = LEVEL_STARTS.length - 1; i >= 0; i--) {
+        if (avgScore >= LEVEL_STARTS[i]) { level = i + 1; break; }
+    }
+    if (level >= LEVEL_STARTS.length) return LEVEL_STARTS.length;
+    const start = LEVEL_STARTS[level - 1];
+    const end   = LEVEL_STARTS[level];
+    const pct   = Math.max(0, Math.min(1, (avgScore - start) / (end - start)));
+    return level + pct;
 }
 
 module.exports = { lookupRank };

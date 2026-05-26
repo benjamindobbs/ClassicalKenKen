@@ -134,6 +134,9 @@ function checkAnswer() {
       var time = (finishTime - startTime) / 1000;
       var unsolved = (size * size) - hintsGiven;
       score = Math.round(((unsolved / guesses) + (2.5 * unsolved / time)) * size * 10);
+      var currentLevel = Math.floor(rank);
+      var nextThreshold = LEVEL_STARTS[Math.min(currentLevel, LEVEL_STARTS.length - 1)];
+      score = Math.min(score, Math.round(nextThreshold * 1.5));
       writeScore(score, size).then(function(avg) {
           if (avg != null) setTimeout(function() { showRankProgress(avg); }, 1000);
       });
