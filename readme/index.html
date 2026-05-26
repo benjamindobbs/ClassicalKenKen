@@ -143,9 +143,11 @@
             <h3 style="margin-top: 1.5rem;">Determining Difficulty</h3>
             <p>
                 Difficulty is controlled by two variables: grid size and hint count.
-                The grid size is <code>rank + 2</code>, maxing out at 9×9.
-                Hints decrease as rank increases — the exact count is determined by the fractional part of the rank.
-                The rank itself is pulled from a lookup table based on a student's average KenKen score.
+                The grid size is <code>floor(rank) + 2</code>, maxing out at 9×9.
+                Rank is a floating-point number — the integer part sets the grid size, and the fractional part
+                (sub-rank) controls how many cells are pre-filled as hints. Hints decrease as sub-rank rises,
+                so students are gradually challenged to solve more of the puzzle on their own before advancing
+                to the next grid size. The rank is derived from the student's cumulative average score.
             </p>
         </div>
 
@@ -157,36 +159,48 @@
             <h2>Scoring</h2>
 
             <div class="callout">
-                <p>Score = (1 / Guesses + 2 / Time) &times; Rank&sup2; &times; 100</p>
+                <p>Score = (Unsolved / Guesses + 2.5 &times; Unsolved / Time) &times; Grid Size &times; 10</p>
             </div>
 
-            <h3>Score Thresholds by Rank</h3>
+            <p>
+                <strong>Unsolved</strong> is the number of cells the student had to figure out themselves
+                (total cells minus hint cells). <strong>Time</strong> is seconds elapsed.
+                The grid size multiplier captures the inherent difficulty of larger puzzles — more number
+                choices per cell and more complex arithmetic — independent of how many cells were pre-filled.
+                Time is weighted 2.5&times; relative to guess accuracy.
+            </p>
+
+            <h3>Typical Scores by Rank</h3>
             <table>
                 <thead>
                     <tr>
-                        <th>Difficulty</th>
+                        <th>Rank</th>
                         <th>Grid</th>
-                        <th>Cells</th>
-                        <th>Typical Guesses</th>
-                        <th>Typical Time (s)</th>
-                        <th>Min Score</th>
+                        <th>Hints (start → end)</th>
+                        <th>Unsolved range</th>
+                        <th>Typical Score</th>
+                        <th>Avg to Advance</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td>1</td><td>3×3</td><td>9</td><td>11</td><td>44</td><td>14</td></tr>
-                    <tr><td>2</td><td>4×4</td><td>16</td><td>20</td><td>80</td><td>30</td></tr>
-                    <tr><td>3</td><td>5×5</td><td>25</td><td>31</td><td>124</td><td>44</td></tr>
-                    <tr><td>4</td><td>6×6</td><td>36</td><td>45</td><td>180</td><td>53</td></tr>
-                    <tr><td>5</td><td>7×7</td><td>49</td><td>61</td><td>244</td><td>61</td></tr>
-                    <tr><td>6</td><td>8×8</td><td>64</td><td>80</td><td>320</td><td>68</td></tr>
+                    <tr><td>1</td><td>3×3</td><td>3 → 1</td><td>6 – 8</td><td>25 – 40</td><td>25</td></tr>
+                    <tr><td>2</td><td>4×4</td><td>5 → 2</td><td>11 – 14</td><td>38 – 55</td><td>42</td></tr>
+                    <tr><td>3</td><td>5×5</td><td>8 → 3</td><td>17 – 22</td><td>50 – 68</td><td>58</td></tr>
+                    <tr><td>4</td><td>6×6</td><td>12 → 5</td><td>24 – 31</td><td>62 – 80</td><td>72</td></tr>
+                    <tr><td>5</td><td>7×7</td><td>16 → 7</td><td>33 – 42</td><td>74 – 93</td><td>84</td></tr>
+                    <tr><td>6</td><td>8×8</td><td>21 → 9</td><td>43 – 55</td><td>85 – 105</td><td>94</td></tr>
+                    <tr><td>7</td><td>9×9</td><td>0</td><td>81</td><td>95 – 120</td><td>—</td></tr>
                 </tbody>
             </table>
 
             <h3>Calculating a Grade</h3>
             <p>
-                Teachers configure three variables: Max Score, Min Score (Completed), and Min Score (Not Completed).
-                Grade = <em>Max Score of Day / (Min Score for Current Rank / 2) &times; Max Assignment Score</em>,
-                clamped to the configured min/max. Missing scores are set to the missing score variable.
+                Teachers configure three variables: Max Score, Completion Score (%), and No-Submission Score (%).
+                A student's daily qualifying submissions are counted against the required number per day over the
+                assignment period. Grade = <em>count / required &times; Max Score</em>,
+                floored at the Completion Score if the requirement is met, or at the No-Submission Score if nothing
+                was submitted. A KenKen submission only counts if the score meets or exceeds the student's
+                all-time average.
             </p>
         </div>
 
@@ -195,82 +209,45 @@
         <!-- RANK TABLE -->
         <div class="section" id="rank-table">
             <span class="section-tag">Reference</span>
-            <h2>Full Rank Lookup Table</h2>
-            <p>Rank is assigned from a student's average game score using this table:</p>
+            <h2>Rank Structure</h2>
+            <p>
+                Rank is a floating-point number. The integer part determines the grid size; the fractional
+                part (sub-rank) controls hints. A student advances to the next integer rank when their
+                cumulative average score crosses the threshold below.
+            </p>
+
+            <h3>Rank Level Thresholds</h3>
             <table>
                 <thead>
-                    <tr><th>Level</th><th>Avg Score</th><th>Rank</th></tr>
+                    <tr><th>Rank</th><th>Grid</th><th>Avg Score to Enter</th></tr>
                 </thead>
                 <tbody>
-                    <tr><td>1</td><td>0</td><td>1.00</td></tr>
-                    <tr><td>1</td><td>1</td><td>1.07</td></tr>
-                    <tr><td>1</td><td>2</td><td>1.15</td></tr>
-                    <tr><td>1</td><td>3</td><td>1.22</td></tr>
-                    <tr><td>1</td><td>4</td><td>1.29</td></tr>
-                    <tr><td>1</td><td>5</td><td>1.37</td></tr>
-                    <tr><td>1</td><td>6</td><td>1.44</td></tr>
-                    <tr><td>1</td><td>7</td><td>1.51</td></tr>
-                    <tr><td>1</td><td>8</td><td>1.59</td></tr>
-                    <tr><td>1</td><td>9</td><td>1.66</td></tr>
-                    <tr><td>1</td><td>10</td><td>1.73</td></tr>
-                    <tr><td>1</td><td>11</td><td>1.81</td></tr>
-                    <tr><td>1</td><td>12</td><td>1.88</td></tr>
-                    <tr><td>1</td><td>13</td><td>1.95</td></tr>
-                    <tr><td>2</td><td>14</td><td>2.47</td></tr>
-                    <tr><td>2</td><td>15</td><td>2.50</td></tr>
-                    <tr><td>2</td><td>16</td><td>2.14</td></tr>
-                    <tr><td>2</td><td>17</td><td>2.21</td></tr>
-                    <tr><td>2</td><td>18</td><td>2.27</td></tr>
-                    <tr><td>2</td><td>19</td><td>2.33</td></tr>
-                    <tr><td>2</td><td>20</td><td>2.39</td></tr>
-                    <tr><td>2</td><td>21</td><td>2.45</td></tr>
-                    <tr><td>2</td><td>22</td><td>2.51</td></tr>
-                    <tr><td>2</td><td>23</td><td>2.57</td></tr>
-                    <tr><td>2</td><td>24</td><td>2.63</td></tr>
-                    <tr><td>2</td><td>25</td><td>2.69</td></tr>
-                    <tr><td>2</td><td>26</td><td>2.76</td></tr>
-                    <tr><td>2</td><td>27</td><td>2.82</td></tr>
-                    <tr><td>2</td><td>28</td><td>2.88</td></tr>
-                    <tr><td>2</td><td>29</td><td>2.94</td></tr>
-                    <tr><td>3</td><td>30</td><td>3.00</td></tr>
-                    <tr><td>3</td><td>31</td><td>3.07</td></tr>
-                    <tr><td>3</td><td>32</td><td>3.15</td></tr>
-                    <tr><td>3</td><td>33</td><td>3.22</td></tr>
-                    <tr><td>3</td><td>34</td><td>3.30</td></tr>
-                    <tr><td>3</td><td>35</td><td>3.37</td></tr>
-                    <tr><td>3</td><td>36</td><td>3.44</td></tr>
-                    <tr><td>3</td><td>37</td><td>3.52</td></tr>
-                    <tr><td>3</td><td>38</td><td>3.59</td></tr>
-                    <tr><td>3</td><td>39</td><td>3.66</td></tr>
-                    <tr><td>3</td><td>40</td><td>3.74</td></tr>
-                    <tr><td>3</td><td>41</td><td>3.81</td></tr>
-                    <tr><td>3</td><td>42</td><td>3.89</td></tr>
-                    <tr><td>3</td><td>43</td><td>3.96</td></tr>
-                    <tr><td>4</td><td>44</td><td>4.05</td></tr>
-                    <tr><td>4</td><td>45</td><td>4.15</td></tr>
-                    <tr><td>4</td><td>46</td><td>4.25</td></tr>
-                    <tr><td>4</td><td>47</td><td>4.35</td></tr>
-                    <tr><td>4</td><td>48</td><td>4.45</td></tr>
-                    <tr><td>4</td><td>49</td><td>4.56</td></tr>
-                    <tr><td>4</td><td>50</td><td>4.66</td></tr>
-                    <tr><td>4</td><td>51</td><td>4.76</td></tr>
-                    <tr><td>4</td><td>52</td><td>4.86</td></tr>
-                    <tr><td>4</td><td>53</td><td>4.97</td></tr>
-                    <tr><td>5</td><td>54</td><td>5.08</td></tr>
-                    <tr><td>5</td><td>55</td><td>5.20</td></tr>
-                    <tr><td>5</td><td>56</td><td>5.33</td></tr>
-                    <tr><td>5</td><td>57</td><td>5.45</td></tr>
-                    <tr><td>5</td><td>58</td><td>5.57</td></tr>
-                    <tr><td>5</td><td>59</td><td>5.70</td></tr>
-                    <tr><td>5</td><td>60</td><td>5.82</td></tr>
-                    <tr><td>5</td><td>61</td><td>5.94</td></tr>
-                    <tr><td>6</td><td>62</td><td>6.09</td></tr>
-                    <tr><td>6</td><td>63</td><td>6.25</td></tr>
-                    <tr><td>6</td><td>64</td><td>6.42</td></tr>
-                    <tr><td>6</td><td>65</td><td>6.59</td></tr>
-                    <tr><td>6</td><td>66</td><td>6.75</td></tr>
-                    <tr><td>6</td><td>67</td><td>6.92</td></tr>
-                    <tr><td>7</td><td>68</td><td>7.00</td></tr>
+                    <tr><td>1</td><td>3×3</td><td>0</td></tr>
+                    <tr><td>2</td><td>4×4</td><td>25</td></tr>
+                    <tr><td>3</td><td>5×5</td><td>42</td></tr>
+                    <tr><td>4</td><td>6×6</td><td>58</td></tr>
+                    <tr><td>5</td><td>7×7</td><td>72</td></tr>
+                    <tr><td>6</td><td>8×8</td><td>84</td></tr>
+                    <tr><td>7</td><td>9×9</td><td>94</td></tr>
+                </tbody>
+            </table>
+
+            <h3 style="margin-top: 1.5rem;">Sub-Rank Hint Breakdown</h3>
+            <p>
+                Within each rank, hints are assigned based on how far through the rank the student is
+                (sub-rank = fractional part of rank). Fewer hints = more cells to solve independently.
+            </p>
+            <table>
+                <thead>
+                    <tr><th>Sub-rank</th><th>Hints given</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>0.0 – 0.1</td><td>floor(cells / 3)</td></tr>
+                    <tr><td>0.1 – 0.3</td><td>floor(cells / 4)</td></tr>
+                    <tr><td>0.3 – 0.5</td><td>floor(cells / 5)</td></tr>
+                    <tr><td>0.5 – 0.8</td><td>floor(cells / 6)</td></tr>
+                    <tr><td>0.8 – 1.0</td><td>floor(cells / 7)</td></tr>
+                    <tr><td>Rank 7</td><td>0 (no hints)</td></tr>
                 </tbody>
             </table>
         </div>
