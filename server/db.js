@@ -10,6 +10,20 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
 const db = new DatabaseSync(dbPath);
 
+// Migrate single-row teacher tables to per-teacher-key schema
+{
+    const cols = db.prepare("PRAGMA table_info(teacher_profile)").all();
+    if (cols.length > 0 && !cols.some(c => c.name === 'teacher_key')) {
+        db.exec(`
+            DROP TABLE IF EXISTS class_students;
+            DROP TABLE IF EXISTS classes;
+            DROP TABLE IF EXISTS assignment_settings;
+            DROP TABLE IF EXISTS gradebook_settings;
+            DROP TABLE IF EXISTS teacher_profile;
+        `);
+    }
+}
+
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
         user_key    TEXT    PRIMARY KEY,
@@ -47,30 +61,30 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_key);
 
     CREATE TABLE IF NOT EXISTS teacher_profile (
-        id   INTEGER PRIMARY KEY CHECK (id = 1),
-        name TEXT    NOT NULL DEFAULT ''
+        teacher_key TEXT PRIMARY KEY,
+        name        TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS gradebook_settings (
-        id                      INTEGER PRIMARY KEY CHECK (id = 1),
-        assignment_max_score    REAL    NOT NULL DEFAULT 100,
-        completion_score_pct    REAL    NOT NULL DEFAULT 100,
-        no_submission_score_pct REAL    NOT NULL DEFAULT 0
+        teacher_key             TEXT PRIMARY KEY,
+        assignment_max_score    REAL NOT NULL DEFAULT 100,
+        completion_score_pct    REAL NOT NULL DEFAULT 100,
+        no_submission_score_pct REAL NOT NULL DEFAULT 0
     );
 
     -- required_activity: 'kenken' | 'sat' | 'both' | 'either'
     CREATE TABLE IF NOT EXISTS assignment_settings (
-        id                    INTEGER PRIMARY KEY CHECK (id = 1),
+        teacher_key           TEXT    PRIMARY KEY,
         required_activity     TEXT    NOT NULL DEFAULT 'either',
         required_kenken_count INTEGER NOT NULL DEFAULT 1,
-        required_sat_count    INTEGER NOT NULL DEFAULT 1,
-        required_either_count INTEGER NOT NULL DEFAULT 1
+        required_sat_count    INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS classes (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        name       TEXT    NOT NULL,
-        created_at INTEGER NOT NULL
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        teacher_key TEXT    NOT NULL,
+        name        TEXT    NOT NULL,
+        created_at  INTEGER NOT NULL
     );
 
     -- student_id is the school-assigned ID from CSV

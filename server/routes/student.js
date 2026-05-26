@@ -9,7 +9,19 @@ router.use(requireAuth);
 // Returns today's submission counts, remaining requirements, and the activity mode.
 // Returns 401 (via requireAuth) if the student is not signed in.
 router.get('/daily-progress', (req, res) => {
-    const settings = db.prepare('SELECT * FROM assignment_settings WHERE id = 1').get();
+    // Find this student's teacher via class linkage
+    const classRow = db.prepare(`
+        SELECT c.teacher_key FROM class_students cs
+        JOIN classes c ON cs.class_id = c.id
+        WHERE cs.user_key = ?
+        LIMIT 1
+    `).get(req.userKey);
+
+    if (!classRow) return res.json({ settings: null });
+
+    const settings = db.prepare(
+        'SELECT * FROM assignment_settings WHERE teacher_key = ?'
+    ).get(classRow.teacher_key);
 
     // No requirements configured yet — signal the client to show nothing
     if (!settings) return res.json({ settings: null });

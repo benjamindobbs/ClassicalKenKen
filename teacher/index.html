@@ -99,13 +99,9 @@
     <div id="login-view" class="landing" style="display:none">
         <div class="landing-card">
             <h1>Teacher Portal</h1>
-            <p>Enter the teacher password to access student data.</p>
-            <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%">
-                <input type="password" id="password-input" placeholder="Password"
-                    style="width:100%;padding:0.625rem 0.875rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;box-sizing:border-box;outline:none;" />
-                <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
-            </div>
-            <p class="landing-status" id="login-status" style="display:none;color:#dc2626"></p>
+            <p>Sign in with your school Google account (<strong>@hartfordschools.org</strong>) to access student data.</p>
+            <button class="btn btn-primary" id="teacher-sign-in-btn" onclick="handleTeacherSignIn()" disabled>Sign In with Google</button>
+            <p class="landing-status" id="login-status">Loading&hellip;</p>
         </div>
     </div>
 
@@ -261,9 +257,54 @@
     </div>
 
     <script>
-        fetch('/api/teacher/check')
-            .then(r => r.ok ? showPortal() : showLogin())
-            .catch(() => showLogin());
+        // ── Teacher OAuth ─────────────────────────────────────────────────────
+        const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
+        let teacherToken = null;
+        let tokenClient;
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/userinfo.email',
+                callback: '',
+            });
+            document.getElementById('teacher-sign-in-btn').disabled = false;
+            document.getElementById('login-status').style.display = 'none';
+        }
+
+        async function handleTeacherSignIn() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    document.getElementById('login-status').textContent = 'Sign in failed. Please try again.';
+                    document.getElementById('login-status').style.display = '';
+                    return;
+                }
+                teacherToken = resp.access_token;
+                const check = await teacherFetch('/api/teacher/check');
+                if (!check.ok) {
+                    document.getElementById('login-status').textContent = check.status === 403
+                        ? 'Access denied — teacher accounts only (@hartfordschools.org).'
+                        : 'Authentication failed.';
+                    document.getElementById('login-status').style.display = '';
+                    teacherToken = null;
+                    return;
+                }
+                document.getElementById('login-view').style.display = 'none';
+                showPortal();
+            };
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        function teacherFetch(path, options = {}) {
+            return fetch(path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + teacherToken,
+                    ...(options.headers || {}),
+                },
+            });
+        }
 
         function showLogin() { document.getElementById('login-view').style.display = 'flex'; }
         function showPortal() {
@@ -271,35 +312,19 @@
             loadData();
         }
 
-        async function doLogin() {
-            const pw = document.getElementById('password-input').value;
-            const statusEl = document.getElementById('login-status');
-            const res = await fetch('/api/teacher/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw }),
-            });
-            if (res.ok) {
-                document.getElementById('login-view').style.display = 'none';
-                showPortal();
-            } else {
-                statusEl.innerText = 'Incorrect password.';
-                statusEl.style.display = '';
-            }
-        }
-
         document.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
-            if (document.getElementById('login-view').style.display !== 'none') doLogin();
             if (document.getElementById('tab-lookup').style.display !== 'none') doLookup();
             if (document.getElementById('new-class-form').style.display !== 'none') createClass();
         });
+
+        showLogin();
 
         // ── Data ─────────────────────────────────────────────────────────────
         let rawData = null;
 
         async function loadData() {
-            const res = await fetch('/api/teacher/data');
+            const res = await teacherFetch('/api/teacher/data');
             rawData = await res.json();
             renderAll();
         }
@@ -594,7 +619,7 @@
         let currentClassId = null;
 
         async function loadGradebookSettings() {
-            const res  = await fetch('/api/teacher/gradebook-settings');
+            const res  = await teacherFetch('/api/teacher/gradebook-settings');
             const data = await res.json();
             document.getElementById('gs-max-score').value    = data.assignment_max_score;
             document.getElementById('gs-completion-pct').value = data.completion_score_pct;
@@ -609,7 +634,7 @@
                 alert('All three fields must be valid numbers.');
                 return;
             }
-            await fetch('/api/teacher/gradebook-settings', {
+            await teacherFetch('/api/teacher/gradebook-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct }),
@@ -626,7 +651,7 @@
         }
 
         async function loadAssignmentSettings() {
-            const res  = await fetch('/api/teacher/assignment-settings');
+            const res  = await teacherFetch('/api/teacher/assignment-settings');
             const data = await res.json();
             const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
             if (radio) radio.checked = true;
@@ -640,7 +665,7 @@
             const required_kenken_count = parseInt(document.getElementById('ar-kenken-count').value) || 1;
             const required_sat_count    = parseInt(document.getElementById('ar-sat-count').value)    || 1;
             if (!required_activity) return;
-            await fetch('/api/teacher/assignment-settings', {
+            await teacherFetch('/api/teacher/assignment-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count }),
@@ -651,7 +676,7 @@
         }
 
         async function loadProfile() {
-            const res  = await fetch('/api/teacher/profile');
+            const res  = await teacherFetch('/api/teacher/profile');
             const data = await res.json();
             document.getElementById('teacher-name-input').value = data.name || '';
         }
@@ -659,7 +684,7 @@
         async function saveProfile() {
             const name = document.getElementById('teacher-name-input').value.trim();
             if (!name) return;
-            await fetch('/api/teacher/profile', {
+            await teacherFetch('/api/teacher/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name }),
@@ -670,7 +695,7 @@
         }
 
         async function loadClasses() {
-            const res  = await fetch('/api/teacher/classes');
+            const res  = await teacherFetch('/api/teacher/classes');
             const list = await res.json();
             renderClassCards(list);
         }
@@ -702,7 +727,7 @@
         async function createClass() {
             const name = document.getElementById('new-class-name-input').value.trim();
             if (!name) return;
-            const res  = await fetch('/api/teacher/classes', {
+            const res  = await teacherFetch('/api/teacher/classes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name }),
@@ -716,7 +741,7 @@
         async function deleteClass(id, btn) {
             if (!confirm('Delete this class and its entire roster?')) return;
             btn.disabled = true;
-            await fetch('/api/teacher/classes/' + id, { method: 'DELETE' });
+            await teacherFetch('/api/teacher/classes/' + id, { method: 'DELETE' });
             loadClasses();
         }
 
@@ -726,7 +751,7 @@
             document.getElementById('class-detail-view').style.display  = '';
             document.getElementById('class-detail-content').innerHTML   = '<p style="color:var(--muted)">Loading&hellip;</p>';
 
-            const res = await fetch('/api/teacher/classes/' + id);
+            const res = await teacherFetch('/api/teacher/classes/' + id);
             const cls = await res.json();
             classStudents = cls.students;
             renderClassDetail(cls);
@@ -916,5 +941,6 @@
             return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         }
     </script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 </body>
 </html>
