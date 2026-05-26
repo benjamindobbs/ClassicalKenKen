@@ -78,7 +78,7 @@ var startTime;
 var finishTime;
 var spentTime = 0;
 var gameOver = false;
-var hintsGiven = false;
+var hintsGiven = 0;
 var hintLocations =[];
 var lockedCells = new Set();
 var guesses = 0;
@@ -111,7 +111,7 @@ function hide() {
       cellElems[ix + iy * size].style.cursor = '';
   });
   lockedCells = new Set();
-  hintsGiven=false;
+  hintsGiven=0;
   giveHints(setHintDifficulty(rank));
 }
 
@@ -131,7 +131,9 @@ function checkAnswer() {
   if (correct) {
       gameOver = true;
       finishTime = Date.now();
-      score = Math.floor(((1/guesses) + (2/((finishTime-startTime)/1000)))*(rank*rank)*100);
+      var time = (finishTime - startTime) / 1000;
+      var unsolved = (size * size) - hintsGiven;
+      score = Math.round(((unsolved / guesses) + (2.5 * unsolved / time)) * size * 10);
       writeScore(score, size).then(function(avg) {
           if (avg != null) setTimeout(function() { showRankProgress(avg); }, 1000);
       });
@@ -345,7 +347,7 @@ function createElements() {
 
 // ── Rank progress bar ────────────────────────────────────────────────────────
 // First avg score that places a player into each rank level (1–7).
-var LEVEL_STARTS = [0, 14, 30, 44, 54, 62, 68];
+var LEVEL_STARTS = [0, 25, 42, 58, 72, 84, 94];
 
 function computeRankProgress(avg) {
   var level = 1;
@@ -555,7 +557,7 @@ async function generateBoardInt() {
   const rankData = await getRank();
   rank = rankData.rank;
   setBoardDifficulty(rank);
-  hintsGiven=false;
+  hintsGiven=0;
   board = new Array(size * size);
   region = new Array(size * size);
   memos = new Array(size * size); // Bitfield
@@ -1175,7 +1177,7 @@ window.addEventListener('beforeunload', function () {
 
 function giveHints(numHints){
   hintLocations=[];
-  if(hintsGiven==false){
+  if(hintsGiven===0){
     for(var i=0;i<numHints;i++){
       var iy = Math.floor(Math.random()*size);
       var ix = Math.floor(Math.random()*size);
@@ -1191,7 +1193,7 @@ function giveHints(numHints){
         i--;
       }
     }
-    hintsGiven=true;
+    hintsGiven=numHints;
     function checkRepeat(arr) {
       return hintLocations.some(subArray =>
         subArray.length === arr.length && subArray.every((value, index) => value === arr[index])
