@@ -953,7 +953,15 @@
                         <thead><tr><th>Student ID</th><th>Name</th><th>Linked Account</th><th></th></tr></thead>
                         <tbody>${rosterRows}</tbody>
                     </table>
-                </div>` : '<p class="classes-empty" style="margin-bottom:2rem">No students yet. Import a CSV to add the roster.</p>'}
+                </div>` : '<p class="classes-empty" style="margin-bottom:1rem">No students yet.</p>'}
+
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+                    <input type="text" id="add-student-id"   placeholder="Student ID"
+                        style="width:120px;padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none" />
+                    <input type="text" id="add-student-name" placeholder="Student Name"
+                        style="flex:1;min-width:180px;padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none" />
+                    <button class="btn btn-outline btn-sm" onclick="addStudentManually(${cls.id})">Add Student</button>
+                </div>
 
                 ${notice}
                 ${chartsHTML}
@@ -1008,6 +1016,23 @@
             if (linkedCount > 0) renderClassCharts();
         }
 
+        async function addStudentManually(classId) {
+            const idInput   = document.getElementById('add-student-id');
+            const nameInput = document.getElementById('add-student-name');
+            const studentId   = idInput.value.trim();
+            const studentName = nameInput.value.trim();
+            if (!studentId || !studentName) { alert('Both Student ID and Name are required.'); return; }
+            const res  = await teacherFetch(`/api/teacher/classes/${classId}/students`, {
+                method: 'POST',
+                body: JSON.stringify({ students: [{ student_id: studentId, student_name: studentName }] }),
+            });
+            const data = await res.json();
+            if (data.added === 0) { alert('That Student ID already exists in this class.'); return; }
+            idInput.value = '';
+            nameInput.value = '';
+            viewClass(classId); // re-fetch so roster re-sorts alphabetically
+        }
+
         async function removeStudent(classId, studentId, btn) {
             btn.disabled = true;
             await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
@@ -1055,17 +1080,19 @@
             const pad = n => String(n).padStart(2, '0');
             const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
             const today = new Date(); today.setHours(0,0,0,0);
-            const day = today.getDay(); // 0=Sun
-            const toMon = day === 0 ? -6 : 1 - day;
+            const dow = today.getDay(); // 0=Sun, 1=Mon…5=Fri, 6=Sat
+            const toMon = dow === 0 ? -6 : 1 - dow;
+            const thisMon = new Date(today); thisMon.setDate(today.getDate() + toMon);
+            const thisFri = new Date(thisMon); thisFri.setDate(thisMon.getDate() + 4);
+            const lastMon = new Date(thisMon); lastMon.setDate(thisMon.getDate() - 7);
+            const lastFri = new Date(lastMon);  lastFri.setDate(lastMon.getDate() + 4);
             let from, to;
             if (preset === 'week') {
-                from = new Date(today); from.setDate(today.getDate() + toMon);
-                to   = today;
+                from = thisMon; to = thisFri;           // Mon–Fri of current week
             } else if (preset === 'lastweek') {
-                to   = new Date(today); to.setDate(today.getDate() + toMon - 1);
-                from = new Date(to);    from.setDate(to.getDate() - 6);
+                from = lastMon; to = lastFri;           // Mon–Fri of last week
             } else if (preset === '2weeks') {
-                from = new Date(today); from.setDate(today.getDate() + toMon - 7);
+                from = new Date(today); from.setDate(today.getDate() - 13);
                 to   = today;
             } else {
                 from = new Date(today); from.setDate(today.getDate() - 29);
@@ -1073,6 +1100,18 @@
             }
             document.getElementById('export-from').value = fmt(from);
             document.getElementById('export-to').value   = fmt(to);
+        }
+
+        function countWeekdays(fromDateStr, toDateStr) {
+            let count = 0;
+            const d = new Date(fromDateStr + 'T00:00:00');
+            const end = new Date(toDateStr + 'T00:00:00');
+            while (d <= end) {
+                const day = d.getDay();
+                if (day >= 1 && day <= 5) count++;
+                d.setDate(d.getDate() + 1);
+            }
+            return count;
         }
 
         function gradeForStudent(userKey, fromDate, toDate, as, expectedDays, maxScore, completionScore, noSubScore) {
@@ -1153,10 +1192,9 @@
             const completionScore = maxScore * (gsData.completion_score_pct    ?? 100) / 100;
             const noSubScore      = maxScore * (gsData.no_submission_score_pct ??   0) / 100;
 
-            // Expected school days (4 days/week)
-            const msPerDay    = 86400000;
-            const calDays     = Math.round((new Date(toDate) - new Date(fromDate)) / msPerDay) + 1;
-            const expectedDays = Math.max(1, Math.round(calDays * 4 / 7));
+            // Expected school days: count Mon–Fri in range, assume 4 of 5 are submission days
+            const weekdays    = countWeekdays(fromDate, toDate);
+            const expectedDays = Math.max(1, Math.round(weekdays * 4 / 5));
 
             // Grade each student
             const cls = await teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json());
