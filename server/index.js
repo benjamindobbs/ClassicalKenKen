@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
+app.use('/api/auth',    require('./routes/auth'));
 app.use('/api/kenken',  require('./routes/kenken'));
 app.use('/api/sat',     require('./routes/sat'));
 app.use('/api/teacher', require('./routes/teacher'));
