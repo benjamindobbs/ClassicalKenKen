@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../assets/style.css">
+<<<<<<< HEAD
+=======
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+>>>>>>> origin/dev
     <style>
         .portal-wrap { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
         .portal-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2.5rem; }
@@ -19,6 +23,80 @@
         .portal-table tr:hover td { background: #f8fafc; }
         .section-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 2rem 0 0.625rem; }
         .section-count { font-size: 0.875rem; font-weight: 400; color: #64748b; margin-left: 0.4rem; }
+<<<<<<< HEAD
+=======
+
+        /* Tabs */
+        .tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 1.5rem; max-width: 1200px; margin: 0 auto; }
+        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #64748b; cursor: pointer; margin-bottom: -1px; transition: color 0.15s; }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-btn:hover:not(.active) { color: #0f172a; }
+
+        /* Shared form rows */
+        .search-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; }
+        .search-row input[type="text"] { flex: 1; max-width: 360px; padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; }
+        .search-row input:focus { border-color: var(--accent); }
+        .date-range-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.75rem; }
+        .date-range-row label { font-size: 0.8125rem; color: #64748b; }
+        .date-range-row input[type="date"] { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; }
+        .btn-sm { padding: 0.35rem 0.75rem !important; font-size: 0.8125rem !important; }
+
+        /* Charts */
+        .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2.5rem; position: relative; height: 320px; }
+        .lookup-note { color: #64748b; font-size: 0.875rem; margin: 0.25rem 0 0.75rem; }
+        .bar-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
+        .bar-legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #334155; }
+        .bar-legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+        .chart-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.875rem; }
+
+        /* Classes tab */
+        .profile-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; }
+        .profile-row input { flex: 1; max-width: 300px; padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; }
+        .profile-row input:focus { border-color: var(--accent); }
+        .classes-header { display: flex; align-items: baseline; justify-content: space-between; margin: 2rem 0 0.75rem; }
+        .classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .class-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; background: #fff; }
+        .class-card-name { font-weight: 700; color: #0f172a; font-size: 0.9375rem; margin-bottom: 0.375rem; }
+        .class-card-meta { font-size: 0.8125rem; color: #64748b; margin-bottom: 1rem; }
+        .class-card-actions { display: flex; gap: 0.5rem; }
+        .classes-empty { color: #94a3b8; font-size: 0.9375rem; padding: 2rem 0; }
+
+        /* Roster table */
+        .roster-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2rem; }
+        .roster-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .roster-table th { background: #f8fafc; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .roster-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+        .roster-table tr:last-child td { border-bottom: none; }
+        .roster-table select { padding: 0.25rem 0.375rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; max-width: 220px; background: #fff; }
+        .activity-options { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.375rem; }
+        .activity-option { display: flex; align-items: center; padding: 0.45rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; color: #475569; transition: all 0.15s; user-select: none; }
+        .activity-option:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: var(--accent); font-weight: 600; }
+        .activity-option input[type="radio"] { display: none; }
+        .settings-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; background: #fff; margin-bottom: 2rem; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .settings-field { display: flex; flex-direction: column; gap: 0.375rem; }
+        .settings-label { font-size: 0.8125rem; font-weight: 600; color: #475569; }
+        .settings-field input[type="number"] { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; width: 100%; box-sizing: border-box; }
+        .settings-field input[type="number"]:focus { border-color: var(--accent); }
+        .settings-input-pct { display: flex; align-items: center; gap: 0.375rem; }
+        .settings-input-pct input { flex: 1; }
+        .settings-input-pct span { font-size: 0.9375rem; color: #64748b; }
+        .import-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+        .import-note { font-size: 0.75rem; color: #94a3b8; }
+        .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
+        .detail-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; }
+        .linked-notice { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #166534; margin-bottom: 1.5rem; }
+        .unlinked-notice { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #9a3412; margin-bottom: 1.5rem; }
+
+        /* Onboarding / setup */
+        .setup-wrap { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+        .setup-heading { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0 0 0.5rem; }
+        .setup-sub { color: #475569; font-size: 0.9375rem; margin: 0 0 1.5rem; }
+        .setup-steps { margin: 0; padding-left: 1.375rem; display: flex; flex-direction: column; gap: 0.5rem; color: #334155; font-size: 0.9375rem; }
+        .setup-steps li { line-height: 1.55; }
+        .setup-imported-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border); }
+        .setup-imported-row:last-child { border-bottom: none; }
+>>>>>>> origin/dev
     </style>
 </head>
 <body>
@@ -36,6 +114,7 @@
     <div id="login-view" class="landing" style="display:none">
         <div class="landing-card">
             <h1>Teacher Portal</h1>
+<<<<<<< HEAD
             <p>Enter the teacher password to access student data.</p>
             <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%">
                 <input type="password" id="password-input" placeholder="Password"
@@ -43,20 +122,228 @@
                 <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
             </div>
             <p class="landing-status" id="login-status" style="display:none;color:#dc2626"></p>
+=======
+            <p>Sign in with your school Google account (<strong>@hartfordschools.org</strong>) to access student data.</p>
+            <button class="btn btn-primary" id="teacher-sign-in-btn" onclick="handleTeacherSignIn()" disabled>Sign In with Google</button>
+            <p class="landing-status" id="login-status">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <!-- ── First-time setup wizard ─────────────────────────────────────────── -->
+    <div id="onboarding-view" style="display:none">
+        <div class="page-header">
+            <h1>Welcome to Teacher Portal</h1>
+            <p>Import your classes from PowerSchool to get started.</p>
+        </div>
+
+        <div class="setup-wrap">
+
+            <!-- Step: instructions + upload -->
+            <div id="setup-step" class="settings-card">
+                <p class="setup-heading">Import a Class from PowerSchool</p>
+                <p class="setup-sub">Follow these steps to export a scores template CSV from PowerSchool:</p>
+                <ol class="setup-steps">
+                    <li>Navigate to your class in PowerSchool</li>
+                    <li>Create a new assignment with the settings you would like</li>
+                    <li>Open the assignment</li>
+                    <li>Click the <strong>Gear icon</strong> in the top right</li>
+                    <li>Select <strong>&ldquo;Export Scores Template&rdquo;</strong></li>
+                    <li>Upload the output CSV below</li>
+                </ol>
+                <div class="import-row" style="margin-top:1.5rem">
+                    <label class="btn btn-primary" for="setup-csv-upload" style="cursor:pointer;margin:0">Upload CSV</label>
+                    <input type="file" id="setup-csv-upload" accept=".csv,.txt" style="display:none" onchange="handleSetupCSV(event)">
+                    <span class="import-note" id="setup-upload-note"></span>
+                </div>
+            </div>
+
+            <!-- Step: review parsed data before importing -->
+            <div id="setup-preview" class="settings-card" style="display:none">
+                <p class="setup-heading">Review Import</p>
+                <div id="setup-preview-content"></div>
+                <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+                    <button class="btn btn-primary" onclick="confirmSetupImport()">Import Class</button>
+                    <button class="btn btn-outline" onclick="cancelSetupPreview()">Back</button>
+                </div>
+            </div>
+
+            <!-- Step: imported list + options -->
+            <div id="setup-done-section" style="display:none">
+                <div class="section-title" style="margin-top:0">Imported Classes</div>
+                <div id="setup-imported-list" style="margin-bottom:1.5rem"></div>
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                    <button class="btn btn-outline" onclick="setupAddAnother()">+ Add Another Class</button>
+                    <button class="btn btn-primary" onclick="finishSetup()">Finish Setup &rarr;</button>
+                </div>
+            </div>
+
+            <p style="margin-top:1.5rem;font-size:0.8125rem;color:#94a3b8">
+                Already set up? <a href="#" onclick="finishSetup();return false" style="color:var(--accent)">Skip to portal &rarr;</a>
+            </p>
+>>>>>>> origin/dev
         </div>
     </div>
 
     <div id="portal-view" style="display:none">
         <div class="page-header">
             <h1>Teacher Portal</h1>
+<<<<<<< HEAD
             <p>Debug view &mdash; all stored data</p>
         </div>
         <div class="portal-wrap" id="data-content">
             <p style="color:var(--muted)">Loading&hellip;</p>
+=======
+            <p id="portal-subtitle">Debug view &mdash; all stored data</p>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-btn-data"    onclick="switchTab('data')">All Data</button>
+            <button class="tab-btn"        id="tab-btn-lookup"  onclick="switchTab('lookup')">Student Lookup</button>
+            <button class="tab-btn"        id="tab-btn-classes" onclick="switchTab('classes')">Classes</button>
+        </div>
+
+        <!-- ── All Data tab ──────────────────────────────────────────────────── -->
+        <div id="tab-data">
+            <div class="portal-wrap" id="data-content">
+                <p style="color:var(--muted)">Loading&hellip;</p>
+            </div>
+        </div>
+
+        <!-- ── Student Lookup tab ───────────────────────────────────────────── -->
+        <div id="tab-lookup" style="display:none">
+            <div class="portal-wrap">
+                <div class="search-row">
+                    <input type="text" id="lookup-input" placeholder="Enter user key&hellip;" />
+                    <button class="btn btn-primary" onclick="doLookup()">Search</button>
+                </div>
+
+                <div id="lookup-results" style="display:none">
+                    <div class="section-title">KenKen Score Over Time <span class="section-count" id="kenken-meta"></span></div>
+                    <p class="lookup-note">Average KenKen score per day.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="kenken-from" />
+                        <label>to</label><input type="date" id="kenken-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentKenKenChart()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="kenken-chart"></canvas></div>
+
+                    <div class="section-title">SAT Accuracy Over Time <span class="section-count" id="line-meta"></span></div>
+                    <p class="lookup-note">Accuracy % per domain per day.</p>
+                    <div class="chart-card"><canvas id="line-chart"></canvas></div>
+
+                    <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
+                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="bar-from" />
+                        <label>to</label><input type="date" id="bar-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentBarChart()">Apply</button>
+                    </div>
+                    <div class="bar-legend" id="bar-legend"></div>
+                    <div class="chart-card"><canvas id="bar-chart"></canvas></div>
+                </div>
+
+                <p id="lookup-message" style="display:none;color:#64748b;font-size:0.9375rem"></p>
+            </div>
+        </div>
+
+        <!-- ── Classes tab ───────────────────────────────────────────────────── -->
+        <div id="tab-classes" style="display:none">
+            <div class="portal-wrap">
+
+                <!-- Teacher profile -->
+                <div class="section-title">Your Profile</div>
+                <div class="profile-row">
+                    <input type="text" id="teacher-name-input" placeholder="Enter your name&hellip;" />
+                    <button class="btn btn-primary" onclick="saveProfile()">Save</button>
+                    <span id="profile-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                </div>
+
+                <!-- Gradebook settings -->
+                <div class="section-title">Gradebook Settings</div>
+                <div class="settings-card">
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label class="settings-label">Assignment Max Score</label>
+                            <input type="number" id="gs-max-score" min="0" step="1" placeholder="100" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Completion Score</label>
+                            <div class="settings-input-pct">
+                                <input type="number" id="gs-completion-pct" min="0" max="100" step="1" placeholder="100" />
+                                <span>%</span>
+                            </div>
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">No Submission Score</label>
+                            <div class="settings-input-pct">
+                                <input type="number" id="gs-no-sub-pct" min="0" max="100" step="1" placeholder="0" />
+                                <span>%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveGradebookSettings()">Save Settings</button>
+                        <span id="gs-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
+                <!-- Assignment requirements -->
+                <div class="section-title">Assignment Requirements</div>
+                <div class="settings-card">
+                    <div class="settings-field" style="margin-bottom:1.25rem">
+                        <label class="settings-label">Required Activity</label>
+                        <div class="activity-options">
+                            <label class="activity-option"><input type="radio" name="req-activity" value="kenken" onchange="updateActivityUI()"><span>KenKen</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="sat"    onchange="updateActivityUI()"><span>SAT Practice</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="both"   onchange="updateActivityUI()"><span>Both</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="either" onchange="updateActivityUI()"><span>Either</span></label>
+                        </div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-field" id="ar-kenken-field">
+                            <label class="settings-label">KenKen Submissions / Day</label>
+                            <input type="number" id="ar-kenken-count" min="1" step="1" placeholder="1" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-field">
+                            <label class="settings-label">SAT Submissions / Day</label>
+                            <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveAssignmentSettings()">Save Requirements</button>
+                        <span id="ar-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
+                <!-- Classes list -->
+                <div id="classes-list-view">
+                    <div class="classes-header">
+                        <span class="section-title" style="margin:0">Classes</span>
+                        <button class="btn btn-outline btn-sm" onclick="toggleNewClassForm()">+ New Class</button>
+                    </div>
+                    <div id="new-class-form" style="display:none;margin-bottom:1rem">
+                        <div class="search-row" style="margin-bottom:0">
+                            <input type="text" id="new-class-name-input" placeholder="Class name&hellip;" />
+                            <button class="btn btn-primary" onclick="createClass()">Create</button>
+                            <button class="btn btn-outline" onclick="toggleNewClassForm()">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="classes-grid"><p class="classes-empty">Loading&hellip;</p></div>
+                </div>
+
+                <!-- Class detail -->
+                <div id="class-detail-view" style="display:none">
+                    <button class="btn btn-outline btn-sm" onclick="showClassesList()" style="margin-bottom:1.5rem">&#8592; All Classes</button>
+                    <div id="class-detail-content"></div>
+                </div>
+
+            </div>
+>>>>>>> origin/dev
         </div>
     </div>
 
     <script>
+<<<<<<< HEAD
         fetch('/api/teacher/check')
             .then(r => r.ok ? showPortal() : showLogin())
             .catch(() => showLogin());
@@ -64,11 +351,70 @@
         function showLogin() {
             document.getElementById('login-view').style.display = 'flex';
         }
+=======
+        // ── Teacher OAuth ─────────────────────────────────────────────────────
+        const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
+        let teacherToken = null;
+        let tokenClient;
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/userinfo.email',
+                callback: '',
+            });
+            document.getElementById('teacher-sign-in-btn').disabled = false;
+            document.getElementById('login-status').style.display = 'none';
+        }
+
+        async function handleTeacherSignIn() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    document.getElementById('login-status').textContent = 'Sign in failed. Please try again.';
+                    document.getElementById('login-status').style.display = '';
+                    return;
+                }
+                teacherToken = resp.access_token;
+                const check = await teacherFetch('/api/teacher/check');
+                if (!check.ok) {
+                    document.getElementById('login-status').textContent = check.status === 403
+                        ? 'Access denied — teacher accounts only (@hartfordschools.org).'
+                        : 'Authentication failed.';
+                    document.getElementById('login-status').style.display = '';
+                    teacherToken = null;
+                    return;
+                }
+                const classesRes = await teacherFetch('/api/teacher/classes');
+                const existingClasses = await classesRes.json();
+                document.getElementById('login-view').style.display = 'none';
+                if (existingClasses.length === 0) {
+                    showOnboarding();
+                } else {
+                    showPortal();
+                }
+            };
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        function teacherFetch(path, options = {}) {
+            return fetch(path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + teacherToken,
+                    ...(options.headers || {}),
+                },
+            });
+        }
+
+        function showLogin() { document.getElementById('login-view').style.display = 'flex'; }
+>>>>>>> origin/dev
         function showPortal() {
             document.getElementById('portal-view').style.display = 'block';
             loadData();
         }
 
+<<<<<<< HEAD
         async function doLogin() {
             const pw = document.getElementById('password-input').value;
             const statusEl = document.getElementById('login-status');
@@ -94,6 +440,21 @@
 
         async function loadData() {
             const res = await fetch('/api/teacher/data');
+=======
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            if (document.getElementById('tab-lookup').style.display !== 'none') doLookup();
+            if (document.getElementById('new-class-form').style.display !== 'none') createClass();
+        });
+
+        showLogin();
+
+        // ── Data ─────────────────────────────────────────────────────────────
+        let rawData = null;
+
+        async function loadData() {
+            const res = await teacherFetch('/api/teacher/data');
+>>>>>>> origin/dev
             rawData = await res.json();
             renderAll();
         }
@@ -104,6 +465,7 @@
                 renderSection('Users',         rawData.users,  ['user_key','email','first_seen']) +
                 renderSection('KenKen Scores', rawData.kenken, ['id','user_key','email','score','size','submitted_at']) +
                 renderSection('SAT Scores',    rawData.sat,    ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
+<<<<<<< HEAD
             el.querySelectorAll('th[data-col]').forEach(th => {
                 th.addEventListener('click', () => sortTable(th));
             });
@@ -119,6 +481,16 @@
             ).join('');
             return `
                 <div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
+=======
+            el.querySelectorAll('th[data-col]').forEach(th => th.addEventListener('click', () => sortTable(th)));
+        }
+
+        function renderSection(title, rows, cols) {
+            const id    = title.replace(/\s+/g, '-').toLowerCase();
+            const heads = cols.map(c => `<th data-table="${id}" data-col="${c}">${c}</th>`).join('');
+            const body  = rows.map(r => '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>').join('');
+            return `<div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
+>>>>>>> origin/dev
                 <div class="portal-table-wrap">
                     <table class="portal-table" id="tbl-${id}">
                         <thead><tr>${heads}</tr></thead>
@@ -129,8 +501,12 @@
 
         function fmt(col, val) {
             if (val === null || val === undefined) return '&mdash;';
+<<<<<<< HEAD
             if (col === 'submitted_at' || col === 'first_seen')
                 return new Date(val).toLocaleString();
+=======
+            if (col === 'submitted_at' || col === 'first_seen') return new Date(val).toLocaleString();
+>>>>>>> origin/dev
             return String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
@@ -139,6 +515,7 @@
             const col     = th.getAttribute('data-col');
             const table   = document.getElementById('tbl-' + tableId);
             const wasAsc  = th.classList.contains('sort-asc');
+<<<<<<< HEAD
 
             table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
             th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
@@ -150,11 +527,974 @@
                 const av = a[col], bv = b[col];
                 if (av === bv) return 0;
                 return (av < bv ? -1 : 1) * (asc ? 1 : -1);
+=======
+            table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
+            th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
+            const asc = !wasAsc;
+            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : 'sat';
+            const cols    = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
+            const sorted  = [...rawData[dataKey]].sort((a, b) => {
+                const av = a[col], bv = b[col];
+                return av === bv ? 0 : (av < bv ? -1 : 1) * (asc ? 1 : -1);
+>>>>>>> origin/dev
             });
             table.querySelector('tbody').innerHTML = sorted.map(r =>
                 '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
             ).join('');
         }
+<<<<<<< HEAD
     </script>
+=======
+
+        // ── Tab switching ─────────────────────────────────────────────────────
+        const TAB_SUBTITLES = {
+            data:    'Debug view — all stored data',
+            lookup:  'SAT & KenKen performance breakdown by student',
+            classes: 'Manage classes and view cumulative performance',
+        };
+
+        function switchTab(tab) {
+            ['data','lookup','classes'].forEach(t => {
+                document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
+                document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+            });
+            document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab];
+            if (tab === 'classes') { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+        }
+
+        // ── Domain constants ──────────────────────────────────────────────────
+        const DOMAIN_DISPLAY = [
+            'Information and Ideas',
+            'Craft and Structure',
+            'Expression of Ideas',
+            'Standard English Conventions',
+        ];
+        const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        // ── Chart instance registry ───────────────────────────────────────────
+        const chartInst = {};
+
+        function destroyChart(id) {
+            if (chartInst[id]) { chartInst[id].destroy(); delete chartInst[id]; }
+        }
+
+        // ── Generic chart builders ────────────────────────────────────────────
+        function buildKenKenChart(canvasId, rows, fromId, toId) {
+            destroyChart(canvasId);
+            const from = document.getElementById(fromId)?.value || '';
+            const to   = document.getElementById(toId)?.value   || '';
+            const filtered = rows.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+
+            const byDate = {};
+            filtered.forEach(r => {
+                const d = r.submitted_at.substring(0, 10);
+                if (!byDate[d]) byDate[d] = { sum: 0, count: 0 };
+                byDate[d].sum   += Number(r.score);
+                byDate[d].count += 1;
+            });
+            const dates = Object.keys(byDate).sort();
+            const data  = dates.map(d => Math.round(byDate[d].sum / byDate[d].count));
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Avg Daily Score',
+                        data,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14,165,233,0.08)',
+                        pointBackgroundColor: '#0ea5e9',
+                        tension: 0.3, borderWidth: 2, pointRadius: 4, fill: true,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: i => `Avg score: ${i.raw}` } },
+                    },
+                    scales: {
+                        y: { title: { display: true, text: 'Score' } },
+                        x: { title: { display: true, text: 'Date' } },
+                    },
+                },
+            });
+        }
+
+        function buildSATLineChart(canvasId, rows) {
+            destroyChart(canvasId);
+            const byDateDomain = {};
+            rows.forEach(r => {
+                const d  = r.submitted_at.substring(0, 10);
+                const di = Number(r.domain_idx);
+                if (!byDateDomain[d]) byDateDomain[d] = {};
+                if (!byDateDomain[d][di]) byDateDomain[d][di] = { correct: 0, total: 0 };
+                byDateDomain[d][di].correct += Number(r.correct);
+                byDateDomain[d][di].total   += 1;
+            });
+            const dates = Object.keys(byDateDomain).sort();
+            const datasets = DOMAIN_DISPLAY.map((name, idx) => ({
+                label: name,
+                data: dates.map(d => {
+                    const e = byDateDomain[d]?.[idx];
+                    return e ? Math.round(e.correct / e.total * 100) : null;
+                }),
+                borderColor: DOMAIN_COLORS[idx],
+                backgroundColor: hexToRgba(DOMAIN_COLORS[idx], 0.08),
+                pointBackgroundColor: DOMAIN_COLORS[idx],
+                spanGaps: true, tension: 0.3, borderWidth: 2, pointRadius: 4, fill: false,
+            }));
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dates, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, font: { size: 12 } } },
+                        tooltip: { callbacks: { label: i => `${i.dataset.label}: ${i.raw}%` } },
+                    },
+                    scales: {
+                        y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Date' } },
+                    },
+                },
+            });
+        }
+
+        function buildSATBarChart(canvasId, rows, fromId, toId, legendId) {
+            destroyChart(canvasId);
+            const from = document.getElementById(fromId)?.value || '';
+            const to   = document.getElementById(toId)?.value   || '';
+            const filtered = rows.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+
+            const domainSkillMap = {};
+            const domainTotals  = {};
+            filtered.forEach(r => {
+                const di = Number(r.domain_idx);
+                const sk = r.skill || 'Unknown';
+                if (!domainSkillMap[di]) domainSkillMap[di] = {};
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                domainSkillMap[di][sk].correct += Number(r.correct);
+                domainTotals[di] = (domainTotals[di] || 0) + 1;
+            });
+
+            const alphas    = [1.0, 0.65, 0.42, 0.28];
+            const datasets  = [];
+            const legendItems = [];
+
+            DOMAIN_DISPLAY.forEach((_, di) => {
+                const skills = Object.keys(domainSkillMap[di] || {});
+                const total  = domainTotals[di] || 1;
+                skills.forEach((sk, si) => {
+                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const alpha = alphas[si] ?? 0.2;
+                    const bg    = hexToRgba(DOMAIN_COLORS[di], alpha);
+                    datasets.push({
+                        label: sk,
+                        data: DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
+                        backgroundColor: bg,
+                        borderColor: hexToRgba(DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
+                        borderWidth: 1, borderRadius: 2,
+                    });
+                    legendItems.push({ label: sk, color: bg });
+                });
+            });
+
+            if (legendId) {
+                document.getElementById(legendId).innerHTML = legendItems.map(it =>
+                    `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
+                ).join('');
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: DOMAIN_DISPLAY, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } },
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                    },
+                },
+            });
+        }
+
+        // ── Student Lookup ────────────────────────────────────────────────────
+        let lookupRows = [];
+        let kenkenRows = [];
+
+        function doLookup() {
+            const key   = document.getElementById('lookup-input').value.trim();
+            const msgEl = document.getElementById('lookup-message');
+            const resEl = document.getElementById('lookup-results');
+            if (!key) return;
+            if (!rawData) { msgEl.textContent = 'Data not loaded yet.'; msgEl.style.display = ''; return; }
+
+            lookupRows = rawData.sat.filter(r => r.user_key === key);
+            kenkenRows = rawData.kenken.filter(r => r.user_key === key);
+
+            if (lookupRows.length === 0 && kenkenRows.length === 0) {
+                resEl.style.display = 'none';
+                msgEl.textContent = `No data found for user key "${key}".`;
+                msgEl.style.display = '';
+                return;
+            }
+            msgEl.style.display = 'none';
+            resEl.style.display = '';
+
+            if (kenkenRows.length > 0) {
+                const kDates = kenkenRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('kenken-from').value = kDates[0];
+                document.getElementById('kenken-to').value   = kDates[kDates.length - 1];
+                document.getElementById('kenken-meta').textContent = `(${kenkenRows.length} puzzles)`;
+            }
+            if (lookupRows.length > 0) {
+                const sDates = lookupRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('bar-from').value = sDates[0];
+                document.getElementById('bar-to').value   = sDates[sDates.length - 1];
+                document.getElementById('line-meta').textContent = `(${lookupRows.length} answers)`;
+            }
+
+            renderStudentKenKenChart();
+            buildSATLineChart('line-chart', lookupRows);
+            renderStudentBarChart();
+        }
+
+        function renderStudentKenKenChart() { buildKenKenChart('kenken-chart', kenkenRows, 'kenken-from', 'kenken-to'); }
+        function renderStudentBarChart()    { buildSATBarChart('bar-chart', lookupRows, 'bar-from', 'bar-to', 'bar-legend'); }
+
+        // ── Classes ───────────────────────────────────────────────────────────
+        let classStudents = [];
+        let currentClassId = null;
+        let gradebookSettings = null;
+        let assignmentSettingsData = null;
+
+        async function loadGradebookSettings() {
+            const res  = await teacherFetch('/api/teacher/gradebook-settings');
+            const data = await res.json();
+            gradebookSettings = data;
+            document.getElementById('gs-max-score').value      = data.assignment_max_score;
+            document.getElementById('gs-completion-pct').value = data.completion_score_pct;
+            document.getElementById('gs-no-sub-pct').value     = data.no_submission_score_pct;
+        }
+
+        async function saveGradebookSettings() {
+            const assignment_max_score    = parseFloat(document.getElementById('gs-max-score').value);
+            const completion_score_pct    = parseFloat(document.getElementById('gs-completion-pct').value);
+            const no_submission_score_pct = parseFloat(document.getElementById('gs-no-sub-pct').value);
+            if ([assignment_max_score, completion_score_pct, no_submission_score_pct].some(isNaN)) {
+                alert('All three fields must be valid numbers.');
+                return;
+            }
+            await teacherFetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct }),
+            });
+            const msg = document.getElementById('gs-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        function updateActivityUI() {
+            const act = document.querySelector('input[name="req-activity"]:checked')?.value || 'either';
+            document.getElementById('ar-kenken-field').style.display = ['kenken','both','either'].includes(act) ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display    = ['sat','both','either'].includes(act)    ? '' : 'none';
+        }
+
+        async function loadAssignmentSettings() {
+            const res  = await teacherFetch('/api/teacher/assignment-settings');
+            const data = await res.json();
+            assignmentSettingsData = data;
+            const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
+            if (radio) radio.checked = true;
+            document.getElementById('ar-kenken-count').value = data.required_kenken_count;
+            document.getElementById('ar-sat-count').value    = data.required_sat_count;
+            updateActivityUI();
+        }
+
+        async function saveAssignmentSettings() {
+            const required_activity     = document.querySelector('input[name="req-activity"]:checked')?.value;
+            const required_kenken_count = parseInt(document.getElementById('ar-kenken-count').value) || 1;
+            const required_sat_count    = parseInt(document.getElementById('ar-sat-count').value)    || 1;
+            if (!required_activity) return;
+            await teacherFetch('/api/teacher/assignment-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count }),
+            });
+            const msg = document.getElementById('ar-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function loadProfile() {
+            const res  = await teacherFetch('/api/teacher/profile');
+            const data = await res.json();
+            document.getElementById('teacher-name-input').value = data.name || '';
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById('teacher-name-input').value.trim();
+            if (!name) return;
+            await teacherFetch('/api/teacher/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            const msg = document.getElementById('profile-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function loadClasses() {
+            const res  = await teacherFetch('/api/teacher/classes');
+            const list = await res.json();
+            renderClassCards(list);
+        }
+
+        function renderClassCards(list) {
+            const el = document.getElementById('classes-grid');
+            if (list.length === 0) {
+                el.innerHTML = '<p class="classes-empty">No classes yet. Create one above.</p>';
+                return;
+            }
+            el.innerHTML = list.map(c => `
+                <div class="class-card">
+                    <div class="class-card-name">${esc(c.name)}</div>
+                    <div class="class-card-meta">${c.student_count} student${c.student_count !== 1 ? 's' : ''} &middot; ${c.linked_count} linked</div>
+                    <div class="class-card-actions">
+                        <button class="btn btn-outline btn-sm" onclick="viewClass(${c.id})">View</button>
+                        <button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="deleteClass(${c.id}, this)">Delete</button>
+                    </div>
+                </div>`
+            ).join('');
+        }
+
+        function toggleNewClassForm() {
+            const f = document.getElementById('new-class-form');
+            f.style.display = f.style.display === 'none' ? '' : 'none';
+            if (f.style.display !== 'none') document.getElementById('new-class-name-input').focus();
+        }
+
+        async function createClass() {
+            const name = document.getElementById('new-class-name-input').value.trim();
+            if (!name) return;
+            const res  = await teacherFetch('/api/teacher/classes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            const cls = await res.json();
+            document.getElementById('new-class-name-input').value = '';
+            toggleNewClassForm();
+            loadClasses();
+        }
+
+        async function deleteClass(id, btn) {
+            if (!confirm('Delete this class and its entire roster?')) return;
+            btn.disabled = true;
+            await teacherFetch('/api/teacher/classes/' + id, { method: 'DELETE' });
+            loadClasses();
+        }
+
+        async function viewClass(id) {
+            currentClassId = id;
+            document.getElementById('classes-list-view').style.display  = 'none';
+            document.getElementById('class-detail-view').style.display  = '';
+            document.getElementById('class-detail-content').innerHTML   = '<p style="color:var(--muted)">Loading&hellip;</p>';
+
+            const res = await teacherFetch('/api/teacher/classes/' + id);
+            const cls = await res.json();
+            classStudents = cls.students;
+            renderClassDetail(cls);
+        }
+
+        function showClassesList() {
+            // Destroy any class charts
+            ['class-kenken-chart','class-line-chart','class-bar-chart'].forEach(destroyChart);
+            currentClassId = null;
+            classStudents  = [];
+            document.getElementById('class-detail-view').style.display = 'none';
+            document.getElementById('classes-list-view').style.display = '';
+            loadClasses();
+        }
+
+        function renderClassDetail(cls) {
+            const linkedCount = cls.students.filter(s => s.user_key).length;
+            const userOptions = (rawData?.users || []).map(u =>
+                `<option value="${esc(u.user_key)}">${esc(u.email)}</option>`
+            ).join('');
+
+            const rosterRows = cls.students.map(s => {
+                const selected = s.user_key ? `value="${esc(s.user_key)}" ` : '';
+                return `<tr>
+                    <td>${esc(s.student_id)}</td>
+                    <td>${esc(s.student_name)}</td>
+                    <td>
+                        <select onchange="linkStudent(${cls.id}, '${esc(s.student_id)}', this.value)">
+                            <option value="">&#8212; Not linked &#8212;</option>
+                            ${userOptions.replace(`value="${esc(s.user_key || '')}"`, `value="${esc(s.user_key || '')}" selected`)}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" style="color:#dc2626"
+                            onclick="removeStudent(${cls.id}, '${esc(s.student_id)}', this)">Remove</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            const notice = linkedCount > 0
+                ? `<div class="linked-notice">${linkedCount} of ${cls.students.length} students linked to app accounts &mdash; charts below show their combined data.</div>`
+                : cls.students.length > 0
+                    ? `<div class="unlinked-notice">No students are linked to app accounts yet. Use the dropdowns in the roster to connect school IDs to app logins before charts will appear.</div>`
+                    : '';
+
+            const chartsHTML = linkedCount > 0 ? `
+                <div class="section-title">Class KenKen Score Over Time</div>
+                <p class="lookup-note">Average daily score across all linked students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-kenken-from" />
+                    <label>to</label><input type="date" id="class-kenken-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassKenKenChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-kenken-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Accuracy Over Time</div>
+                <p class="lookup-note">Accuracy % per domain per day across all linked students.</p>
+                <div class="chart-card"><canvas id="class-line-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Accuracy by Domain &amp; Skill</div>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-bar-from" />
+                    <label>to</label><input type="date" id="class-bar-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="class-bar-legend"></div>
+                <div class="chart-card"><canvas id="class-bar-chart"></canvas></div>
+            ` : '';
+
+            const exportHTML = cls.students.length > 0 ? `
+                <div class="section-title">Export Grades to PowerSchool</div>
+                <div class="settings-card">
+                    <div class="settings-grid" style="margin-bottom:1rem">
+                        <div class="settings-field">
+                            <label class="settings-label">Assignment Name</label>
+                            <input type="text" id="export-assign-name" placeholder="Week 1 Assignment"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;outline:none;width:100%;box-sizing:border-box" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Due Date</label>
+                            <input type="date" id="export-due-date"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;outline:none;width:100%;box-sizing:border-box" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Score Type</label>
+                            <select id="export-score-type"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;background:#fff;width:100%;box-sizing:border-box">
+                                <option value="POINTS">Points</option>
+                                <option value="PERCENT">Percent</option>
+                                <option value="LETTER">Letter Grade</option>
+                                <option value="COMPLETION">Completion</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="date-range-row">
+                        <label>Score range</label>
+                        <label>From</label><input type="date" id="export-from" />
+                        <label>to</label><input type="date" id="export-to" />
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.625rem 0 1rem">
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('week')">This Week</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('lastweek')">Last Week</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('2weeks')">Last 2 Weeks</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('month')">Last Month</button>
+                    </div>
+                    <button class="btn btn-primary" onclick="exportGrades(${cls.id})">Export CSV</button>
+                </div>
+            ` : '';
+
+            document.getElementById('class-detail-content').innerHTML = `
+                <div class="detail-header">
+                    <h2 class="detail-title">${esc(cls.name)}</h2>
+                    <div class="import-row">
+                        <label class="btn btn-outline btn-sm" for="csv-upload" style="cursor:pointer;margin:0">Import CSV</label>
+                        <input type="file" id="csv-upload" accept=".csv,.txt" style="display:none"
+                            onchange="handleCSVUpload(event, ${cls.id})" />
+                        <span class="import-note">Two columns: student ID, student name</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Roster <span class="section-count">(${cls.students.length} students)</span></div>
+                ${cls.students.length > 0 ? `
+                <div class="roster-wrap">
+                    <table class="roster-table">
+                        <thead><tr><th>Student ID</th><th>Name</th><th>Linked Account</th><th></th></tr></thead>
+                        <tbody>${rosterRows}</tbody>
+                    </table>
+                </div>` : '<p class="classes-empty" style="margin-bottom:1rem">No students yet.</p>'}
+
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+                    <input type="text" id="add-student-id"   placeholder="Student ID"
+                        style="width:120px;padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none" />
+                    <input type="text" id="add-student-name" placeholder="Student Name"
+                        style="flex:1;min-width:180px;padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none" />
+                    <button class="btn btn-outline btn-sm" onclick="addStudentManually(${cls.id})">Add Student</button>
+                </div>
+
+                ${notice}
+                ${chartsHTML}
+                ${exportHTML}
+            `;
+
+            if (linkedCount > 0) renderClassCharts();
+        }
+
+        function renderClassCharts() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            const kkRows   = rawData.kenken.filter(r => userKeys.has(r.user_key));
+            const satRows  = rawData.sat.filter(r => userKeys.has(r.user_key));
+
+            if (kkRows.length > 0) {
+                const kDates = kkRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('class-kenken-from').value = kDates[0];
+                document.getElementById('class-kenken-to').value   = kDates[kDates.length - 1];
+            }
+            if (satRows.length > 0) {
+                const sDates = satRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('class-bar-from').value = sDates[0];
+                document.getElementById('class-bar-to').value   = sDates[sDates.length - 1];
+            }
+
+            renderClassKenKenChart();
+            buildSATLineChart('class-line-chart', satRows);
+            renderClassBarChart();
+        }
+
+        function renderClassKenKenChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildKenKenChart('class-kenken-chart', rawData.kenken.filter(r => userKeys.has(r.user_key)), 'class-kenken-from', 'class-kenken-to');
+        }
+
+        function renderClassBarChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildSATBarChart('class-bar-chart', rawData.sat.filter(r => userKeys.has(r.user_key)), 'class-bar-from', 'class-bar-to', 'class-bar-legend');
+        }
+
+        // ── Student linking ───────────────────────────────────────────────────
+        async function linkStudent(classId, studentId, userKey) {
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_key: userKey || null }),
+            });
+            // Update local state and re-render charts
+            const s = classStudents.find(s => s.student_id === studentId);
+            if (s) s.user_key = userKey || null;
+            const linkedCount = classStudents.filter(s => s.user_key).length;
+            if (linkedCount > 0) renderClassCharts();
+        }
+
+        async function addStudentManually(classId) {
+            const idInput   = document.getElementById('add-student-id');
+            const nameInput = document.getElementById('add-student-name');
+            const studentId   = idInput.value.trim();
+            const studentName = nameInput.value.trim();
+            if (!studentId || !studentName) { alert('Both Student ID and Name are required.'); return; }
+            const res  = await teacherFetch(`/api/teacher/classes/${classId}/students`, {
+                method: 'POST',
+                body: JSON.stringify({ students: [{ student_id: studentId, student_name: studentName }] }),
+            });
+            const data = await res.json();
+            if (data.added === 0) { alert('That Student ID already exists in this class.'); return; }
+            idInput.value = '';
+            nameInput.value = '';
+            viewClass(classId); // re-fetch so roster re-sorts alphabetically
+        }
+
+        async function removeStudent(classId, studentId, btn) {
+            btn.disabled = true;
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'DELETE',
+            });
+            classStudents = classStudents.filter(s => s.student_id !== studentId);
+            btn.closest('tr').remove();
+        }
+
+        // ── CSV import ────────────────────────────────────────────────────────
+        function parseCSV(text) {
+            const headerPattern = /^(id|student.?id|student.?number|student.?name|name|#|no\.?)$/i;
+            const students = [];
+            for (const line of text.trim().split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                const cols = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+                const id   = cols[0];
+                const name = cols.slice(1).join(' ').trim();
+                if (!id || headerPattern.test(id)) continue;
+                students.push({ student_id: id, student_name: name || id });
+            }
+            return students;
+        }
+
+        async function handleCSVUpload(event, classId) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const text     = await file.text();
+            const students = parseCSV(text);
+            if (students.length === 0) { alert('No valid rows found. Check that the CSV has two columns: student ID, student name.'); return; }
+
+            const res  = await teacherFetch(`/api/teacher/classes/${classId}/students`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ students }),
+            });
+            const data = await res.json();
+            alert(`Imported ${data.added} new student${data.added !== 1 ? 's' : ''} (duplicates skipped).`);
+            event.target.value = '';
+            viewClass(classId);
+        }
+
+        // ── Grade export ──────────────────────────────────────────────────────
+        function setExportRange(preset) {
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const dow = today.getDay(); // 0=Sun, 1=Mon…5=Fri, 6=Sat
+            const toMon = dow === 0 ? -6 : 1 - dow;
+            const thisMon = new Date(today); thisMon.setDate(today.getDate() + toMon);
+            const thisFri = new Date(thisMon); thisFri.setDate(thisMon.getDate() + 4);
+            const lastMon = new Date(thisMon); lastMon.setDate(thisMon.getDate() - 7);
+            const lastFri = new Date(lastMon);  lastFri.setDate(lastMon.getDate() + 4);
+            let from, to;
+            if (preset === 'week') {
+                from = thisMon; to = thisFri;           // Mon–Fri of current week
+            } else if (preset === 'lastweek') {
+                from = lastMon; to = lastFri;           // Mon–Fri of last week
+            } else if (preset === '2weeks') {
+                from = new Date(today); from.setDate(today.getDate() - 13);
+                to   = today;
+            } else {
+                from = new Date(today); from.setDate(today.getDate() - 29);
+                to   = today;
+            }
+            document.getElementById('export-from').value = fmt(from);
+            document.getElementById('export-to').value   = fmt(to);
+        }
+
+        function countWeekdays(fromDateStr, toDateStr) {
+            let count = 0;
+            const d = new Date(fromDateStr + 'T00:00:00');
+            const end = new Date(toDateStr + 'T00:00:00');
+            while (d <= end) {
+                const day = d.getDay();
+                if (day >= 1 && day <= 5) count++;
+                d.setDate(d.getDate() + 1);
+            }
+            return count;
+        }
+
+        function gradeForStudent(userKey, fromDate, toDate, as, expectedDays, maxScore, completionScore, noSubScore) {
+            const allKenken = rawData.kenken.filter(r => r.user_key === userKey);
+            const avgKenken = allKenken.length
+                ? allKenken.reduce((s, r) => s + Number(r.score), 0) / allKenken.length : 0;
+
+            const kenkenQ = allKenken.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return d >= fromDate && d <= toDate && Number(r.score) >= avgKenken;
+            }).length;
+            const satQ = rawData.sat.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
+            }).length;
+
+            const act = as.required_activity;
+            const kReq = (as.required_kenken_count ?? 1) * expectedDays;
+            const sReq = (as.required_sat_count    ?? 1) * expectedDays;
+
+            let rawPct, qualifying, requiredMet;
+            if (act === 'kenken') {
+                qualifying = kenkenQ; rawPct = kenkenQ / kReq; requiredMet = kenkenQ >= kReq;
+            } else if (act === 'sat') {
+                qualifying = satQ;    rawPct = satQ / sReq;    requiredMet = satQ >= sReq;
+            } else if (act === 'both') {
+                qualifying = kenkenQ + satQ;
+                rawPct = ((kenkenQ / kReq) + (satQ / sReq)) / 2;
+                requiredMet = kenkenQ >= kReq && satQ >= sReq;
+            } else { // either
+                qualifying = kenkenQ + satQ;
+                rawPct = Math.max(kenkenQ / kReq, satQ / sReq);
+                requiredMet = kenkenQ >= kReq || satQ >= sReq;
+            }
+
+            const rawScore = Math.min(rawPct, 1) * maxScore;
+            let points;
+            if (qualifying === 0)          points = noSubScore;
+            else if (rawScore < completionScore) points = completionScore;
+            else                           points = rawScore;
+
+            return { points, requiredMet };
+        }
+
+        function formatScore(points, requiredMet, maxScore, noSubScore, scoreType) {
+            if (scoreType === 'COMPLETION') return requiredMet ? maxScore : noSubScore;
+            const pct = points / maxScore * 100;
+            if (scoreType === 'PERCENT')  return Math.round(pct);
+            if (scoreType === 'LETTER') {
+                if (pct >= 90) return 'A';
+                if (pct >= 80) return 'B';
+                if (pct >= 70) return 'C';
+                if (pct >= 60) return 'D';
+                return 'F';
+            }
+            return Math.round(points * 100) / 100; // POINTS
+        }
+
+        async function exportGrades(classId) {
+            const assignName = document.getElementById('export-assign-name').value.trim();
+            const dueDate    = document.getElementById('export-due-date').value;
+            const scoreType  = document.getElementById('export-score-type').value;
+            const fromDate   = document.getElementById('export-from').value;
+            const toDate     = document.getElementById('export-to').value;
+            if (!assignName || !dueDate || !fromDate || !toDate) {
+                alert('Please fill in Assignment Name, Due Date, and the score range.');
+                return;
+            }
+
+            // Fetch settings in parallel (get fresh copies in case they changed)
+            const [gsData, asData, profileData] = await Promise.all([
+                teacherFetch('/api/teacher/gradebook-settings').then(r => r.json()),
+                teacherFetch('/api/teacher/assignment-settings').then(r => r.json()),
+                teacherFetch('/api/teacher/profile').then(r => r.json()),
+            ]);
+
+            const maxScore       = gsData.assignment_max_score    ?? 100;
+            const completionScore = maxScore * (gsData.completion_score_pct    ?? 100) / 100;
+            const noSubScore      = maxScore * (gsData.no_submission_score_pct ??   0) / 100;
+
+            // Expected school days: count Mon–Fri in range, assume 4 of 5 are submission days
+            const weekdays    = countWeekdays(fromDate, toDate);
+            const expectedDays = Math.max(1, Math.round(weekdays * 4 / 5));
+
+            // Grade each student
+            const cls = await teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json());
+            const rows = cls.students.map(s => {
+                let score;
+                if (!s.user_key) {
+                    score = formatScore(noSubScore, false, maxScore, noSubScore, scoreType);
+                } else {
+                    const { points, requiredMet } = gradeForStudent(
+                        s.user_key, fromDate, toDate, asData, expectedDays, maxScore, completionScore, noSubScore
+                    );
+                    score = formatScore(points, requiredMet, maxScore, noSubScore, scoreType);
+                }
+                return { student_id: s.student_id, student_name: s.student_name, score };
+            });
+
+            // Build PowerSchool CSV
+            const csvEsc = v => { const s = String(v); return (s.includes(',') || s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
+            const lines = [
+                `Teacher Name:,${csvEsc(profileData.name)},`,
+                `Class:,${csvEsc(cls.name)},`,
+                `Assignment Name:,${csvEsc(assignName)},`,
+                `Due Date:,${dueDate},`,
+                `Points Possible:,${maxScore},`,
+                `Extra Points:,0,`,
+                `Score Type:,${scoreType},`,
+                'Student Num,Student Name,Score',
+                ...rows.map(r => `${r.student_id},${csvEsc(r.student_name)},${r.score}`),
+            ];
+            const csv  = lines.join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `${cls.name.replace(/\s+/g,'_')}_${assignName.replace(/\s+/g,'_')}_${dueDate}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ── Utilities ─────────────────────────────────────────────────────────
+        function esc(str) {
+            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+
+        // ── Onboarding / first-time setup ─────────────────────────────────────
+        function showOnboarding() {
+            document.getElementById('onboarding-view').style.display = 'block';
+        }
+
+        function finishSetup() {
+            document.getElementById('onboarding-view').style.display = 'none';
+            showPortal();
+        }
+
+        let setupParsed = null;
+        const setupImportedClasses = [];
+
+        function parsePowerSchoolCSV(text) {
+            function parseRow(line) {
+                const cols = [];
+                let field = '', inQ = false;
+                for (let i = 0; i < line.length; i++) {
+                    if (line[i] === '"') { inQ = !inQ; }
+                    else if (line[i] === ',' && !inQ) { cols.push(field.trim()); field = ''; }
+                    else { field += line[i]; }
+                }
+                cols.push(field.trim());
+                return cols;
+            }
+            const lines = text.trim().split(/\r?\n/);
+            if (lines.length < 8) return null;
+            const teacherName = parseRow(lines[0])[1] || '';
+            const className   = parseRow(lines[1])[1] || '';
+            const maxScore    = parseFloat(parseRow(lines[4])[1]) || 100;
+            // Row 7 is the header (Student Num, Student Name, Score); students start at row 8
+            const students = [];
+            for (let i = 8; i < lines.length; i++) {
+                const cols = parseRow(lines[i]);
+                const id   = cols[0]?.trim();
+                const name = cols[1]?.trim();
+                if (!id || !/^\d+$/.test(id)) continue;
+                students.push({ student_id: id, student_name: name || id });
+            }
+            return { teacherName, className, maxScore, students };
+        }
+
+        function handleSetupCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('setup-upload-note').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const parsed = parsePowerSchoolCSV(e.target.result);
+                if (!parsed || !parsed.className) {
+                    alert('Could not read the CSV. Make sure it is a PowerSchool scores template.');
+                    event.target.value = '';
+                    return;
+                }
+                setupParsed = parsed;
+                showSetupPreview(parsed);
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function showSetupPreview(parsed) {
+            document.getElementById('setup-preview-content').innerHTML = `
+                <div class="settings-grid" style="margin-bottom:0.5rem">
+                    <div class="settings-field">
+                        <span class="settings-label">Class Name</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.className)}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Teacher Name</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.teacherName) || '&mdash;'}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Points Possible</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.maxScore}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Students Found</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.students.length}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('setup-step').style.display = 'none';
+            document.getElementById('setup-preview').style.display = '';
+        }
+
+        async function confirmSetupImport() {
+            if (!setupParsed) return;
+            const { teacherName, className, maxScore, students } = setupParsed;
+
+            // Set teacher name on first import if profile is empty
+            if (teacherName) {
+                const profileData = await (await teacherFetch('/api/teacher/profile')).json();
+                if (!profileData.name) {
+                    await teacherFetch('/api/teacher/profile', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: teacherName }),
+                    });
+                }
+            }
+
+            // Set gradebook max score from CSV
+            const gsData = await (await teacherFetch('/api/teacher/gradebook-settings')).json();
+            await teacherFetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    assignment_max_score:    maxScore,
+                    completion_score_pct:    gsData.completion_score_pct    ?? 100,
+                    no_submission_score_pct: gsData.no_submission_score_pct ?? 0,
+                }),
+            });
+
+            // Create the class
+            const cls = await (await teacherFetch('/api/teacher/classes', {
+                method: 'POST',
+                body: JSON.stringify({ name: className }),
+            })).json();
+
+            // Import students
+            if (students.length > 0) {
+                await teacherFetch(`/api/teacher/classes/${cls.id}/students`, {
+                    method: 'POST',
+                    body: JSON.stringify({ students }),
+                });
+            }
+
+            setupImportedClasses.push({ name: className, student_count: students.length });
+            setupParsed = null;
+            showSetupDone();
+        }
+
+        function cancelSetupPreview() {
+            setupParsed = null;
+            document.getElementById('setup-preview').style.display = 'none';
+            document.getElementById('setup-step').style.display = '';
+        }
+
+        function showSetupDone() {
+            document.getElementById('setup-preview').style.display = 'none';
+            document.getElementById('setup-step').style.display = 'none';
+            document.getElementById('setup-imported-list').innerHTML = setupImportedClasses.map(c => `
+                <div class="setup-imported-row">
+                    <span style="font-weight:600;color:#0f172a;flex:1">${esc(c.name)}</span>
+                    <span style="color:#64748b;font-size:0.8125rem">${c.student_count} student${c.student_count !== 1 ? 's' : ''}</span>
+                </div>
+            `).join('');
+            document.getElementById('setup-done-section').style.display = '';
+        }
+
+        function setupAddAnother() {
+            document.getElementById('setup-done-section').style.display = 'none';
+            document.getElementById('setup-step').style.display = '';
+        }
+    </script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+>>>>>>> origin/dev
 </body>
 </html>

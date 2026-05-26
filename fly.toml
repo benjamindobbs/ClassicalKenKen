@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for classicalkenken on 2026-05-22T02:13:01Z
+# fly.toml app configuration file generated for classicalkenken-g0z3ra on 2026-05-26T12:10:35Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'classicalkenken'
-primary_region = 'iad'
+app = 'classicalkenken-g0z3ra'
+primary_region = 'ewr'
 
 [build]
 

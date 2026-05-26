@@ -29,11 +29,13 @@
                 <span class="app-card-label">Math &amp; Logic</span>
                 <h2>KenKen Puzzles</h2>
                 <p>Adaptive puzzles that scale with your skill level to sharpen logic and arithmetic</p>
+                <div id="kenken-badge" class="daily-badge" style="display:none"></div>
             </a>
             <a class="app-card" href="./SAT-Questions/english.html">
                 <span class="app-card-label">Test Prep</span>
                 <h2>SAT Practice</h2>
                 <p>Targeted English reading and writing questions matched to your current level</p>
+                <div id="sat-badge" class="daily-badge" style="display:none"></div>
             </a>
             <a class="app-card" href="./Skill-Maps/index.html">
                 <span class="app-card-label">Course Tools</span>
@@ -47,6 +49,34 @@
             </a>
         </div>
     </div>
+
+    <script>
+        (async () => {
+            try {
+                const res = await fetch('/api/student/daily-progress');
+                if (!res.ok) return;
+                const { settings, remaining } = await res.json();
+                if (!settings) return;
+
+                const act = settings.required_activity;
+                if (['kenken', 'both', 'either'].includes(act)) setBadge('kenken-badge', remaining.kenken);
+                if (['sat',    'both', 'either'].includes(act)) setBadge('sat-badge',    remaining.sat);
+            } catch (_) {}
+        })();
+
+        function setBadge(id, remaining) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (remaining === 0) {
+                el.textContent = 'Done for today!';
+                el.className   = 'daily-badge daily-badge--done';
+            } else {
+                el.textContent = remaining + ' left today';
+                el.className   = 'daily-badge daily-badge--remaining';
+            }
+            el.style.display = '';
+        }
+    </script>
 
     <div class="footer-strip">
         <span>Applied Technology &amp; Advanced Manufacturing Pathways</span>
