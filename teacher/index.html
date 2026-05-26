@@ -218,6 +218,12 @@
                     </div>
                     <div class="bar-legend" id="bar-legend"></div>
                     <div class="chart-card"><canvas id="bar-chart"></canvas></div>
+
+                    <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+                        <div class="section-title" style="color:#dc2626">Danger Zone</div>
+                        <p style="font-size:0.875rem;color:#64748b;margin:0.375rem 0 0.875rem">Permanently deletes all KenKen and SAT scores for this user. The student will need to sign in again and will start fresh. This cannot be undone.</p>
+                        <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="clearUserData()">Clear All Data for This Student</button>
+                    </div>
                 </div>
 
                 <p id="lookup-message" style="display:none;color:#64748b;font-size:0.9375rem"></p>
@@ -682,6 +688,18 @@
 
         function renderStudentKenKenChart() { buildKenKenChart('kenken-chart', kenkenRows, 'kenken-from', 'kenken-to'); }
         function renderStudentBarChart()    { buildSATBarChart('bar-chart', lookupRows, 'bar-from', 'bar-to', 'bar-legend'); }
+
+        async function clearUserData() {
+            const key = document.getElementById('lookup-input').value.trim();
+            if (!key) return;
+            if (!confirm(`Permanently delete all scores and sessions for "${key}"? This cannot be undone.`)) return;
+            const res = await teacherFetch(`/api/teacher/users/${encodeURIComponent(key)}`, { method: 'DELETE' });
+            if (!res.ok) { alert('Delete failed.'); return; }
+            document.getElementById('lookup-results').style.display = 'none';
+            document.getElementById('lookup-input').value = '';
+            rawData = null;
+            await loadData();
+        }
 
         // ── Classes ───────────────────────────────────────────────────────────
         let classStudents = [];

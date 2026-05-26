@@ -182,6 +182,17 @@ router.delete('/classes/:classId/students/:studentId', requireTeacher, (req, res
     res.json({ ok: true });
 });
 
+// ── Clear user data ───────────────────────────────────────────────────────────
+router.delete('/users/:userKey', requireTeacher, (req, res) => {
+    const { userKey } = req.params;
+    db.prepare('DELETE FROM kenken_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM sat_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM sessions WHERE user_key = ?').run(userKey);
+    db.prepare('UPDATE class_students SET user_key = NULL WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM users WHERE user_key = ?').run(userKey);
+    res.json({ ok: true });
+});
+
 // ── All data ──────────────────────────────────────────────────────────────────
 router.get('/data', requireTeacher, (_req, res) => {
     const users  = db.prepare('SELECT * FROM users ORDER BY user_key').all();
