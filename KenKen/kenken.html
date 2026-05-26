@@ -6,80 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="../assets/favicon.ico">
     <link rel="stylesheet" href="../assets/style.css">
-    <style>
-        .game-header {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 0.875rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-
-        .game-title {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .auth-controls {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .game-controls {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.75rem 2rem;
-            background: #f8fafc;
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-        }
-
-        .timer-display {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: #0f172a;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .timer-label {
-            font-size: 0.8125rem;
-            color: var(--muted);
-        }
-
-        #container {
-            padding: 2rem;
-            min-height: 400px;
-        }
-
-        .game-footer {
-            padding: 0.875rem 2rem;
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        #playerData {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #0f172a;
-            margin: 0;
-        }
-
-        #submitMessage {
-            font-size: 0.8125rem;
-            color: var(--muted);
-            margin: 0;
-        }
-    </style>
-    <script src="submitscore.js"></script>
 </head>
 <body>
     <nav class="nav">
@@ -92,31 +18,43 @@
         </div>
     </nav>
 
-    <div class="game-header">
-        <span class="game-title">Classical KenKen</span>
-        <div class="auth-controls">
-            <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
-            <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()">Start Game</button>
+    <div id="landing" class="landing">
+        <div class="landing-card">
+            <h1>Classical KenKen</h1>
+            <p>Sign in with your school Google account to save scores and receive puzzles matched to your level, or play locally without an account.</p>
+            <div class="landing-actions">
+                <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+                <button class="btn btn-outline" id="local_button" onclick="playLocally()">Play Locally</button>
+            </div>
+            <p class="landing-status" id="landing_status">Loading&hellip;</p>
         </div>
     </div>
 
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <div id="game-ui" style="display:none">
+        <div class="game-header">
+            <span class="game-title">Classical KenKen</span>
+            <div class="auth-controls">
+                <span id="playerData" style="font-size:0.875rem;font-weight:600;color:#0f172a;"></span>
+                <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+            </div>
+        </div>
+
+        <div class="game-controls">
+            <button class="btn btn-primary" id="create_button" onclick="startGame()">New Game</button>
+            <button class="btn btn-outline" id="clear_button" onclick="hide()">Reset</button>
+            <span class="timer-label">Time:</span>
+            <span class="timer-display"><span id="time"></span>s</span>
+        </div>
+
+        <div id="container"></div>
+
+        <div class="game-footer">
+            <p id="submitMessage"></p>
+        </div>
+    </div>
+
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
-    <div class="game-controls">
-        <button class="btn btn-primary" id="create_button" onclick="startGame()">New Game</button>
-        <button class="btn btn-outline" id="clear_button" onclick="hide()">Reset</button>
-        <span class="timer-label">Time:</span>
-        <span class="timer-display"><span id="time"></span>s</span>
-    </div>
-
-    <div id="container"></div>
-
-    <div class="game-footer">
-        <h3 id="playerData"></h3>
-        <h5 id="submitMessage"></h5>
-    </div>
-
-    <script src="kenken.js"></script>
+    <script src="../js/submitscore.js"></script>
+    <script src="../js/kenken.js"></script>
 </body>
 </html>
