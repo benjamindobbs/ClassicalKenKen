@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Teacher Portal &mdash; Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../assets/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        .portal-wrap { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+        .portal-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2.5rem; }
+        .portal-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .portal-table th { background: #f8fafc; padding: 0.625rem 0.875rem; text-align: left; font-weight: 600; color: #475569; cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid var(--border); }
+        .portal-table th:hover { background: #f1f5f9; color: #0f172a; }
+        .portal-table th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+        .portal-table th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+        .portal-table td { padding: 0.5rem 0.875rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .portal-table tr:last-child td { border-bottom: none; }
+        .portal-table tr:hover td { background: #f8fafc; }
+        .section-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 2rem 0 0.625rem; }
+        .section-count { font-size: 0.875rem; font-weight: 400; color: #64748b; margin-left: 0.4rem; }
+
+        /* Tabs */
+        .tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 1.5rem; max-width: 1200px; margin: 0 auto; }
+        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #64748b; cursor: pointer; margin-bottom: -1px; transition: color 0.15s; }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-btn:hover:not(.active) { color: #0f172a; }
+
+        /* Shared form rows */
+        .search-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; }
+        .search-row input[type="text"] { flex: 1; max-width: 360px; padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; }
+        .search-row input:focus { border-color: var(--accent); }
+        .date-range-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.75rem; }
+        .date-range-row label { font-size: 0.8125rem; color: #64748b; }
+        .date-range-row input[type="date"] { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; }
+        .btn-sm { padding: 0.35rem 0.75rem !important; font-size: 0.8125rem !important; }
+
+        /* Charts */
+        .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2.5rem; position: relative; height: 320px; }
+        .lookup-note { color: #64748b; font-size: 0.875rem; margin: 0.25rem 0 0.75rem; }
+        .bar-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
+        .bar-legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #334155; }
+        .bar-legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+        .chart-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.875rem; }
+
+        /* Classes tab */
+        .profile-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; }
+        .profile-row input { flex: 1; max-width: 300px; padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; }
+        .profile-row input:focus { border-color: var(--accent); }
+        .classes-header { display: flex; align-items: baseline; justify-content: space-between; margin: 2rem 0 0.75rem; }
+        .classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .class-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; background: #fff; }
+        .class-card-name { font-weight: 700; color: #0f172a; font-size: 0.9375rem; margin-bottom: 0.375rem; }
+        .class-card-meta { font-size: 0.8125rem; color: #64748b; margin-bottom: 1rem; }
+        .class-card-actions { display: flex; gap: 0.5rem; }
+        .classes-empty { color: #94a3b8; font-size: 0.9375rem; padding: 2rem 0; }
+
+        /* Roster table */
+        .roster-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2rem; }
+        .roster-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .roster-table th { background: #f8fafc; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .roster-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+        .roster-table tr:last-child td { border-bottom: none; }
+        .roster-table select { padding: 0.25rem 0.375rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; max-width: 220px; background: #fff; }
+        .activity-options { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.375rem; }
+        .activity-option { display: flex; align-items: center; padding: 0.45rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; color: #475569; transition: all 0.15s; user-select: none; }
+        .activity-option:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: var(--accent); font-weight: 600; }
+        .activity-option input[type="radio"] { display: none; }
+        .settings-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; background: #fff; margin-bottom: 2rem; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .settings-field { display: flex; flex-direction: column; gap: 0.375rem; }
+        .settings-label { font-size: 0.8125rem; font-weight: 600; color: #475569; }
+        .settings-field input[type="number"] { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; width: 100%; box-sizing: border-box; }
+        .settings-field input[type="number"]:focus { border-color: var(--accent); }
+        .settings-input-pct { display: flex; align-items: center; gap: 0.375rem; }
+        .settings-input-pct input { flex: 1; }
+        .settings-input-pct span { font-size: 0.9375rem; color: #64748b; }
+        .import-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+        .import-note { font-size: 0.75rem; color: #94a3b8; }
+        .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
+        .detail-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; }
+        .linked-notice { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #166534; margin-bottom: 1.5rem; }
+        .unlinked-notice { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #9a3412; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/kenken.html">Play KenKen</a>
+            <a href="../SAT-Questions/english.html">Practice SAT</a>
+            <a href="../Skill-Maps/index.html">Skill Maps</a>
+            <a href="../readme.html">ReadMe</a>
+            <a href="./index.html" class="active nav-teacher">Teacher</a>
+        </div>
+    </nav>
+
+    <div id="login-view" class="landing" style="display:none">
+        <div class="landing-card">
+            <h1>Teacher Portal</h1>
+            <p>Enter the teacher password to access student data.</p>
+            <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%">
+                <input type="password" id="password-input" placeholder="Password"
+                    style="width:100%;padding:0.625rem 0.875rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;box-sizing:border-box;outline:none;" />
+                <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+            </div>
+            <p class="landing-status" id="login-status" style="display:none;color:#dc2626"></p>
+        </div>
+    </div>
+
+    <div id="portal-view" style="display:none">
+        <div class="page-header">
+            <h1>Teacher Portal</h1>
+            <p id="portal-subtitle">Debug view &mdash; all stored data</p>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-btn-data"    onclick="switchTab('data')">All Data</button>
+            <button class="tab-btn"        id="tab-btn-lookup"  onclick="switchTab('lookup')">Student Lookup</button>
+            <button class="tab-btn"        id="tab-btn-classes" onclick="switchTab('classes')">Classes</button>
+        </div>
+
+        <!-- ── All Data tab ──────────────────────────────────────────────────── -->
+        <div id="tab-data">
+            <div class="portal-wrap" id="data-content">
+                <p style="color:var(--muted)">Loading&hellip;</p>
+            </div>
+        </div>
+
+        <!-- ── Student Lookup tab ───────────────────────────────────────────── -->
+        <div id="tab-lookup" style="display:none">
+            <div class="portal-wrap">
+                <div class="search-row">
+                    <input type="text" id="lookup-input" placeholder="Enter user key&hellip;" />
+                    <button class="btn btn-primary" onclick="doLookup()">Search</button>
+                </div>
+
+                <div id="lookup-results" style="display:none">
+                    <div class="section-title">KenKen Score Over Time <span class="section-count" id="kenken-meta"></span></div>
+                    <p class="lookup-note">Average KenKen score per day.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="kenken-from" />
+                        <label>to</label><input type="date" id="kenken-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentKenKenChart()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="kenken-chart"></canvas></div>
+
+                    <div class="section-title">SAT Accuracy Over Time <span class="section-count" id="line-meta"></span></div>
+                    <p class="lookup-note">Accuracy % per domain per day.</p>
+                    <div class="chart-card"><canvas id="line-chart"></canvas></div>
+
+                    <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
+                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="bar-from" />
+                        <label>to</label><input type="date" id="bar-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentBarChart()">Apply</button>
+                    </div>
+                    <div class="bar-legend" id="bar-legend"></div>
+                    <div class="chart-card"><canvas id="bar-chart"></canvas></div>
+                </div>
+
+                <p id="lookup-message" style="display:none;color:#64748b;font-size:0.9375rem"></p>
+            </div>
+        </div>
+
+        <!-- ── Classes tab ───────────────────────────────────────────────────── -->
+        <div id="tab-classes" style="display:none">
+            <div class="portal-wrap">
+
+                <!-- Teacher profile -->
+                <div class="section-title">Your Profile</div>
+                <div class="profile-row">
+                    <input type="text" id="teacher-name-input" placeholder="Enter your name&hellip;" />
+                    <button class="btn btn-primary" onclick="saveProfile()">Save</button>
+                    <span id="profile-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                </div>
+
+                <!-- Gradebook settings -->
+                <div class="section-title">Gradebook Settings</div>
+                <div class="settings-card">
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label class="settings-label">Assignment Max Score</label>
+                            <input type="number" id="gs-max-score" min="0" step="1" placeholder="100" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Completion Score</label>
+                            <div class="settings-input-pct">
+                                <input type="number" id="gs-completion-pct" min="0" max="100" step="1" placeholder="100" />
+                                <span>%</span>
+                            </div>
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">No Submission Score</label>
+                            <div class="settings-input-pct">
+                                <input type="number" id="gs-no-sub-pct" min="0" max="100" step="1" placeholder="0" />
+                                <span>%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveGradebookSettings()">Save Settings</button>
+                        <span id="gs-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
+                <!-- Assignment requirements -->
+                <div class="section-title">Assignment Requirements</div>
+                <div class="settings-card">
+                    <div class="settings-field" style="margin-bottom:1.25rem">
+                        <label class="settings-label">Required Activity</label>
+                        <div class="activity-options">
+                            <label class="activity-option"><input type="radio" name="req-activity" value="kenken" onchange="updateActivityUI()"><span>KenKen</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="sat"    onchange="updateActivityUI()"><span>SAT Practice</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="both"   onchange="updateActivityUI()"><span>Both</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="either" onchange="updateActivityUI()"><span>Either</span></label>
+                        </div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-field" id="ar-kenken-field">
+                            <label class="settings-label">KenKen Submissions / Day</label>
+                            <input type="number" id="ar-kenken-count" min="1" step="1" placeholder="1" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-field">
+                            <label class="settings-label">SAT Submissions / Day</label>
+                            <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
+                        </div>
+                        <div class="settings-field" id="ar-either-field" style="display:none">
+                            <label class="settings-label">Total Submissions / Day</label>
+                            <div class="settings-input-pct">
+                                <input type="number" id="ar-either-count" min="1" step="1" placeholder="1" />
+                                <span>KenKen or SAT</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveAssignmentSettings()">Save Requirements</button>
+                        <span id="ar-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
+                <!-- Classes list -->
+                <div id="classes-list-view">
+                    <div class="classes-header">
+                        <span class="section-title" style="margin:0">Classes</span>
+                        <button class="btn btn-outline btn-sm" onclick="toggleNewClassForm()">+ New Class</button>
+                    </div>
+                    <div id="new-class-form" style="display:none;margin-bottom:1rem">
+                        <div class="search-row" style="margin-bottom:0">
+                            <input type="text" id="new-class-name-input" placeholder="Class name&hellip;" />
+                            <button class="btn btn-primary" onclick="createClass()">Create</button>
+                            <button class="btn btn-outline" onclick="toggleNewClassForm()">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="classes-grid"><p class="classes-empty">Loading&hellip;</p></div>
+                </div>
+
+                <!-- Class detail -->
+                <div id="class-detail-view" style="display:none">
+                    <button class="btn btn-outline btn-sm" onclick="showClassesList()" style="margin-bottom:1.5rem">&#8592; All Classes</button>
+                    <div id="class-detail-content"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/teacher/check')
+            .then(r => r.ok ? showPortal() : showLogin())
+            .catch(() => showLogin());
+
+        function showLogin() { document.getElementById('login-view').style.display = 'flex'; }
+        function showPortal() {
+            document.getElementById('portal-view').style.display = 'block';
+            loadData();
+        }
+
+        async function doLogin() {
+            const pw = document.getElementById('password-input').value;
+            const statusEl = document.getElementById('login-status');
+            const res = await fetch('/api/teacher/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw }),
+            });
+            if (res.ok) {
+                document.getElementById('login-view').style.display = 'none';
+                showPortal();
+            } else {
+                statusEl.innerText = 'Incorrect password.';
+                statusEl.style.display = '';
+            }
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            if (document.getElementById('login-view').style.display !== 'none') doLogin();
+            if (document.getElementById('tab-lookup').style.display !== 'none') doLookup();
+            if (document.getElementById('new-class-form').style.display !== 'none') createClass();
+        });
+
+        // ── Data ─────────────────────────────────────────────────────────────
+        let rawData = null;
+
+        async function loadData() {
+            const res = await fetch('/api/teacher/data');
+            rawData = await res.json();
+            renderAll();
+        }
+
+        function renderAll() {
+            const el = document.getElementById('data-content');
+            el.innerHTML =
+                renderSection('Users',         rawData.users,  ['user_key','email','first_seen']) +
+                renderSection('KenKen Scores', rawData.kenken, ['id','user_key','email','score','size','submitted_at']) +
+                renderSection('SAT Scores',    rawData.sat,    ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
+            el.querySelectorAll('th[data-col]').forEach(th => th.addEventListener('click', () => sortTable(th)));
+        }
+
+        function renderSection(title, rows, cols) {
+            const id    = title.replace(/\s+/g, '-').toLowerCase();
+            const heads = cols.map(c => `<th data-table="${id}" data-col="${c}">${c}</th>`).join('');
+            const body  = rows.map(r => '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>').join('');
+            return `<div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
+                <div class="portal-table-wrap">
+                    <table class="portal-table" id="tbl-${id}">
+                        <thead><tr>${heads}</tr></thead>
+                        <tbody>${body}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function fmt(col, val) {
+            if (val === null || val === undefined) return '&mdash;';
+            if (col === 'submitted_at' || col === 'first_seen') return new Date(val).toLocaleString();
+            return String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function sortTable(th) {
+            const tableId = th.getAttribute('data-table');
+            const col     = th.getAttribute('data-col');
+            const table   = document.getElementById('tbl-' + tableId);
+            const wasAsc  = th.classList.contains('sort-asc');
+            table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
+            th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
+            const asc = !wasAsc;
+            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : 'sat';
+            const cols    = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
+            const sorted  = [...rawData[dataKey]].sort((a, b) => {
+                const av = a[col], bv = b[col];
+                return av === bv ? 0 : (av < bv ? -1 : 1) * (asc ? 1 : -1);
+            });
+            table.querySelector('tbody').innerHTML = sorted.map(r =>
+                '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
+            ).join('');
+        }
+
+        // ── Tab switching ─────────────────────────────────────────────────────
+        const TAB_SUBTITLES = {
+            data:    'Debug view — all stored data',
+            lookup:  'SAT & KenKen performance breakdown by student',
+            classes: 'Manage classes and view cumulative performance',
+        };
+
+        function switchTab(tab) {
+            ['data','lookup','classes'].forEach(t => {
+                document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
+                document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+            });
+            document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab];
+            if (tab === 'classes') { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+        }
+
+        // ── Domain constants ──────────────────────────────────────────────────
+        const DOMAIN_DISPLAY = [
+            'Information and Ideas',
+            'Craft and Structure',
+            'Expression of Ideas',
+            'Standard English Conventions',
+        ];
+        const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        // ── Chart instance registry ───────────────────────────────────────────
+        const chartInst = {};
+
+        function destroyChart(id) {
+            if (chartInst[id]) { chartInst[id].destroy(); delete chartInst[id]; }
+        }
+
+        // ── Generic chart builders ────────────────────────────────────────────
+        function buildKenKenChart(canvasId, rows, fromId, toId) {
+            destroyChart(canvasId);
+            const from = document.getElementById(fromId)?.value || '';
+            const to   = document.getElementById(toId)?.value   || '';
+            const filtered = rows.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+
+            const byDate = {};
+            filtered.forEach(r => {
+                const d = r.submitted_at.substring(0, 10);
+                if (!byDate[d]) byDate[d] = { sum: 0, count: 0 };
+                byDate[d].sum   += Number(r.score);
+                byDate[d].count += 1;
+            });
+            const dates = Object.keys(byDate).sort();
+            const data  = dates.map(d => Math.round(byDate[d].sum / byDate[d].count));
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Avg Daily Score',
+                        data,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14,165,233,0.08)',
+                        pointBackgroundColor: '#0ea5e9',
+                        tension: 0.3, borderWidth: 2, pointRadius: 4, fill: true,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: i => `Avg score: ${i.raw}` } },
+                    },
+                    scales: {
+                        y: { title: { display: true, text: 'Score' } },
+                        x: { title: { display: true, text: 'Date' } },
+                    },
+                },
+            });
+        }
+
+        function buildSATLineChart(canvasId, rows) {
+            destroyChart(canvasId);
+            const byDateDomain = {};
+            rows.forEach(r => {
+                const d  = r.submitted_at.substring(0, 10);
+                const di = Number(r.domain_idx);
+                if (!byDateDomain[d]) byDateDomain[d] = {};
+                if (!byDateDomain[d][di]) byDateDomain[d][di] = { correct: 0, total: 0 };
+                byDateDomain[d][di].correct += Number(r.correct);
+                byDateDomain[d][di].total   += 1;
+            });
+            const dates = Object.keys(byDateDomain).sort();
+            const datasets = DOMAIN_DISPLAY.map((name, idx) => ({
+                label: name,
+                data: dates.map(d => {
+                    const e = byDateDomain[d]?.[idx];
+                    return e ? Math.round(e.correct / e.total * 100) : null;
+                }),
+                borderColor: DOMAIN_COLORS[idx],
+                backgroundColor: hexToRgba(DOMAIN_COLORS[idx], 0.08),
+                pointBackgroundColor: DOMAIN_COLORS[idx],
+                spanGaps: true, tension: 0.3, borderWidth: 2, pointRadius: 4, fill: false,
+            }));
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dates, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, font: { size: 12 } } },
+                        tooltip: { callbacks: { label: i => `${i.dataset.label}: ${i.raw}%` } },
+                    },
+                    scales: {
+                        y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Date' } },
+                    },
+                },
+            });
+        }
+
+        function buildSATBarChart(canvasId, rows, fromId, toId, legendId) {
+            destroyChart(canvasId);
+            const from = document.getElementById(fromId)?.value || '';
+            const to   = document.getElementById(toId)?.value   || '';
+            const filtered = rows.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+
+            const domainSkillMap = {};
+            const domainTotals  = {};
+            filtered.forEach(r => {
+                const di = Number(r.domain_idx);
+                const sk = r.skill || 'Unknown';
+                if (!domainSkillMap[di]) domainSkillMap[di] = {};
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                domainSkillMap[di][sk].correct += Number(r.correct);
+                domainTotals[di] = (domainTotals[di] || 0) + 1;
+            });
+
+            const alphas    = [1.0, 0.65, 0.42, 0.28];
+            const datasets  = [];
+            const legendItems = [];
+
+            DOMAIN_DISPLAY.forEach((_, di) => {
+                const skills = Object.keys(domainSkillMap[di] || {});
+                const total  = domainTotals[di] || 1;
+                skills.forEach((sk, si) => {
+                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const alpha = alphas[si] ?? 0.2;
+                    const bg    = hexToRgba(DOMAIN_COLORS[di], alpha);
+                    datasets.push({
+                        label: sk,
+                        data: DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
+                        backgroundColor: bg,
+                        borderColor: hexToRgba(DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
+                        borderWidth: 1, borderRadius: 2,
+                    });
+                    legendItems.push({ label: sk, color: bg });
+                });
+            });
+
+            if (legendId) {
+                document.getElementById(legendId).innerHTML = legendItems.map(it =>
+                    `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
+                ).join('');
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: DOMAIN_DISPLAY, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } },
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                    },
+                },
+            });
+        }
+
+        // ── Student Lookup ────────────────────────────────────────────────────
+        let lookupRows = [];
+        let kenkenRows = [];
+
+        function doLookup() {
+            const key   = document.getElementById('lookup-input').value.trim();
+            const msgEl = document.getElementById('lookup-message');
+            const resEl = document.getElementById('lookup-results');
+            if (!key) return;
+            if (!rawData) { msgEl.textContent = 'Data not loaded yet.'; msgEl.style.display = ''; return; }
+
+            lookupRows = rawData.sat.filter(r => r.user_key === key);
+            kenkenRows = rawData.kenken.filter(r => r.user_key === key);
+
+            if (lookupRows.length === 0 && kenkenRows.length === 0) {
+                resEl.style.display = 'none';
+                msgEl.textContent = `No data found for user key "${key}".`;
+                msgEl.style.display = '';
+                return;
+            }
+            msgEl.style.display = 'none';
+            resEl.style.display = '';
+
+            if (kenkenRows.length > 0) {
+                const kDates = kenkenRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('kenken-from').value = kDates[0];
+                document.getElementById('kenken-to').value   = kDates[kDates.length - 1];
+                document.getElementById('kenken-meta').textContent = `(${kenkenRows.length} puzzles)`;
+            }
+            if (lookupRows.length > 0) {
+                const sDates = lookupRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('bar-from').value = sDates[0];
+                document.getElementById('bar-to').value   = sDates[sDates.length - 1];
+                document.getElementById('line-meta').textContent = `(${lookupRows.length} answers)`;
+            }
+
+            renderStudentKenKenChart();
+            buildSATLineChart('line-chart', lookupRows);
+            renderStudentBarChart();
+        }
+
+        function renderStudentKenKenChart() { buildKenKenChart('kenken-chart', kenkenRows, 'kenken-from', 'kenken-to'); }
+        function renderStudentBarChart()    { buildSATBarChart('bar-chart', lookupRows, 'bar-from', 'bar-to', 'bar-legend'); }
+
+        // ── Classes ───────────────────────────────────────────────────────────
+        let classStudents = [];
+        let currentClassId = null;
+
+        async function loadGradebookSettings() {
+            const res  = await fetch('/api/teacher/gradebook-settings');
+            const data = await res.json();
+            document.getElementById('gs-max-score').value    = data.assignment_max_score;
+            document.getElementById('gs-completion-pct').value = data.completion_score_pct;
+            document.getElementById('gs-no-sub-pct').value   = data.no_submission_score_pct;
+        }
+
+        async function saveGradebookSettings() {
+            const assignment_max_score    = parseFloat(document.getElementById('gs-max-score').value);
+            const completion_score_pct    = parseFloat(document.getElementById('gs-completion-pct').value);
+            const no_submission_score_pct = parseFloat(document.getElementById('gs-no-sub-pct').value);
+            if ([assignment_max_score, completion_score_pct, no_submission_score_pct].some(isNaN)) {
+                alert('All three fields must be valid numbers.');
+                return;
+            }
+            await fetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct }),
+            });
+            const msg = document.getElementById('gs-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        function updateActivityUI() {
+            const act = document.querySelector('input[name="req-activity"]:checked')?.value || 'either';
+            document.getElementById('ar-kenken-field').style.display = ['kenken','both'].includes(act) ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display    = ['sat','both'].includes(act)    ? '' : 'none';
+            document.getElementById('ar-either-field').style.display = act === 'either'                ? '' : 'none';
+        }
+
+        async function loadAssignmentSettings() {
+            const res  = await fetch('/api/teacher/assignment-settings');
+            const data = await res.json();
+            const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
+            if (radio) radio.checked = true;
+            document.getElementById('ar-kenken-count').value  = data.required_kenken_count;
+            document.getElementById('ar-sat-count').value     = data.required_sat_count;
+            document.getElementById('ar-either-count').value  = data.required_either_count;
+            updateActivityUI();
+        }
+
+        async function saveAssignmentSettings() {
+            const required_activity     = document.querySelector('input[name="req-activity"]:checked')?.value;
+            const required_kenken_count = parseInt(document.getElementById('ar-kenken-count').value) || 1;
+            const required_sat_count    = parseInt(document.getElementById('ar-sat-count').value)    || 1;
+            const required_either_count = parseInt(document.getElementById('ar-either-count').value) || 1;
+            if (!required_activity) return;
+            await fetch('/api/teacher/assignment-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count, required_either_count }),
+            });
+            const msg = document.getElementById('ar-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function loadProfile() {
+            const res  = await fetch('/api/teacher/profile');
+            const data = await res.json();
+            document.getElementById('teacher-name-input').value = data.name || '';
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById('teacher-name-input').value.trim();
+            if (!name) return;
+            await fetch('/api/teacher/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            const msg = document.getElementById('profile-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function loadClasses() {
+            const res  = await fetch('/api/teacher/classes');
+            const list = await res.json();
+            renderClassCards(list);
+        }
+
+        function renderClassCards(list) {
+            const el = document.getElementById('classes-grid');
+            if (list.length === 0) {
+                el.innerHTML = '<p class="classes-empty">No classes yet. Create one above.</p>';
+                return;
+            }
+            el.innerHTML = list.map(c => `
+                <div class="class-card">
+                    <div class="class-card-name">${esc(c.name)}</div>
+                    <div class="class-card-meta">${c.student_count} student${c.student_count !== 1 ? 's' : ''} &middot; ${c.linked_count} linked</div>
+                    <div class="class-card-actions">
+                        <button class="btn btn-outline btn-sm" onclick="viewClass(${c.id})">View</button>
+                        <button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="deleteClass(${c.id}, this)">Delete</button>
+                    </div>
+                </div>`
+            ).join('');
+        }
+
+        function toggleNewClassForm() {
+            const f = document.getElementById('new-class-form');
+            f.style.display = f.style.display === 'none' ? '' : 'none';
+            if (f.style.display !== 'none') document.getElementById('new-class-name-input').focus();
+        }
+
+        async function createClass() {
+            const name = document.getElementById('new-class-name-input').value.trim();
+            if (!name) return;
+            const res  = await fetch('/api/teacher/classes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            const cls = await res.json();
+            document.getElementById('new-class-name-input').value = '';
+            toggleNewClassForm();
+            loadClasses();
+        }
+
+        async function deleteClass(id, btn) {
+            if (!confirm('Delete this class and its entire roster?')) return;
+            btn.disabled = true;
+            await fetch('/api/teacher/classes/' + id, { method: 'DELETE' });
+            loadClasses();
+        }
+
+        async function viewClass(id) {
+            currentClassId = id;
+            document.getElementById('classes-list-view').style.display  = 'none';
+            document.getElementById('class-detail-view').style.display  = '';
+            document.getElementById('class-detail-content').innerHTML   = '<p style="color:var(--muted)">Loading&hellip;</p>';
+
+            const res = await fetch('/api/teacher/classes/' + id);
+            const cls = await res.json();
+            classStudents = cls.students;
+            renderClassDetail(cls);
+        }
+
+        function showClassesList() {
+            // Destroy any class charts
+            ['class-kenken-chart','class-line-chart','class-bar-chart'].forEach(destroyChart);
+            currentClassId = null;
+            classStudents  = [];
+            document.getElementById('class-detail-view').style.display = 'none';
+            document.getElementById('classes-list-view').style.display = '';
+            loadClasses();
+        }
+
+        function renderClassDetail(cls) {
+            const linkedCount = cls.students.filter(s => s.user_key).length;
+            const userOptions = (rawData?.users || []).map(u =>
+                `<option value="${esc(u.user_key)}">${esc(u.email)}</option>`
+            ).join('');
+
+            const rosterRows = cls.students.map(s => {
+                const selected = s.user_key ? `value="${esc(s.user_key)}" ` : '';
+                return `<tr>
+                    <td>${esc(s.student_id)}</td>
+                    <td>${esc(s.student_name)}</td>
+                    <td>
+                        <select onchange="linkStudent(${cls.id}, '${esc(s.student_id)}', this.value)">
+                            <option value="">&#8212; Not linked &#8212;</option>
+                            ${userOptions.replace(`value="${esc(s.user_key || '')}"`, `value="${esc(s.user_key || '')}" selected`)}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" style="color:#dc2626"
+                            onclick="removeStudent(${cls.id}, '${esc(s.student_id)}', this)">Remove</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            const notice = linkedCount > 0
+                ? `<div class="linked-notice">${linkedCount} of ${cls.students.length} students linked to app accounts &mdash; charts below show their combined data.</div>`
+                : cls.students.length > 0
+                    ? `<div class="unlinked-notice">No students are linked to app accounts yet. Use the dropdowns in the roster to connect school IDs to app logins before charts will appear.</div>`
+                    : '';
+
+            const chartsHTML = linkedCount > 0 ? `
+                <div class="section-title">Class KenKen Score Over Time</div>
+                <p class="lookup-note">Average daily score across all linked students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-kenken-from" />
+                    <label>to</label><input type="date" id="class-kenken-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassKenKenChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-kenken-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Accuracy Over Time</div>
+                <p class="lookup-note">Accuracy % per domain per day across all linked students.</p>
+                <div class="chart-card"><canvas id="class-line-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Accuracy by Domain &amp; Skill</div>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-bar-from" />
+                    <label>to</label><input type="date" id="class-bar-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="class-bar-legend"></div>
+                <div class="chart-card"><canvas id="class-bar-chart"></canvas></div>
+            ` : '';
+
+            document.getElementById('class-detail-content').innerHTML = `
+                <div class="detail-header">
+                    <h2 class="detail-title">${esc(cls.name)}</h2>
+                    <div class="import-row">
+                        <label class="btn btn-outline btn-sm" for="csv-upload" style="cursor:pointer;margin:0">Import CSV</label>
+                        <input type="file" id="csv-upload" accept=".csv,.txt" style="display:none"
+                            onchange="handleCSVUpload(event, ${cls.id})" />
+                        <span class="import-note">Two columns: student ID, student name</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Roster <span class="section-count">(${cls.students.length} students)</span></div>
+                ${cls.students.length > 0 ? `
+                <div class="roster-wrap">
+                    <table class="roster-table">
+                        <thead><tr><th>Student ID</th><th>Name</th><th>Linked Account</th><th></th></tr></thead>
+                        <tbody>${rosterRows}</tbody>
+                    </table>
+                </div>` : '<p class="classes-empty" style="margin-bottom:2rem">No students yet. Import a CSV to add the roster.</p>'}
+
+                ${notice}
+                ${chartsHTML}
+            `;
+
+            if (linkedCount > 0) renderClassCharts();
+        }
+
+        function renderClassCharts() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            const kkRows   = rawData.kenken.filter(r => userKeys.has(r.user_key));
+            const satRows  = rawData.sat.filter(r => userKeys.has(r.user_key));
+
+            if (kkRows.length > 0) {
+                const kDates = kkRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('class-kenken-from').value = kDates[0];
+                document.getElementById('class-kenken-to').value   = kDates[kDates.length - 1];
+            }
+            if (satRows.length > 0) {
+                const sDates = satRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                document.getElementById('class-bar-from').value = sDates[0];
+                document.getElementById('class-bar-to').value   = sDates[sDates.length - 1];
+            }
+
+            renderClassKenKenChart();
+            buildSATLineChart('class-line-chart', satRows);
+            renderClassBarChart();
+        }
+
+        function renderClassKenKenChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildKenKenChart('class-kenken-chart', rawData.kenken.filter(r => userKeys.has(r.user_key)), 'class-kenken-from', 'class-kenken-to');
+        }
+
+        function renderClassBarChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildSATBarChart('class-bar-chart', rawData.sat.filter(r => userKeys.has(r.user_key)), 'class-bar-from', 'class-bar-to', 'class-bar-legend');
+        }
+
+        // ── Student linking ───────────────────────────────────────────────────
+        async function linkStudent(classId, studentId, userKey) {
+            await fetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_key: userKey || null }),
+            });
+            // Update local state and re-render charts
+            const s = classStudents.find(s => s.student_id === studentId);
+            if (s) s.user_key = userKey || null;
+            const linkedCount = classStudents.filter(s => s.user_key).length;
+            if (linkedCount > 0) renderClassCharts();
+        }
+
+        async function removeStudent(classId, studentId, btn) {
+            btn.disabled = true;
+            await fetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'DELETE',
+            });
+            classStudents = classStudents.filter(s => s.student_id !== studentId);
+            btn.closest('tr').remove();
+        }
+
+        // ── CSV import ────────────────────────────────────────────────────────
+        function parseCSV(text) {
+            const headerPattern = /^(id|student.?id|student.?number|student.?name|name|#|no\.?)$/i;
+            const students = [];
+            for (const line of text.trim().split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                const cols = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+                const id   = cols[0];
+                const name = cols.slice(1).join(' ').trim();
+                if (!id || headerPattern.test(id)) continue;
+                students.push({ student_id: id, student_name: name || id });
+            }
+            return students;
+        }
+
+        async function handleCSVUpload(event, classId) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const text     = await file.text();
+            const students = parseCSV(text);
+            if (students.length === 0) { alert('No valid rows found. Check that the CSV has two columns: student ID, student name.'); return; }
+
+            const res  = await fetch(`/api/teacher/classes/${classId}/students`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ students }),
+            });
+            const data = await res.json();
+            alert(`Imported ${data.added} new student${data.added !== 1 ? 's' : ''} (duplicates skipped).`);
+            event.target.value = '';
+            viewClass(classId);
+        }
+
+        // ── Utilities ─────────────────────────────────────────────────────────
+        function esc(str) {
+            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+    </script>
+</body>
+</html>
