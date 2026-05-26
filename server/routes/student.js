@@ -27,15 +27,19 @@ router.get('/daily-progress', (req, res) => {
     if (!settings) return res.json({ settings: null });
 
     // Midnight UTC today
-    const now       = new Date();
+    const now        = new Date();
     const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
+    // KenKen: only count today's puzzles that score >= the student's all-time average
+    const avgRow   = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(req.userKey);
+    const avgScore = avgRow?.avg ?? 0;
     const kenkenToday = db.prepare(
-        'SELECT COUNT(*) AS n FROM kenken_scores WHERE user_key = ? AND submitted_at >= ?'
-    ).get(req.userKey, todayStart).n;
+        'SELECT COUNT(*) AS n FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND score >= ?'
+    ).get(req.userKey, todayStart, avgScore).n;
 
+    // SAT: only count correct answers
     const satToday = db.prepare(
-        'SELECT COUNT(*) AS n FROM sat_scores WHERE user_key = ? AND submitted_at >= ?'
+        'SELECT COUNT(*) AS n FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1'
     ).get(req.userKey, todayStart).n;
 
     const act       = settings.required_activity;

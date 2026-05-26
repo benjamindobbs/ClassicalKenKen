@@ -82,6 +82,15 @@
         .detail-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; }
         .linked-notice { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #166534; margin-bottom: 1.5rem; }
         .unlinked-notice { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.8125rem; color: #9a3412; margin-bottom: 1.5rem; }
+
+        /* Onboarding / setup */
+        .setup-wrap { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+        .setup-heading { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0 0 0.5rem; }
+        .setup-sub { color: #475569; font-size: 0.9375rem; margin: 0 0 1.5rem; }
+        .setup-steps { margin: 0; padding-left: 1.375rem; display: flex; flex-direction: column; gap: 0.5rem; color: #334155; font-size: 0.9375rem; }
+        .setup-steps li { line-height: 1.55; }
+        .setup-imported-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border); }
+        .setup-imported-row:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -102,6 +111,60 @@
             <p>Sign in with your school Google account (<strong>@hartfordschools.org</strong>) to access student data.</p>
             <button class="btn btn-primary" id="teacher-sign-in-btn" onclick="handleTeacherSignIn()" disabled>Sign In with Google</button>
             <p class="landing-status" id="login-status">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <!-- ── First-time setup wizard ─────────────────────────────────────────── -->
+    <div id="onboarding-view" style="display:none">
+        <div class="page-header">
+            <h1>Welcome to Teacher Portal</h1>
+            <p>Import your classes from PowerSchool to get started.</p>
+        </div>
+
+        <div class="setup-wrap">
+
+            <!-- Step: instructions + upload -->
+            <div id="setup-step" class="settings-card">
+                <p class="setup-heading">Import a Class from PowerSchool</p>
+                <p class="setup-sub">Follow these steps to export a scores template CSV from PowerSchool:</p>
+                <ol class="setup-steps">
+                    <li>Navigate to your class in PowerSchool</li>
+                    <li>Create a new assignment with the settings you would like</li>
+                    <li>Open the assignment</li>
+                    <li>Click the <strong>Gear icon</strong> in the top right</li>
+                    <li>Select <strong>&ldquo;Export Scores Template&rdquo;</strong></li>
+                    <li>Upload the output CSV below</li>
+                </ol>
+                <div class="import-row" style="margin-top:1.5rem">
+                    <label class="btn btn-primary" for="setup-csv-upload" style="cursor:pointer;margin:0">Upload CSV</label>
+                    <input type="file" id="setup-csv-upload" accept=".csv,.txt" style="display:none" onchange="handleSetupCSV(event)">
+                    <span class="import-note" id="setup-upload-note"></span>
+                </div>
+            </div>
+
+            <!-- Step: review parsed data before importing -->
+            <div id="setup-preview" class="settings-card" style="display:none">
+                <p class="setup-heading">Review Import</p>
+                <div id="setup-preview-content"></div>
+                <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+                    <button class="btn btn-primary" onclick="confirmSetupImport()">Import Class</button>
+                    <button class="btn btn-outline" onclick="cancelSetupPreview()">Back</button>
+                </div>
+            </div>
+
+            <!-- Step: imported list + options -->
+            <div id="setup-done-section" style="display:none">
+                <div class="section-title" style="margin-top:0">Imported Classes</div>
+                <div id="setup-imported-list" style="margin-bottom:1.5rem"></div>
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                    <button class="btn btn-outline" onclick="setupAddAnother()">+ Add Another Class</button>
+                    <button class="btn btn-primary" onclick="finishSetup()">Finish Setup &rarr;</button>
+                </div>
+            </div>
+
+            <p style="margin-top:1.5rem;font-size:0.8125rem;color:#94a3b8">
+                Already set up? <a href="#" onclick="finishSetup();return false" style="color:var(--accent)">Skip to portal &rarr;</a>
+            </p>
         </div>
     </div>
 
@@ -289,8 +352,14 @@
                     teacherToken = null;
                     return;
                 }
+                const classesRes = await teacherFetch('/api/teacher/classes');
+                const existingClasses = await classesRes.json();
                 document.getElementById('login-view').style.display = 'none';
-                showPortal();
+                if (existingClasses.length === 0) {
+                    showOnboarding();
+                } else {
+                    showPortal();
+                }
             };
             tokenClient.requestAccessToken({ prompt: '' });
         }
@@ -617,13 +686,16 @@
         // ── Classes ───────────────────────────────────────────────────────────
         let classStudents = [];
         let currentClassId = null;
+        let gradebookSettings = null;
+        let assignmentSettingsData = null;
 
         async function loadGradebookSettings() {
             const res  = await teacherFetch('/api/teacher/gradebook-settings');
             const data = await res.json();
-            document.getElementById('gs-max-score').value    = data.assignment_max_score;
+            gradebookSettings = data;
+            document.getElementById('gs-max-score').value      = data.assignment_max_score;
             document.getElementById('gs-completion-pct').value = data.completion_score_pct;
-            document.getElementById('gs-no-sub-pct').value   = data.no_submission_score_pct;
+            document.getElementById('gs-no-sub-pct').value     = data.no_submission_score_pct;
         }
 
         async function saveGradebookSettings() {
@@ -653,6 +725,7 @@
         async function loadAssignmentSettings() {
             const res  = await teacherFetch('/api/teacher/assignment-settings');
             const data = await res.json();
+            assignmentSettingsData = data;
             const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
             if (radio) radio.checked = true;
             document.getElementById('ar-kenken-count').value = data.required_kenken_count;
@@ -822,6 +895,46 @@
                 <div class="chart-card"><canvas id="class-bar-chart"></canvas></div>
             ` : '';
 
+            const exportHTML = cls.students.length > 0 ? `
+                <div class="section-title">Export Grades to PowerSchool</div>
+                <div class="settings-card">
+                    <div class="settings-grid" style="margin-bottom:1rem">
+                        <div class="settings-field">
+                            <label class="settings-label">Assignment Name</label>
+                            <input type="text" id="export-assign-name" placeholder="Week 1 Assignment"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;outline:none;width:100%;box-sizing:border-box" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Due Date</label>
+                            <input type="date" id="export-due-date"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;outline:none;width:100%;box-sizing:border-box" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Score Type</label>
+                            <select id="export-score-type"
+                                style="padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;background:#fff;width:100%;box-sizing:border-box">
+                                <option value="POINTS">Points</option>
+                                <option value="PERCENT">Percent</option>
+                                <option value="LETTER">Letter Grade</option>
+                                <option value="COMPLETION">Completion</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="date-range-row">
+                        <label>Score range</label>
+                        <label>From</label><input type="date" id="export-from" />
+                        <label>to</label><input type="date" id="export-to" />
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.625rem 0 1rem">
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('week')">This Week</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('lastweek')">Last Week</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('2weeks')">Last 2 Weeks</button>
+                        <button class="btn btn-outline btn-sm" onclick="setExportRange('month')">Last Month</button>
+                    </div>
+                    <button class="btn btn-primary" onclick="exportGrades(${cls.id})">Export CSV</button>
+                </div>
+            ` : '';
+
             document.getElementById('class-detail-content').innerHTML = `
                 <div class="detail-header">
                     <h2 class="detail-title">${esc(cls.name)}</h2>
@@ -844,6 +957,7 @@
 
                 ${notice}
                 ${chartsHTML}
+                ${exportHTML}
             `;
 
             if (linkedCount > 0) renderClassCharts();
@@ -882,7 +996,7 @@
 
         // ── Student linking ───────────────────────────────────────────────────
         async function linkStudent(classId, studentId, userKey) {
-            await fetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_key: userKey || null }),
@@ -896,7 +1010,7 @@
 
         async function removeStudent(classId, studentId, btn) {
             btn.disabled = true;
-            await fetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
                 method: 'DELETE',
             });
             classStudents = classStudents.filter(s => s.student_id !== studentId);
@@ -925,7 +1039,7 @@
             const students = parseCSV(text);
             if (students.length === 0) { alert('No valid rows found. Check that the CSV has two columns: student ID, student name.'); return; }
 
-            const res  = await fetch(`/api/teacher/classes/${classId}/students`, {
+            const res  = await teacherFetch(`/api/teacher/classes/${classId}/students`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ students }),
@@ -936,9 +1050,309 @@
             viewClass(classId);
         }
 
+        // ── Grade export ──────────────────────────────────────────────────────
+        function setExportRange(preset) {
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const day = today.getDay(); // 0=Sun
+            const toMon = day === 0 ? -6 : 1 - day;
+            let from, to;
+            if (preset === 'week') {
+                from = new Date(today); from.setDate(today.getDate() + toMon);
+                to   = today;
+            } else if (preset === 'lastweek') {
+                to   = new Date(today); to.setDate(today.getDate() + toMon - 1);
+                from = new Date(to);    from.setDate(to.getDate() - 6);
+            } else if (preset === '2weeks') {
+                from = new Date(today); from.setDate(today.getDate() + toMon - 7);
+                to   = today;
+            } else {
+                from = new Date(today); from.setDate(today.getDate() - 29);
+                to   = today;
+            }
+            document.getElementById('export-from').value = fmt(from);
+            document.getElementById('export-to').value   = fmt(to);
+        }
+
+        function gradeForStudent(userKey, fromDate, toDate, as, expectedDays, maxScore, completionScore, noSubScore) {
+            const allKenken = rawData.kenken.filter(r => r.user_key === userKey);
+            const avgKenken = allKenken.length
+                ? allKenken.reduce((s, r) => s + Number(r.score), 0) / allKenken.length : 0;
+
+            const kenkenQ = allKenken.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return d >= fromDate && d <= toDate && Number(r.score) >= avgKenken;
+            }).length;
+            const satQ = rawData.sat.filter(r => {
+                const d = r.submitted_at.substring(0, 10);
+                return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
+            }).length;
+
+            const act = as.required_activity;
+            const kReq = (as.required_kenken_count ?? 1) * expectedDays;
+            const sReq = (as.required_sat_count    ?? 1) * expectedDays;
+
+            let rawPct, qualifying, requiredMet;
+            if (act === 'kenken') {
+                qualifying = kenkenQ; rawPct = kenkenQ / kReq; requiredMet = kenkenQ >= kReq;
+            } else if (act === 'sat') {
+                qualifying = satQ;    rawPct = satQ / sReq;    requiredMet = satQ >= sReq;
+            } else if (act === 'both') {
+                qualifying = kenkenQ + satQ;
+                rawPct = ((kenkenQ / kReq) + (satQ / sReq)) / 2;
+                requiredMet = kenkenQ >= kReq && satQ >= sReq;
+            } else { // either
+                qualifying = kenkenQ + satQ;
+                rawPct = Math.max(kenkenQ / kReq, satQ / sReq);
+                requiredMet = kenkenQ >= kReq || satQ >= sReq;
+            }
+
+            const rawScore = Math.min(rawPct, 1) * maxScore;
+            let points;
+            if (qualifying === 0)          points = noSubScore;
+            else if (rawScore < completionScore) points = completionScore;
+            else                           points = rawScore;
+
+            return { points, requiredMet };
+        }
+
+        function formatScore(points, requiredMet, maxScore, noSubScore, scoreType) {
+            if (scoreType === 'COMPLETION') return requiredMet ? maxScore : noSubScore;
+            const pct = points / maxScore * 100;
+            if (scoreType === 'PERCENT')  return Math.round(pct);
+            if (scoreType === 'LETTER') {
+                if (pct >= 90) return 'A';
+                if (pct >= 80) return 'B';
+                if (pct >= 70) return 'C';
+                if (pct >= 60) return 'D';
+                return 'F';
+            }
+            return Math.round(points * 100) / 100; // POINTS
+        }
+
+        async function exportGrades(classId) {
+            const assignName = document.getElementById('export-assign-name').value.trim();
+            const dueDate    = document.getElementById('export-due-date').value;
+            const scoreType  = document.getElementById('export-score-type').value;
+            const fromDate   = document.getElementById('export-from').value;
+            const toDate     = document.getElementById('export-to').value;
+            if (!assignName || !dueDate || !fromDate || !toDate) {
+                alert('Please fill in Assignment Name, Due Date, and the score range.');
+                return;
+            }
+
+            // Fetch settings in parallel (get fresh copies in case they changed)
+            const [gsData, asData, profileData] = await Promise.all([
+                teacherFetch('/api/teacher/gradebook-settings').then(r => r.json()),
+                teacherFetch('/api/teacher/assignment-settings').then(r => r.json()),
+                teacherFetch('/api/teacher/profile').then(r => r.json()),
+            ]);
+
+            const maxScore       = gsData.assignment_max_score    ?? 100;
+            const completionScore = maxScore * (gsData.completion_score_pct    ?? 100) / 100;
+            const noSubScore      = maxScore * (gsData.no_submission_score_pct ??   0) / 100;
+
+            // Expected school days (4 days/week)
+            const msPerDay    = 86400000;
+            const calDays     = Math.round((new Date(toDate) - new Date(fromDate)) / msPerDay) + 1;
+            const expectedDays = Math.max(1, Math.round(calDays * 4 / 7));
+
+            // Grade each student
+            const cls = await teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json());
+            const rows = cls.students.map(s => {
+                let score;
+                if (!s.user_key) {
+                    score = formatScore(noSubScore, false, maxScore, noSubScore, scoreType);
+                } else {
+                    const { points, requiredMet } = gradeForStudent(
+                        s.user_key, fromDate, toDate, asData, expectedDays, maxScore, completionScore, noSubScore
+                    );
+                    score = formatScore(points, requiredMet, maxScore, noSubScore, scoreType);
+                }
+                return { student_id: s.student_id, student_name: s.student_name, score };
+            });
+
+            // Build PowerSchool CSV
+            const csvEsc = v => { const s = String(v); return (s.includes(',') || s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
+            const lines = [
+                `Teacher Name:,${csvEsc(profileData.name)},`,
+                `Class:,${csvEsc(cls.name)},`,
+                `Assignment Name:,${csvEsc(assignName)},`,
+                `Due Date:,${dueDate},`,
+                `Points Possible:,${maxScore},`,
+                `Extra Points:,0,`,
+                `Score Type:,${scoreType},`,
+                'Student Num,Student Name,Score',
+                ...rows.map(r => `${r.student_id},${csvEsc(r.student_name)},${r.score}`),
+            ];
+            const csv  = lines.join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `${cls.name.replace(/\s+/g,'_')}_${assignName.replace(/\s+/g,'_')}_${dueDate}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         // ── Utilities ─────────────────────────────────────────────────────────
         function esc(str) {
             return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+
+        // ── Onboarding / first-time setup ─────────────────────────────────────
+        function showOnboarding() {
+            document.getElementById('onboarding-view').style.display = 'block';
+        }
+
+        function finishSetup() {
+            document.getElementById('onboarding-view').style.display = 'none';
+            showPortal();
+        }
+
+        let setupParsed = null;
+        const setupImportedClasses = [];
+
+        function parsePowerSchoolCSV(text) {
+            function parseRow(line) {
+                const cols = [];
+                let field = '', inQ = false;
+                for (let i = 0; i < line.length; i++) {
+                    if (line[i] === '"') { inQ = !inQ; }
+                    else if (line[i] === ',' && !inQ) { cols.push(field.trim()); field = ''; }
+                    else { field += line[i]; }
+                }
+                cols.push(field.trim());
+                return cols;
+            }
+            const lines = text.trim().split(/\r?\n/);
+            if (lines.length < 8) return null;
+            const teacherName = parseRow(lines[0])[1] || '';
+            const className   = parseRow(lines[1])[1] || '';
+            const maxScore    = parseFloat(parseRow(lines[4])[1]) || 100;
+            // Row 7 is the header (Student Num, Student Name, Score); students start at row 8
+            const students = [];
+            for (let i = 8; i < lines.length; i++) {
+                const cols = parseRow(lines[i]);
+                const id   = cols[0]?.trim();
+                const name = cols[1]?.trim();
+                if (!id || !/^\d+$/.test(id)) continue;
+                students.push({ student_id: id, student_name: name || id });
+            }
+            return { teacherName, className, maxScore, students };
+        }
+
+        function handleSetupCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('setup-upload-note').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const parsed = parsePowerSchoolCSV(e.target.result);
+                if (!parsed || !parsed.className) {
+                    alert('Could not read the CSV. Make sure it is a PowerSchool scores template.');
+                    event.target.value = '';
+                    return;
+                }
+                setupParsed = parsed;
+                showSetupPreview(parsed);
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function showSetupPreview(parsed) {
+            document.getElementById('setup-preview-content').innerHTML = `
+                <div class="settings-grid" style="margin-bottom:0.5rem">
+                    <div class="settings-field">
+                        <span class="settings-label">Class Name</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.className)}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Teacher Name</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.teacherName) || '&mdash;'}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Points Possible</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.maxScore}</span>
+                    </div>
+                    <div class="settings-field">
+                        <span class="settings-label">Students Found</span>
+                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.students.length}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('setup-step').style.display = 'none';
+            document.getElementById('setup-preview').style.display = '';
+        }
+
+        async function confirmSetupImport() {
+            if (!setupParsed) return;
+            const { teacherName, className, maxScore, students } = setupParsed;
+
+            // Set teacher name on first import if profile is empty
+            if (teacherName) {
+                const profileData = await (await teacherFetch('/api/teacher/profile')).json();
+                if (!profileData.name) {
+                    await teacherFetch('/api/teacher/profile', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: teacherName }),
+                    });
+                }
+            }
+
+            // Set gradebook max score from CSV
+            const gsData = await (await teacherFetch('/api/teacher/gradebook-settings')).json();
+            await teacherFetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    assignment_max_score:    maxScore,
+                    completion_score_pct:    gsData.completion_score_pct    ?? 100,
+                    no_submission_score_pct: gsData.no_submission_score_pct ?? 0,
+                }),
+            });
+
+            // Create the class
+            const cls = await (await teacherFetch('/api/teacher/classes', {
+                method: 'POST',
+                body: JSON.stringify({ name: className }),
+            })).json();
+
+            // Import students
+            if (students.length > 0) {
+                await teacherFetch(`/api/teacher/classes/${cls.id}/students`, {
+                    method: 'POST',
+                    body: JSON.stringify({ students }),
+                });
+            }
+
+            setupImportedClasses.push({ name: className, student_count: students.length });
+            setupParsed = null;
+            showSetupDone();
+        }
+
+        function cancelSetupPreview() {
+            setupParsed = null;
+            document.getElementById('setup-preview').style.display = 'none';
+            document.getElementById('setup-step').style.display = '';
+        }
+
+        function showSetupDone() {
+            document.getElementById('setup-preview').style.display = 'none';
+            document.getElementById('setup-step').style.display = 'none';
+            document.getElementById('setup-imported-list').innerHTML = setupImportedClasses.map(c => `
+                <div class="setup-imported-row">
+                    <span style="font-weight:600;color:#0f172a;flex:1">${esc(c.name)}</span>
+                    <span style="color:#64748b;font-size:0.8125rem">${c.student_count} student${c.student_count !== 1 ? 's' : ''}</span>
+                </div>
+            `).join('');
+            document.getElementById('setup-done-section').style.display = '';
+        }
+
+        function setupAddAnother() {
+            document.getElementById('setup-done-section').style.display = 'none';
+            document.getElementById('setup-step').style.display = '';
         }
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
