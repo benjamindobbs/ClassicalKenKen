@@ -1,25 +1,30 @@
-# fly.toml — update app name to match your Fly.io app after running `fly launch`
-app = "classical-kenken"
-primary_region = "ewr"
+# fly.toml app configuration file generated for classicalkenken-g0z3ra on 2026-05-26T12:10:35Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'classicalkenken-g0z3ra'
+primary_region = 'ewr'
 
 [build]
 
 [env]
-  PORT = "8080"
-  DB_PATH = "/data/scores.db"
+  DB_PATH = '/data/scores.db'
+  PORT = '8080'
+
+[[mounts]]
+  source = 'kenken_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
 [[vm]]
-  memory = "256mb"
-  cpu_kind = "shared"
+  memory = '256mb'
+  cpu_kind = 'shared'
   cpus = 1
-
-[mounts]
-  source = "kenken_data"
-  destination = "/data"
+  memory_mb = 256
