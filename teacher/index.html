@@ -490,13 +490,13 @@
             const from = document.getElementById(fromId)?.value || '';
             const to   = document.getElementById(toId)?.value   || '';
             const filtered = rows.filter(r => {
-                const d = r.submitted_at.substring(0, 10);
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 return (!from || d >= from) && (!to || d <= to);
             });
 
             const byDate = {};
             filtered.forEach(r => {
-                const d = r.submitted_at.substring(0, 10);
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 if (!byDate[d]) byDate[d] = { sum: 0, count: 0 };
                 byDate[d].sum   += Number(r.score);
                 byDate[d].count += 1;
@@ -536,7 +536,7 @@
             destroyChart(canvasId);
             const byDateDomain = {};
             rows.forEach(r => {
-                const d  = r.submitted_at.substring(0, 10);
+                const d  = new Date(r.submitted_at).toISOString().substring(0, 10);
                 const di = Number(r.domain_idx);
                 if (!byDateDomain[d]) byDateDomain[d] = {};
                 if (!byDateDomain[d][di]) byDateDomain[d][di] = { correct: 0, total: 0 };
@@ -578,7 +578,7 @@
             const from = document.getElementById(fromId)?.value || '';
             const to   = document.getElementById(toId)?.value   || '';
             const filtered = rows.filter(r => {
-                const d = r.submitted_at.substring(0, 10);
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 return (!from || d >= from) && (!to || d <= to);
             });
 
@@ -663,13 +663,13 @@
             resEl.style.display = '';
 
             if (kenkenRows.length > 0) {
-                const kDates = kenkenRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                const kDates = kenkenRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
                 document.getElementById('kenken-from').value = kDates[0];
                 document.getElementById('kenken-to').value   = kDates[kDates.length - 1];
                 document.getElementById('kenken-meta').textContent = `(${kenkenRows.length} puzzles)`;
             }
             if (lookupRows.length > 0) {
-                const sDates = lookupRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                const sDates = lookupRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
                 document.getElementById('bar-from').value = sDates[0];
                 document.getElementById('bar-to').value   = sDates[sDates.length - 1];
                 document.getElementById('line-meta').textContent = `(${lookupRows.length} answers)`;
@@ -977,12 +977,12 @@
             const satRows  = rawData.sat.filter(r => userKeys.has(r.user_key));
 
             if (kkRows.length > 0) {
-                const kDates = kkRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                const kDates = kkRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
                 document.getElementById('class-kenken-from').value = kDates[0];
                 document.getElementById('class-kenken-to').value   = kDates[kDates.length - 1];
             }
             if (satRows.length > 0) {
-                const sDates = satRows.map(r => r.submitted_at.substring(0, 10)).sort();
+                const sDates = satRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
                 document.getElementById('class-bar-from').value = sDates[0];
                 document.getElementById('class-bar-to').value   = sDates[sDates.length - 1];
             }
@@ -1120,11 +1120,11 @@
                 ? allKenken.reduce((s, r) => s + Number(r.score), 0) / allKenken.length : 0;
 
             const kenkenQ = allKenken.filter(r => {
-                const d = r.submitted_at.substring(0, 10);
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 return d >= fromDate && d <= toDate && Number(r.score) >= avgKenken;
             }).length;
             const satQ = rawData.sat.filter(r => {
-                const d = r.submitted_at.substring(0, 10);
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
             }).length;
 
