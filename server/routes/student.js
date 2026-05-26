@@ -37,9 +37,8 @@ router.get('/daily-progress', (req, res) => {
         remaining.kenken = Math.max(0, settings.required_kenken_count - kenkenToday);
         remaining.sat    = Math.max(0, settings.required_sat_count    - satToday);
     } else if (act === 'either') {
-        const need       = Math.max(0, settings.required_either_count - (kenkenToday + satToday));
-        remaining.kenken = need;
-        remaining.sat    = need;
+        remaining.kenken = Math.max(0, settings.required_kenken_count - kenkenToday);
+        remaining.sat    = Math.max(0, settings.required_sat_count    - satToday);
     }
 
     res.json({

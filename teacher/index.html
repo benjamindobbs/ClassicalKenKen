@@ -227,13 +227,6 @@
                             <label class="settings-label">SAT Submissions / Day</label>
                             <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
                         </div>
-                        <div class="settings-field" id="ar-either-field" style="display:none">
-                            <label class="settings-label">Total Submissions / Day</label>
-                            <div class="settings-input-pct">
-                                <input type="number" id="ar-either-count" min="1" step="1" placeholder="1" />
-                                <span>KenKen or SAT</span>
-                            </div>
-                        </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
                         <button class="btn btn-primary" onclick="saveAssignmentSettings()">Save Requirements</button>
@@ -628,9 +621,8 @@
 
         function updateActivityUI() {
             const act = document.querySelector('input[name="req-activity"]:checked')?.value || 'either';
-            document.getElementById('ar-kenken-field').style.display = ['kenken','both'].includes(act) ? '' : 'none';
-            document.getElementById('ar-sat-field').style.display    = ['sat','both'].includes(act)    ? '' : 'none';
-            document.getElementById('ar-either-field').style.display = act === 'either'                ? '' : 'none';
+            document.getElementById('ar-kenken-field').style.display = ['kenken','both','either'].includes(act) ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display    = ['sat','both','either'].includes(act)    ? '' : 'none';
         }
 
         async function loadAssignmentSettings() {
@@ -638,9 +630,8 @@
             const data = await res.json();
             const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
             if (radio) radio.checked = true;
-            document.getElementById('ar-kenken-count').value  = data.required_kenken_count;
-            document.getElementById('ar-sat-count').value     = data.required_sat_count;
-            document.getElementById('ar-either-count').value  = data.required_either_count;
+            document.getElementById('ar-kenken-count').value = data.required_kenken_count;
+            document.getElementById('ar-sat-count').value    = data.required_sat_count;
             updateActivityUI();
         }
 
@@ -648,12 +639,11 @@
             const required_activity     = document.querySelector('input[name="req-activity"]:checked')?.value;
             const required_kenken_count = parseInt(document.getElementById('ar-kenken-count').value) || 1;
             const required_sat_count    = parseInt(document.getElementById('ar-sat-count').value)    || 1;
-            const required_either_count = parseInt(document.getElementById('ar-either-count').value) || 1;
             if (!required_activity) return;
             await fetch('/api/teacher/assignment-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count, required_either_count }),
+                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count }),
             });
             const msg = document.getElementById('ar-saved-msg');
             msg.style.display = '';
