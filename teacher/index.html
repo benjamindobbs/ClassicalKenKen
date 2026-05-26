@@ -6,10 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../assets/style.css">
-<<<<<<< HEAD
-=======
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
->>>>>>> origin/dev
     <style>
         .portal-wrap { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
         .portal-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 2.5rem; }
@@ -23,8 +20,6 @@
         .portal-table tr:hover td { background: #f8fafc; }
         .section-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 2rem 0 0.625rem; }
         .section-count { font-size: 0.875rem; font-weight: 400; color: #64748b; margin-left: 0.4rem; }
-<<<<<<< HEAD
-=======
 
         /* Tabs */
         .tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 1.5rem; max-width: 1200px; margin: 0 auto; }
@@ -96,7 +91,6 @@
         .setup-steps li { line-height: 1.55; }
         .setup-imported-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border); }
         .setup-imported-row:last-child { border-bottom: none; }
->>>>>>> origin/dev
     </style>
 </head>
 <body>
@@ -114,15 +108,6 @@
     <div id="login-view" class="landing" style="display:none">
         <div class="landing-card">
             <h1>Teacher Portal</h1>
-<<<<<<< HEAD
-            <p>Enter the teacher password to access student data.</p>
-            <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%">
-                <input type="password" id="password-input" placeholder="Password"
-                    style="width:100%;padding:0.625rem 0.875rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.9375rem;box-sizing:border-box;outline:none;" />
-                <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
-            </div>
-            <p class="landing-status" id="login-status" style="display:none;color:#dc2626"></p>
-=======
             <p>Sign in with your school Google account (<strong>@hartfordschools.org</strong>) to access student data.</p>
             <button class="btn btn-primary" id="teacher-sign-in-btn" onclick="handleTeacherSignIn()" disabled>Sign In with Google</button>
             <p class="landing-status" id="login-status">Loading&hellip;</p>
@@ -180,19 +165,12 @@
             <p style="margin-top:1.5rem;font-size:0.8125rem;color:#94a3b8">
                 Already set up? <a href="#" onclick="finishSetup();return false" style="color:var(--accent)">Skip to portal &rarr;</a>
             </p>
->>>>>>> origin/dev
         </div>
     </div>
 
     <div id="portal-view" style="display:none">
         <div class="page-header">
             <h1>Teacher Portal</h1>
-<<<<<<< HEAD
-            <p>Debug view &mdash; all stored data</p>
-        </div>
-        <div class="portal-wrap" id="data-content">
-            <p style="color:var(--muted)">Loading&hellip;</p>
-=======
             <p id="portal-subtitle">Debug view &mdash; all stored data</p>
         </div>
 
@@ -338,20 +316,10 @@
                 </div>
 
             </div>
->>>>>>> origin/dev
         </div>
     </div>
 
     <script>
-<<<<<<< HEAD
-        fetch('/api/teacher/check')
-            .then(r => r.ok ? showPortal() : showLogin())
-            .catch(() => showLogin());
-
-        function showLogin() {
-            document.getElementById('login-view').style.display = 'flex';
-        }
-=======
         // ── Teacher OAuth ─────────────────────────────────────────────────────
         const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
         let teacherToken = null;
@@ -408,39 +376,11 @@
         }
 
         function showLogin() { document.getElementById('login-view').style.display = 'flex'; }
->>>>>>> origin/dev
         function showPortal() {
             document.getElementById('portal-view').style.display = 'block';
             loadData();
         }
 
-<<<<<<< HEAD
-        async function doLogin() {
-            const pw = document.getElementById('password-input').value;
-            const statusEl = document.getElementById('login-status');
-            const res = await fetch('/api/teacher/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw }),
-            });
-            if (res.ok) {
-                document.getElementById('login-view').style.display = 'none';
-                showPortal();
-            } else {
-                statusEl.innerText = 'Incorrect password.';
-                statusEl.style.display = '';
-            }
-        }
-
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && document.getElementById('login-view').style.display !== 'none') doLogin();
-        });
-
-        let rawData = null;
-
-        async function loadData() {
-            const res = await fetch('/api/teacher/data');
-=======
         document.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             if (document.getElementById('tab-lookup').style.display !== 'none') doLookup();
@@ -454,7 +394,6 @@
 
         async function loadData() {
             const res = await teacherFetch('/api/teacher/data');
->>>>>>> origin/dev
             rawData = await res.json();
             renderAll();
         }
@@ -465,23 +404,6 @@
                 renderSection('Users',         rawData.users,  ['user_key','email','first_seen']) +
                 renderSection('KenKen Scores', rawData.kenken, ['id','user_key','email','score','size','submitted_at']) +
                 renderSection('SAT Scores',    rawData.sat,    ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
-<<<<<<< HEAD
-            el.querySelectorAll('th[data-col]').forEach(th => {
-                th.addEventListener('click', () => sortTable(th));
-            });
-        }
-
-        function renderSection(title, rows, cols) {
-            const id = title.replace(/\s+/g, '-').toLowerCase();
-            const heads = cols.map(c =>
-                `<th data-table="${id}" data-col="${c}">${c}</th>`
-            ).join('');
-            const body = rows.map(r =>
-                '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
-            ).join('');
-            return `
-                <div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
-=======
             el.querySelectorAll('th[data-col]').forEach(th => th.addEventListener('click', () => sortTable(th)));
         }
 
@@ -490,7 +412,6 @@
             const heads = cols.map(c => `<th data-table="${id}" data-col="${c}">${c}</th>`).join('');
             const body  = rows.map(r => '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>').join('');
             return `<div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
->>>>>>> origin/dev
                 <div class="portal-table-wrap">
                     <table class="portal-table" id="tbl-${id}">
                         <thead><tr>${heads}</tr></thead>
@@ -501,12 +422,7 @@
 
         function fmt(col, val) {
             if (val === null || val === undefined) return '&mdash;';
-<<<<<<< HEAD
-            if (col === 'submitted_at' || col === 'first_seen')
-                return new Date(val).toLocaleString();
-=======
             if (col === 'submitted_at' || col === 'first_seen') return new Date(val).toLocaleString();
->>>>>>> origin/dev
             return String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
@@ -515,19 +431,6 @@
             const col     = th.getAttribute('data-col');
             const table   = document.getElementById('tbl-' + tableId);
             const wasAsc  = th.classList.contains('sort-asc');
-<<<<<<< HEAD
-
-            table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
-            th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
-            const asc = !wasAsc;
-
-            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : 'sat';
-            const cols = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
-            const sorted = [...rawData[dataKey]].sort((a, b) => {
-                const av = a[col], bv = b[col];
-                if (av === bv) return 0;
-                return (av < bv ? -1 : 1) * (asc ? 1 : -1);
-=======
             table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
             th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
             const asc = !wasAsc;
@@ -536,15 +439,11 @@
             const sorted  = [...rawData[dataKey]].sort((a, b) => {
                 const av = a[col], bv = b[col];
                 return av === bv ? 0 : (av < bv ? -1 : 1) * (asc ? 1 : -1);
->>>>>>> origin/dev
             });
             table.querySelector('tbody').innerHTML = sorted.map(r =>
                 '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
             ).join('');
         }
-<<<<<<< HEAD
-    </script>
-=======
 
         // ── Tab switching ─────────────────────────────────────────────────────
         const TAB_SUBTITLES = {
@@ -1495,6 +1394,5 @@
         }
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
->>>>>>> origin/dev
 </body>
 </html>
