@@ -193,6 +193,85 @@ router.delete('/users/:userKey', requireTeacher, (req, res) => {
     res.json({ ok: true });
 });
 
+// ── Computed grades for a class + date range (used by Chrome extension) ───────
+router.get('/grades', requireTeacher, (req, res) => {
+    const { class_id, start, end } = req.query;
+    if (!class_id || !start || !end)
+        return res.status(400).json({ error: 'class_id, start, end required' });
+
+    const cls = db.prepare('SELECT * FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(Number(class_id), req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const settings = db.prepare('SELECT * FROM gradebook_settings WHERE teacher_key = ?')
+        .get(req.teacherKey)
+        ?? { assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0 };
+
+    const asgn = db.prepare('SELECT * FROM assignment_settings WHERE teacher_key = ?')
+        .get(req.teacherKey)
+        ?? { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1 };
+
+    const students = db.prepare(
+        'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
+    ).all(Number(class_id));
+
+    const startMs = new Date(start + 'T00:00:00').getTime();
+    const endMs   = new Date(end   + 'T23:59:59').getTime();
+
+    const results = students.map(student => {
+        if (!student.user_key)
+            return { student_id: student.student_id, student_name: student.student_name, grade: null, unlinked: true };
+
+        // All-time average determines qualifying threshold for KenKen submissions
+        const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
+        const threshold = avgRow?.avg ?? 0;
+
+        const kenkenCount = db.prepare(
+            'SELECT COUNT(*) AS cnt FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND score >= ?'
+        ).get(student.user_key, startMs, endMs, threshold)?.cnt ?? 0;
+
+        const satCount = db.prepare(
+            'SELECT COUNT(*) AS cnt FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
+        ).get(student.user_key, startMs, endMs)?.cnt ?? 0;
+
+        const ra = asgn.required_activity;
+        let required, actual;
+        if      (ra === 'kenken') { required = asgn.required_kenken_count; actual = kenkenCount; }
+        else if (ra === 'sat')    { required = asgn.required_sat_count;    actual = satCount; }
+        else if (ra === 'both')   { required = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
+        else /* either */         { required = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
+
+        const maxScore = settings.assignment_max_score;
+        let grade;
+        if (actual === 0) {
+            grade = Math.round(maxScore * settings.no_submission_score_pct / 100);
+        } else {
+            grade = Math.round((actual / required) * maxScore);
+            grade = actual >= required
+                ? Math.max(grade, Math.round(maxScore * settings.completion_score_pct / 100))
+                : Math.max(grade, Math.round(maxScore * settings.no_submission_score_pct / 100));
+        }
+        grade = Math.min(grade, maxScore);
+
+        return {
+            student_id:   student.student_id,
+            student_name: student.student_name,
+            grade,
+            kenken_count: kenkenCount,
+            sat_count:    satCount,
+            required,
+            actual
+        };
+    });
+
+    res.json({
+        class_id:  Number(class_id),
+        start, end,
+        max_score: settings.assignment_max_score,
+        students:  results
+    });
+});
+
 // ── All data ──────────────────────────────────────────────────────────────────
 router.get('/data', requireTeacher, (_req, res) => {
     const users  = db.prepare('SELECT * FROM users ORDER BY user_key').all();
