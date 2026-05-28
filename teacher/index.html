@@ -271,6 +271,19 @@
                     </div>
                 </div>
 
+                <!-- Chrome extension token -->
+                <div class="section-title">Chrome Extension</div>
+                <div class="settings-card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
+                    <div>
+                        <div style="font-size:0.9375rem;font-weight:600;margin-bottom:0.25rem">Copy Extension Token</div>
+                        <div style="font-size:0.8125rem;color:#64748b">Paste this into the KenKen Sync extension popup to authorize grade sync.</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.625rem;flex-shrink:0">
+                        <button class="btn btn-primary" onclick="copyExtensionToken()">Copy Token</button>
+                        <span id="token-copied-msg" style="display:none;color:#10b981;font-size:0.8125rem">Copied!</span>
+                    </div>
+                </div>
+
                 <!-- Assignment requirements -->
                 <div class="section-title">Assignment Requirements</div>
                 <div class="settings-card">
@@ -732,6 +745,15 @@
             const msg = document.getElementById('gs-saved-msg');
             msg.style.display = '';
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        function copyExtensionToken() {
+            if (!teacherToken) { alert('Sign in first to get a token.'); return; }
+            navigator.clipboard.writeText(teacherToken).then(() => {
+                const msg = document.getElementById('token-copied-msg');
+                msg.style.display = '';
+                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+            });
         }
 
         function updateActivityUI() {
