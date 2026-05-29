@@ -173,7 +173,7 @@ db.exec(`
 
 // One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
-try { db.prepare('ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NULL DEFAULT ""').run(); } catch { /* already exists */ }
+try { db.prepare("ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

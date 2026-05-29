@@ -1839,9 +1839,15 @@
                 note.textContent = 'Importing…';
                 note.style.color = '#64748b';
 
+                // Send plain name strings so this works with any server version
+                const payload = parsed.map(mc => ({
+                    name:        mc.name,
+                    checkpoints: mc.checkpoints.map(cp => cp.name)
+                }));
+
                 const res = await teacherFetch('/api/teacher/microcredentials/import-csv', {
                     method: 'POST',
-                    body: JSON.stringify({ class_id: classId, microcredentials: parsed }),
+                    body: JSON.stringify({ class_id: classId, microcredentials: payload }),
                 });
                 if (!res.ok) {
                     note.textContent = 'Import failed.';
@@ -1850,6 +1856,30 @@
                     return;
                 }
                 const data = await res.json();
+
+                // Patch descriptions if any are present in the CSV (requires updated server)
+                const hasDescriptions = parsed.some(mc => mc.checkpoints.some(cp => cp.description));
+                if (hasDescriptions) {
+                    note.textContent = 'Saving descriptions…';
+                    const listRes = await teacherFetch(`/api/teacher/microcredentials?class_id=${classId}`);
+                    if (listRes.ok) {
+                        const mcs = await listRes.json();
+                        for (const parsedMc of parsed) {
+                            const serverMc = mcs.find(m => m.name === parsedMc.name);
+                            if (!serverMc) continue;
+                            for (const parsedCp of parsedMc.checkpoints) {
+                                if (!parsedCp.description) continue;
+                                const serverCp = serverMc.checkpoints.find(c => c.name === parsedCp.name);
+                                if (!serverCp) continue;
+                                await teacherFetch(`/api/teacher/microcredentials/${serverMc.id}/checkpoints/${serverCp.id}`, {
+                                    method: 'PATCH',
+                                    body: JSON.stringify({ description: parsedCp.description }),
+                                });
+                            }
+                        }
+                    }
+                }
+
                 note.textContent = `Imported ${data.imported} microcredential${data.imported !== 1 ? 's' : ''}.`;
                 note.style.color = '#16a34a';
                 setTimeout(() => { note.textContent = ''; }, 3000);
