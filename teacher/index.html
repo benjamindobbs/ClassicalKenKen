@@ -1972,10 +1972,11 @@
                 }
                 const data = await res.json();
 
-                // Patch descriptions if any are present in the CSV (requires updated server)
+                // Patch descriptions and add subtasks (requires updated server; silently skips on old)
                 const hasDescriptions = parsed.some(mc => mc.checkpoints.some(cp => cp.description));
-                if (hasDescriptions) {
-                    note.textContent = 'Saving descriptions…';
+                const hasSubtasks     = parsed.some(mc => mc.checkpoints.some(cp => cp.subtasks?.length));
+                if (hasDescriptions || hasSubtasks) {
+                    note.textContent = 'Saving descriptions & sub-tasks…';
                     const listRes = await teacherFetch(`/api/teacher/microcredentials?class_id=${classId}`);
                     if (listRes.ok) {
                         const mcs = await listRes.json();
@@ -1983,13 +1984,20 @@
                             const serverMc = mcs.find(m => m.name === parsedMc.name);
                             if (!serverMc) continue;
                             for (const parsedCp of parsedMc.checkpoints) {
-                                if (!parsedCp.description) continue;
                                 const serverCp = serverMc.checkpoints.find(c => c.name === parsedCp.name);
                                 if (!serverCp) continue;
-                                await teacherFetch(`/api/teacher/microcredentials/${serverMc.id}/checkpoints/${serverCp.id}`, {
-                                    method: 'PATCH',
-                                    body: JSON.stringify({ description: parsedCp.description }),
-                                });
+                                if (parsedCp.description) {
+                                    await teacherFetch(`/api/teacher/microcredentials/${serverMc.id}/checkpoints/${serverCp.id}`, {
+                                        method: 'PATCH',
+                                        body: JSON.stringify({ description: parsedCp.description }),
+                                    });
+                                }
+                                for (const stName of (parsedCp.subtasks ?? [])) {
+                                    await teacherFetch(`/api/teacher/microcredentials/${serverMc.id}/checkpoints/${serverCp.id}/subtasks`, {
+                                        method: 'POST',
+                                        body: JSON.stringify({ name: stName }),
+                                    });
+                                }
                             }
                         }
                     }
@@ -2004,20 +2012,38 @@
         }
 
         function parseMcCsv(text) {
+            // Columns: Microcredential, Checkpoint, Description (opt), Subtask (opt)
+            // Multiple rows with the same MC+Checkpoint define multiple subtasks.
+            // First non-empty description for a checkpoint wins.
             const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-            const mcMap = new Map(); // name → [{ name, description }]
+            const mcMap = new Map(); // mc name → Map<cp name, { description, subtasks[] }>
+
             for (const line of lines) {
                 const cols = splitCsvRow(line);
                 if (cols.length < 2) continue;
                 const mc   = cols[0].trim();
                 const cp   = cols[1].trim();
                 const desc = (cols[2] ?? '').trim();
+                const sub  = (cols[3] ?? '').trim();
                 if (!mc || !cp) continue;
                 if (mc.toLowerCase() === 'microcredential' && cp.toLowerCase() === 'checkpoint') continue;
-                if (!mcMap.has(mc)) mcMap.set(mc, []);
-                mcMap.get(mc).push({ name: cp, description: desc });
+
+                if (!mcMap.has(mc)) mcMap.set(mc, new Map());
+                const cpMap = mcMap.get(mc);
+                if (!cpMap.has(cp)) cpMap.set(cp, { description: '', subtasks: [] });
+                const cpData = cpMap.get(cp);
+                if (desc && !cpData.description) cpData.description = desc;
+                if (sub) cpData.subtasks.push(sub);
             }
-            return [...mcMap.entries()].map(([name, checkpoints]) => ({ name, checkpoints }));
+
+            return [...mcMap.entries()].map(([name, cpMap]) => ({
+                name,
+                checkpoints: [...cpMap.entries()].map(([cpName, d]) => ({
+                    name:        cpName,
+                    description: d.description,
+                    subtasks:    d.subtasks,
+                }))
+            }));
         }
 
         function splitCsvRow(line) {
