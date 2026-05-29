@@ -100,6 +100,55 @@ db.exec(`
 
     CREATE INDEX IF NOT EXISTS idx_class_students_class ON class_students(class_id);
     CREATE INDEX IF NOT EXISTS idx_class_students_user  ON class_students(user_key);
+
+    -- Microcredential templates (reusable across classes)
+    CREATE TABLE IF NOT EXISTS microcredentials (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        teacher_key TEXT    NOT NULL,
+        name        TEXT    NOT NULL,
+        created_at  INTEGER NOT NULL,
+        UNIQUE(teacher_key, name)
+    );
+
+    -- Ordered checkpoints within a microcredential
+    CREATE TABLE IF NOT EXISTS mc_checkpoints (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        mc_id     INTEGER NOT NULL REFERENCES microcredentials(id) ON DELETE CASCADE,
+        name      TEXT    NOT NULL,
+        order_idx INTEGER NOT NULL
+    );
+
+    -- Assigns a microcredential template to a class; stores summative PS assignment IDs for re-sync
+    CREATE TABLE IF NOT EXISTS mc_class_assignments (
+        mc_id                             INTEGER NOT NULL REFERENCES microcredentials(id) ON DELETE CASCADE,
+        class_id                          INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        summative_ps_assignment_id        TEXT,
+        summative_ps_assignmentsection_id TEXT,
+        PRIMARY KEY (mc_id, class_id)
+    );
+
+    -- Per-checkpoint PS assignment IDs, scoped per class for re-sync
+    CREATE TABLE IF NOT EXISTS mc_checkpoint_sync (
+        checkpoint_id           INTEGER NOT NULL REFERENCES mc_checkpoints(id) ON DELETE CASCADE,
+        class_id                INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        ps_assignment_id        TEXT,
+        ps_assignmentsection_id TEXT,
+        PRIMARY KEY (checkpoint_id, class_id)
+    );
+
+    -- One row per completed checkpoint per student per class
+    CREATE TABLE IF NOT EXISTS mc_completions (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        checkpoint_id INTEGER NOT NULL REFERENCES mc_checkpoints(id) ON DELETE CASCADE,
+        class_id      INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        student_id    TEXT    NOT NULL,
+        completed_at  INTEGER NOT NULL,
+        UNIQUE(checkpoint_id, class_id, student_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mc_checkpoints_mc    ON mc_checkpoints(mc_id);
+    CREATE INDEX IF NOT EXISTS idx_mc_completions_cp    ON mc_completions(checkpoint_id, class_id);
+    CREATE INDEX IF NOT EXISTS idx_mc_completions_class ON mc_completions(class_id);
 `);
 
 // Add ps_section_id to classes if not present (one-time migration)

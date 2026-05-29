@@ -298,6 +298,319 @@ router.get('/grades', requireTeacher, (req, res) => {
     });
 });
 
+// ── Microcredentials ──────────────────────────────────────────────────────────
+
+// Import parsed CSV payload: create/reuse MC templates and link them to a class
+router.post('/microcredentials/import-csv', requireTeacher, (req, res) => {
+    const { class_id, microcredentials } = req.body;
+    if (!class_id) return res.status(400).json({ error: 'class_id required' });
+    if (!Array.isArray(microcredentials) || microcredentials.length === 0)
+        return res.status(400).json({ error: 'microcredentials array required' });
+
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(Number(class_id), req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const insertMc = db.prepare(
+        'INSERT OR IGNORE INTO microcredentials(teacher_key, name, created_at) VALUES(?, ?, ?)'
+    );
+    const getMc    = db.prepare('SELECT id FROM microcredentials WHERE teacher_key = ? AND name = ?');
+    const getCps   = db.prepare('SELECT id FROM mc_checkpoints WHERE mc_id = ?');
+    const insertCp = db.prepare('INSERT INTO mc_checkpoints(mc_id, name, order_idx) VALUES(?, ?, ?)');
+    const assignMc = db.prepare('INSERT OR IGNORE INTO mc_class_assignments(mc_id, class_id) VALUES(?, ?)');
+
+    const results = db.transaction(() => {
+        return microcredentials
+            .filter(({ name, checkpoints }) => name?.trim() && Array.isArray(checkpoints) && checkpoints.length)
+            .map(({ name, checkpoints }) => {
+                insertMc.run(req.teacherKey, name.trim(), Date.now());
+                const mc     = getMc.get(req.teacherKey, name.trim());
+                const existing = getCps.all(mc.id);
+                // Only populate checkpoints on first creation; reused templates keep their original list
+                if (existing.length === 0) {
+                    checkpoints.forEach((cpName, i) => {
+                        if (cpName?.trim()) insertCp.run(mc.id, cpName.trim(), i);
+                    });
+                }
+                assignMc.run(mc.id, Number(class_id));
+                return {
+                    id:              mc.id,
+                    name:            name.trim(),
+                    reused:          existing.length > 0,
+                    checkpoint_count: existing.length || checkpoints.filter(c => c?.trim()).length
+                };
+            });
+    })();
+
+    res.json({ imported: results.length, microcredentials: results });
+});
+
+// List microcredentials assigned to a class (with checkpoint lists)
+router.get('/microcredentials', requireTeacher, (req, res) => {
+    const { class_id } = req.query;
+    if (!class_id) return res.status(400).json({ error: 'class_id required' });
+
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(Number(class_id), req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const mcs  = db.prepare(`
+        SELECT m.id, m.name, m.created_at
+        FROM microcredentials m
+        JOIN mc_class_assignments a ON a.mc_id = m.id
+        WHERE a.class_id = ? AND m.teacher_key = ?
+        ORDER BY m.name
+    `).all(Number(class_id), req.teacherKey);
+
+    const getCps = db.prepare(
+        'SELECT id, name, order_idx FROM mc_checkpoints WHERE mc_id = ? ORDER BY order_idx'
+    );
+    res.json(mcs.map(mc => ({ ...mc, checkpoints: getCps.all(mc.id) })));
+});
+
+// Full progress grid: students × checkpoints with completion status and stored PS IDs
+router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
+    const mcId    = Number(req.params.id);
+    const classId = Number(req.query.class_id);
+    if (!classId) return res.status(400).json({ error: 'class_id required' });
+
+    const mc = db.prepare('SELECT * FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    const assignment = db.prepare(
+        'SELECT * FROM mc_class_assignments WHERE mc_id = ? AND class_id = ?'
+    ).get(mcId, classId);
+    if (!assignment) return res.status(404).json({ error: 'Microcredential not assigned to this class' });
+
+    const checkpoints = db.prepare(
+        'SELECT * FROM mc_checkpoints WHERE mc_id = ? ORDER BY order_idx'
+    ).all(mcId);
+
+    const students = db.prepare(
+        'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
+    ).all(classId);
+
+    const completions = db.prepare(`
+        SELECT c.* FROM mc_completions c
+        JOIN mc_checkpoints cp ON cp.id = c.checkpoint_id
+        WHERE c.class_id = ? AND cp.mc_id = ?
+    `).all(classId, mcId);
+
+    const syncRows = db.prepare(`
+        SELECT s.* FROM mc_checkpoint_sync s
+        JOIN mc_checkpoints cp ON cp.id = s.checkpoint_id
+        WHERE s.class_id = ? AND cp.mc_id = ?
+    `).all(classId, mcId);
+
+    // checkpoint_id → { student_id → completed_at }
+    const doneMap = {};
+    for (const cp of checkpoints) doneMap[cp.id] = {};
+    for (const c of completions) {
+        if (doneMap[c.checkpoint_id]) doneMap[c.checkpoint_id][c.student_id] = c.completed_at;
+    }
+
+    // checkpoint_id → { ps_assignment_id, ps_assignmentsection_id }
+    const psCheckpointIds = {};
+    for (const row of syncRows) {
+        psCheckpointIds[row.checkpoint_id] = {
+            ps_assignment_id:        row.ps_assignment_id,
+            ps_assignmentsection_id: row.ps_assignmentsection_id
+        };
+    }
+
+    const studentRows = students.map(s => {
+        const completionMap = {};
+        let earned = checkpoints.length > 0;
+        for (const cp of checkpoints) {
+            const ts = doneMap[cp.id]?.[s.student_id] ?? null;
+            completionMap[cp.id] = ts;
+            if (!ts) earned = false;
+        }
+        return { student_id: s.student_id, student_name: s.student_name, completions: completionMap, earned };
+    });
+
+    res.json({
+        mc_id:      mcId,
+        mc_name:    mc.name,
+        class_id:   classId,
+        checkpoints,
+        students:   studentRows,
+        ps_ids: {
+            summative: {
+                ps_assignment_id:        assignment.summative_ps_assignment_id ?? null,
+                ps_assignmentsection_id: assignment.summative_ps_assignmentsection_id ?? null
+            },
+            checkpoints: psCheckpointIds
+        }
+    });
+});
+
+// Toggle a single completion square on or off
+router.post('/microcredentials/:id/toggle', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const { class_id, student_id, checkpoint_id, completed } = req.body;
+    if (!class_id || !student_id || checkpoint_id == null)
+        return res.status(400).json({ error: 'class_id, student_id, checkpoint_id required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    const cp = db.prepare('SELECT id FROM mc_checkpoints WHERE id = ? AND mc_id = ?')
+        .get(Number(checkpoint_id), mcId);
+    if (!cp) return res.status(404).json({ error: 'Checkpoint not found' });
+
+    if (completed) {
+        db.prepare(
+            'INSERT OR IGNORE INTO mc_completions(checkpoint_id, class_id, student_id, completed_at) VALUES(?, ?, ?, ?)'
+        ).run(Number(checkpoint_id), Number(class_id), String(student_id), Date.now());
+    } else {
+        db.prepare(
+            'DELETE FROM mc_completions WHERE checkpoint_id = ? AND class_id = ? AND student_id = ?'
+        ).run(Number(checkpoint_id), Number(class_id), String(student_id));
+    }
+
+    res.json({ ok: true });
+});
+
+// Store PS assignment IDs after a sync so subsequent syncs update rather than create
+router.post('/microcredentials/:id/sync-ids', requireTeacher, (req, res) => {
+    const mcId    = Number(req.params.id);
+    const { class_id, checkpoints, summative } = req.body;
+    if (!class_id) return res.status(400).json({ error: 'class_id required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    const assignment = db.prepare(
+        'SELECT mc_id FROM mc_class_assignments WHERE mc_id = ? AND class_id = ?'
+    ).get(mcId, Number(class_id));
+    if (!assignment) return res.status(404).json({ error: 'Microcredential not assigned to this class' });
+
+    const upsertCpSync = db.prepare(`
+        INSERT OR REPLACE INTO mc_checkpoint_sync(checkpoint_id, class_id, ps_assignment_id, ps_assignmentsection_id)
+        VALUES(?, ?, ?, ?)
+    `);
+    const updateSummative = db.prepare(`
+        UPDATE mc_class_assignments
+        SET summative_ps_assignment_id        = ?,
+            summative_ps_assignmentsection_id = ?
+        WHERE mc_id = ? AND class_id = ?
+    `);
+
+    db.transaction(() => {
+        if (Array.isArray(checkpoints)) {
+            for (const { checkpoint_id, ps_assignment_id, ps_assignmentsection_id } of checkpoints) {
+                if (!checkpoint_id || !ps_assignment_id) continue;
+                upsertCpSync.run(
+                    Number(checkpoint_id), Number(class_id),
+                    String(ps_assignment_id), String(ps_assignmentsection_id ?? '')
+                );
+            }
+        }
+        if (summative?.ps_assignment_id) {
+            updateSummative.run(
+                String(summative.ps_assignment_id),
+                String(summative.ps_assignmentsection_id ?? ''),
+                mcId, Number(class_id)
+            );
+        }
+    })();
+
+    res.json({ ok: true });
+});
+
+// Rename a microcredential
+router.patch('/microcredentials/:id', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    try {
+        db.prepare('UPDATE microcredentials SET name = ? WHERE id = ?').run(name.trim(), mcId);
+        res.json({ ok: true });
+    } catch {
+        res.status(409).json({ error: 'A microcredential with that name already exists' });
+    }
+});
+
+// Add a checkpoint to an existing microcredential
+router.post('/microcredentials/:id/checkpoints', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    const maxIdx = db.prepare('SELECT MAX(order_idx) AS m FROM mc_checkpoints WHERE mc_id = ?')
+        .get(mcId)?.m ?? -1;
+    const result = db.prepare(
+        'INSERT INTO mc_checkpoints(mc_id, name, order_idx) VALUES(?, ?, ?)'
+    ).run(mcId, name.trim(), maxIdx + 1);
+
+    res.json({ id: result.lastInsertRowid, mc_id: mcId, name: name.trim(), order_idx: maxIdx + 1 });
+});
+
+// Rename a checkpoint
+router.patch('/microcredentials/:id/checkpoints/:cpId', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const cpId = Number(req.params.cpId);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare('UPDATE mc_checkpoints SET name = ? WHERE id = ? AND mc_id = ?')
+        .run(name.trim(), cpId, mcId);
+    res.json({ ok: true });
+});
+
+// Remove a checkpoint (cascades to completions and sync rows for that checkpoint)
+router.delete('/microcredentials/:id/checkpoints/:cpId', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const cpId = Number(req.params.cpId);
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare('DELETE FROM mc_checkpoints WHERE id = ? AND mc_id = ?').run(cpId, mcId);
+    res.json({ ok: true });
+});
+
+// Unlink a microcredential from one class (keeps template and other class links intact)
+router.delete('/microcredentials/:id/classes/:classId', requireTeacher, (req, res) => {
+    const mcId    = Number(req.params.id);
+    const classId = Number(req.params.classId);
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare('DELETE FROM mc_class_assignments WHERE mc_id = ? AND class_id = ?').run(mcId, classId);
+    res.json({ ok: true });
+});
+
+// Delete a microcredential template entirely (cascades to checkpoints, assignments, completions)
+router.delete('/microcredentials/:id', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const mc   = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+    db.prepare('DELETE FROM microcredentials WHERE id = ?').run(mcId);
+    res.json({ ok: true });
+});
+
 // ── All data ──────────────────────────────────────────────────────────────────
 router.get('/data', requireTeacher, (_req, res) => {
     const users  = db.prepare('SELECT * FROM users ORDER BY user_key').all();

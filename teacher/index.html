@@ -91,6 +91,32 @@
         .setup-steps li { line-height: 1.55; }
         .setup-imported-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border); }
         .setup-imported-row:last-child { border-bottom: none; }
+
+        /* Microcredentials tab */
+        .mc-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+        .mc-sidebar { width: 220px; flex-shrink: 0; }
+        .mc-list-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; cursor: pointer; margin-bottom: 0.5rem; transition: border-color 0.15s, background 0.15s; }
+        .mc-list-item:hover { border-color: var(--accent); }
+        .mc-list-item.active { border-color: var(--accent); background: #eff6ff; }
+        .mc-list-name { font-weight: 600; font-size: 0.875rem; color: #0f172a; }
+        .mc-list-meta { font-size: 0.75rem; color: #64748b; margin-top: 0.125rem; }
+        .mc-list-remove { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; flex-shrink: 0; margin-top: 1px; }
+        .mc-list-remove:hover { color: #dc2626; }
+        .mc-grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+        .mc-grid-table { border-collapse: collapse; font-size: 0.8125rem; white-space: nowrap; }
+        .mc-grid-table th { background: #f8fafc; padding: 0.5rem 0.75rem; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); text-align: center; }
+        .mc-grid-table th.mc-name-col { text-align: left; min-width: 160px; position: sticky; left: 0; background: #f8fafc; z-index: 1; }
+        .mc-grid-table td { padding: 0.375rem 0.75rem; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        .mc-grid-table td.mc-name-col { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; color: #334155; }
+        .mc-grid-table tr:last-child td { border-bottom: none; }
+        .mc-grid-table tr:hover td { background: #f8fafc; }
+        .mc-grid-table tr:hover td.mc-name-col { background: #f8fafc; }
+        .mc-cell { width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 3px; cursor: pointer; margin: 0 auto; transition: background 0.1s, border-color 0.1s; }
+        .mc-cell:hover { border-color: #93c5fd; background: #eff6ff; }
+        .mc-cell.done { background: #2563eb; border-color: #2563eb; }
+        .mc-cell.done:hover { background: #1d4ed8; border-color: #1d4ed8; }
+        .mc-earned { width: 22px; height: 22px; border-radius: 3px; margin: 0 auto; background: #e2e8f0; transition: background 0.15s; }
+        .mc-earned.done { background: #16a34a; }
     </style>
 </head>
 <body>
@@ -114,51 +140,43 @@
         </div>
     </div>
 
-    <!-- ── First-time setup wizard ─────────────────────────────────────────── -->
+    <!-- ── First-time setup ───────────────────────────────────────────────── -->
     <div id="onboarding-view" style="display:none">
         <div class="page-header">
             <h1>Welcome to Teacher Portal</h1>
-            <p>Import your classes from PowerSchool to get started.</p>
+            <p>Follow the steps below to connect PowerSchool and import your class rosters.</p>
         </div>
 
         <div class="setup-wrap">
+            <div class="settings-card">
+                <p class="setup-heading">Get Set Up in 4 Steps</p>
+                <p class="setup-sub">Rosters are imported directly from PowerSchool using the DobbsCore Gradebook Sync Chrome extension.</p>
 
-            <!-- Step: instructions + upload -->
-            <div id="setup-step" class="settings-card">
-                <p class="setup-heading">Import a Class from PowerSchool</p>
-                <p class="setup-sub">Follow these steps to export a scores template CSV from PowerSchool:</p>
                 <ol class="setup-steps">
-                    <li>Navigate to your class in PowerSchool</li>
-                    <li>Create a new assignment with the settings you would like</li>
-                    <li>Open the assignment</li>
-                    <li>Click the <strong>Gear icon</strong> in the top right</li>
-                    <li>Select <strong>&ldquo;Export Scores Template&rdquo;</strong></li>
-                    <li>Upload the output CSV below</li>
+                    <li>
+                        <strong>Install the Chrome extension</strong><br>
+                        <span style="color:#64748b">Download the <em>DobbsCore Gradebook Sync</em> extension from <a href="https://github.com/benjamindobbs/DobbsCore" target="_blank" rel="noopener" style="color:var(--accent)">github.com/benjamindobbs/DobbsCore</a> and load it in Chrome via Developer Mode. See the repo README for install instructions.</span>
+                    </li>
+                    <li>
+                        <strong>Copy your teacher token</strong><br>
+                        <span style="color:#64748b">Use the button below to copy your token, then paste it into the extension popup.</span>
+                        <div style="margin-top:0.625rem">
+                            <button class="btn btn-outline" onclick="copyExtensionToken()" style="font-size:0.8125rem;padding:0.375rem 0.875rem">Copy Token</button>
+                            <span id="onboarding-copy-note" style="margin-left:0.75rem;font-size:0.8125rem;color:#16a34a"></span>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Configure the extension</strong><br>
+                        <span style="color:#64748b">Click the extension icon in Chrome. Set the Server URL to <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.8125rem">https://classicaltech.org</code> and paste your teacher token.</span>
+                    </li>
+                    <li>
+                        <strong>Import your class rosters</strong><br>
+                        <span style="color:#64748b">In PowerSchool, navigate to each of your classes. A green <strong>Import Roster to DobbsCore</strong> button will appear. Click it, enter a class name, and your roster will be imported automatically.</span>
+                    </li>
                 </ol>
-                <div class="import-row" style="margin-top:1.5rem">
-                    <label class="btn btn-primary" for="setup-csv-upload" style="cursor:pointer;margin:0">Upload CSV</label>
-                    <input type="file" id="setup-csv-upload" accept=".csv,.txt" style="display:none" onchange="handleSetupCSV(event)">
-                    <span class="import-note" id="setup-upload-note"></span>
-                </div>
-            </div>
 
-            <!-- Step: review parsed data before importing -->
-            <div id="setup-preview" class="settings-card" style="display:none">
-                <p class="setup-heading">Review Import</p>
-                <div id="setup-preview-content"></div>
-                <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
-                    <button class="btn btn-primary" onclick="confirmSetupImport()">Import Class</button>
-                    <button class="btn btn-outline" onclick="cancelSetupPreview()">Back</button>
-                </div>
-            </div>
-
-            <!-- Step: imported list + options -->
-            <div id="setup-done-section" style="display:none">
-                <div class="section-title" style="margin-top:0">Imported Classes</div>
-                <div id="setup-imported-list" style="margin-bottom:1.5rem"></div>
-                <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-                    <button class="btn btn-outline" onclick="setupAddAnother()">+ Add Another Class</button>
-                    <button class="btn btn-primary" onclick="finishSetup()">Finish Setup &rarr;</button>
+                <div style="margin-top:1.75rem">
+                    <button class="btn btn-primary" onclick="finishSetup()">Go to Portal &rarr;</button>
                 </div>
             </div>
 
@@ -175,9 +193,10 @@
         </div>
 
         <div class="tab-bar">
-            <button class="tab-btn active" id="tab-btn-data"    onclick="switchTab('data')">All Data</button>
-            <button class="tab-btn"        id="tab-btn-lookup"  onclick="switchTab('lookup')">Student Lookup</button>
-            <button class="tab-btn"        id="tab-btn-classes" onclick="switchTab('classes')">Classes</button>
+            <button class="tab-btn active" id="tab-btn-data"               onclick="switchTab('data')">All Data</button>
+            <button class="tab-btn"        id="tab-btn-lookup"             onclick="switchTab('lookup')">Student Lookup</button>
+            <button class="tab-btn"        id="tab-btn-classes"            onclick="switchTab('classes')">Classes</button>
+            <button class="tab-btn"        id="tab-btn-microcredentials"   onclick="switchTab('microcredentials')">Microcredentials</button>
         </div>
 
         <!-- ── All Data tab ──────────────────────────────────────────────────── -->
@@ -227,6 +246,33 @@
                 </div>
 
                 <p id="lookup-message" style="display:none;color:#64748b;font-size:0.9375rem"></p>
+            </div>
+        </div>
+
+        <!-- ── Microcredentials tab ─────────────────────────────────────────── -->
+        <div id="tab-microcredentials" style="display:none">
+            <div class="portal-wrap">
+                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem">
+                    <select id="mc-class-select" onchange="loadMicrocredentials()" style="padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;background:#fff;color:#0f172a;outline:none;cursor:pointer">
+                        <option value="">Select a class&hellip;</option>
+                    </select>
+                    <label class="btn btn-outline btn-sm" for="mc-csv-input" style="cursor:pointer">Import CSV</label>
+                    <input type="file" id="mc-csv-input" accept=".csv,.txt" style="display:none" onchange="handleMcCsvUpload(event)">
+                    <button class="btn btn-outline btn-sm" onclick="downloadMcTemplate()">Download Template</button>
+                    <span id="mc-import-note" style="font-size:0.8125rem;color:#16a34a"></span>
+                </div>
+
+                <div class="mc-layout">
+                    <div class="mc-sidebar">
+                        <div class="section-title" style="margin-top:0;margin-bottom:0.625rem">Microcredentials</div>
+                        <div id="mc-list"><p style="color:#94a3b8;font-size:0.875rem">Select a class to begin.</p></div>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div id="mc-grid-area">
+                            <p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -466,18 +512,20 @@
 
         // ── Tab switching ─────────────────────────────────────────────────────
         const TAB_SUBTITLES = {
-            data:    'Debug view — all stored data',
-            lookup:  'SAT & KenKen performance breakdown by student',
-            classes: 'Manage classes and view cumulative performance',
+            data:             'Debug view — all stored data',
+            lookup:           'SAT & KenKen performance breakdown by student',
+            classes:          'Manage classes and view cumulative performance',
+            microcredentials: 'Track student progress through credential checkpoints',
         };
 
         function switchTab(tab) {
-            ['data','lookup','classes'].forEach(t => {
+            ['data','lookup','classes','microcredentials'].forEach(t => {
                 document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
                 document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
             });
             document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab];
-            if (tab === 'classes') { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+            if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+            if (tab === 'microcredentials') { loadMcClassSelect(); }
         }
 
         // ── Domain constants ──────────────────────────────────────────────────
@@ -750,9 +798,10 @@
         function copyExtensionToken() {
             if (!teacherToken) { alert('Sign in first to get a token.'); return; }
             navigator.clipboard.writeText(teacherToken).then(() => {
-                const msg = document.getElementById('token-copied-msg');
-                msg.style.display = '';
-                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+                const msg  = document.getElementById('token-copied-msg');
+                const note = document.getElementById('onboarding-copy-note');
+                if (msg)  { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
+                if (note) { note.textContent = 'Copied!'; setTimeout(() => { note.textContent = ''; }, 2000); }
             });
         }
 
@@ -1274,6 +1323,400 @@
             URL.revokeObjectURL(url);
         }
 
+        // ── Microcredentials ──────────────────────────────────────────────────
+
+        let mcState = { classId: null, mcs: [], activeMcId: null, progress: null, editingMcId: null };
+
+        async function loadMcClassSelect() {
+            const sel = document.getElementById('mc-class-select');
+            const prev = sel.value;
+            const res  = await teacherFetch('/api/teacher/classes');
+            if (!res.ok) return;
+            const classes = await res.json();
+            sel.innerHTML = '<option value="">Select a class&hellip;</option>' +
+                classes.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+            if (prev && classes.some(c => String(c.id) === prev)) {
+                sel.value = prev;
+                loadMicrocredentials();
+            }
+        }
+
+        async function loadMicrocredentials() {
+            const classId = document.getElementById('mc-class-select')?.value;
+            if (!classId) return;
+            mcState.classId    = classId;
+            mcState.activeMcId = null;
+            mcState.progress   = null;
+            document.getElementById('mc-grid-area').innerHTML =
+                '<p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>';
+            document.getElementById('mc-list').innerHTML =
+                '<p style="color:#94a3b8;font-size:0.875rem">Loading&hellip;</p>';
+
+            const res = await teacherFetch(`/api/teacher/microcredentials?class_id=${classId}`);
+            if (!res.ok) { renderMcList([]); return; }
+            mcState.mcs = await res.json();
+            renderMcList(mcState.mcs);
+        }
+
+        function renderMcList(mcs) {
+            const list = document.getElementById('mc-list');
+            const newBtn = `<button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.75rem" onclick="showMcEditor(null)">+ New Microcredential</button>`;
+            if (!mcs.length) {
+                list.innerHTML = newBtn + '<p style="color:#94a3b8;font-size:0.875rem">No microcredentials yet.<br>Import a CSV or create one manually.</p>';
+                return;
+            }
+            list.innerHTML = newBtn + mcs.map(mc => `
+                <div class="mc-list-item${mc.id === mcState.activeMcId ? ' active' : ''}" id="mc-item-${mc.id}" onclick="selectMc(${mc.id})">
+                    <div style="min-width:0">
+                        <div class="mc-list-name">${esc(mc.name)}</div>
+                        <div class="mc-list-meta">${mc.checkpoints.length} checkpoint${mc.checkpoints.length !== 1 ? 's' : ''}</div>
+                    </div>
+                    <div style="display:flex;gap:0.25rem;flex-shrink:0">
+                        <button class="mc-list-remove" title="Edit" onclick="event.stopPropagation();showMcEditor(${mc.id})">✏</button>
+                        <button class="mc-list-remove" title="Remove from class" onclick="event.stopPropagation();unlinkMc(${mc.id})">×</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function selectMc(mcId) {
+            mcState.activeMcId = mcId;
+            document.querySelectorAll('.mc-list-item').forEach(el =>
+                el.classList.toggle('active', el.id === `mc-item-${mcId}`)
+            );
+            document.getElementById('mc-grid-area').innerHTML =
+                '<p style="color:#94a3b8;font-size:0.875rem">Loading&hellip;</p>';
+
+            const res = await teacherFetch(`/api/teacher/microcredentials/${mcId}/progress?class_id=${mcState.classId}`);
+            if (!res.ok) {
+                document.getElementById('mc-grid-area').innerHTML =
+                    '<p style="color:#dc2626;font-size:0.875rem">Failed to load progress.</p>';
+                return;
+            }
+            mcState.progress = await res.json();
+            renderMcGrid(mcState.progress);
+        }
+
+        function renderMcGrid(data) {
+            const { checkpoints, students, mc_name, mc_id, class_id } = data;
+            const area = document.getElementById('mc-grid-area');
+
+            if (!students.length) {
+                area.innerHTML = '<p style="color:#94a3b8;font-size:0.875rem">No students in this class.</p>';
+                return;
+            }
+
+            const earnedCount = students.filter(s => s.earned).length;
+
+            const headerCells = checkpoints.map(cp =>
+                `<th title="${esc(cp.name)}">${esc(cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name)}</th>`
+            ).join('');
+
+            const bodyRows = students.map(s => {
+                const cells = checkpoints.map(cp => {
+                    const done = !!s.completions[cp.id];
+                    return `<td><div class="mc-cell${done ? ' done' : ''}" onclick="toggleCell(this,${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div></td>`;
+                }).join('');
+                return `<tr>
+                    <td class="mc-name-col">${esc(s.student_name)}</td>
+                    ${cells}
+                    <td><div class="mc-earned${s.earned ? ' done' : ''}"></div></td>
+                </tr>`;
+            }).join('');
+
+            area.innerHTML = `
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;gap:1rem;flex-wrap:wrap">
+                    <span style="font-size:1rem;font-weight:700;color:#0f172a">${esc(mc_name)}</span>
+                    <span style="font-size:0.8125rem;color:#64748b">${earnedCount} / ${students.length} earned</span>
+                </div>
+                <div class="mc-grid-wrap">
+                    <table class="mc-grid-table">
+                        <thead><tr>
+                            <th class="mc-name-col">Student</th>
+                            ${headerCells}
+                            <th>Earned</th>
+                        </tr></thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function toggleCell(cellEl, mcId, classId, studentId, checkpointId, currentDone) {
+            const newDone = !currentDone;
+            cellEl.classList.toggle('done', newDone);
+            cellEl.setAttribute('onclick',
+                `toggleCell(this,${mcId},${classId},'${studentId}',${checkpointId},${newDone})`);
+
+            // Update earned indicator for this student in state + DOM
+            const progress = mcState.progress;
+            if (progress) {
+                const student = progress.students.find(s => s.student_id === String(studentId));
+                if (student) {
+                    student.completions[checkpointId] = newDone ? Date.now() : null;
+                    student.earned = progress.checkpoints.every(cp => student.completions[cp.id]);
+                    const earnedCell = cellEl.closest('tr')?.querySelector('.mc-earned');
+                    if (earnedCell) earnedCell.classList.toggle('done', student.earned);
+                    // Update earned count in heading
+                    const earnedCount = progress.students.filter(s => s.earned).length;
+                    const heading = document.getElementById('mc-grid-area').querySelector('span[style*="64748b"]');
+                    if (heading) heading.textContent = `${earnedCount} / ${progress.students.length} earned`;
+                }
+            }
+
+            teacherFetch(`/api/teacher/microcredentials/${mcId}/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({ class_id: classId, student_id: studentId, checkpoint_id: checkpointId, completed: newDone }),
+            });
+        }
+
+        async function unlinkMc(mcId) {
+            if (!confirm('Remove this microcredential from the class? Completion data for this class will be deleted.')) return;
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}/classes/${mcState.classId}`, { method: 'DELETE' });
+            if (mcState.activeMcId === mcId) {
+                mcState.activeMcId = null;
+                mcState.progress   = null;
+                document.getElementById('mc-grid-area').innerHTML =
+                    '<p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>';
+            }
+            loadMicrocredentials();
+        }
+
+        // ── MC editor (create / edit) ─────────────────────────────────────────
+
+        function showMcEditor(mcIdOrNull) {
+            if (!mcState.classId) { alert('Select a class first.'); return; }
+            mcState.editingMcId = mcIdOrNull;
+
+            // Deactivate grid selection highlight while editor is open
+            document.querySelectorAll('.mc-list-item').forEach(el => el.classList.remove('active'));
+
+            const mc = mcIdOrNull ? mcState.mcs.find(m => m.id === mcIdOrNull) : null;
+            const title = mc ? 'Edit Microcredential' : 'New Microcredential';
+            const checkpoints = mc ? mc.checkpoints : [];
+
+            const IS = 'style="width:100%;padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;box-sizing:border-box;outline:none"';
+
+            document.getElementById('mc-grid-area').innerHTML = `
+                <div style="max-width:560px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+                        <strong style="font-size:1rem;color:#0f172a">${title}</strong>
+                        <button class="btn btn-outline btn-sm" onclick="cancelMcEditor()">Cancel</button>
+                    </div>
+
+                    <div style="margin-bottom:1rem">
+                        <label style="display:block;font-size:0.75rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.375rem">Name</label>
+                        <input id="mc-editor-name" type="text" placeholder="e.g. Algebra Foundations" value="${esc(mc?.name ?? '')}" ${IS} onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                    </div>
+
+                    <div>
+                        <label style="display:block;font-size:0.75rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.375rem">Checkpoints</label>
+                        <div id="mc-checkpoint-list" style="display:flex;flex-direction:column;gap:0.375rem">
+                            ${checkpoints.map(cp => mcCpRowHtml(cp.id, cp.name)).join('')}
+                        </div>
+                        <button class="btn btn-outline btn-sm" style="margin-top:0.625rem" onclick="addMcCpRow()">+ Add Checkpoint</button>
+                    </div>
+
+                    <div id="mc-editor-status" style="font-size:0.8125rem;color:#dc2626;min-height:1.25rem;margin-top:0.875rem"></div>
+
+                    <div style="display:flex;gap:0.75rem;margin-top:0.25rem">
+                        <button class="btn btn-primary" onclick="saveMcEditor()">Save</button>
+                        <button class="btn btn-outline" onclick="cancelMcEditor()">Cancel</button>
+                        ${mc ? `<button class="btn btn-sm" style="margin-left:auto;background:#dc2626;color:#fff;border-color:#dc2626" onclick="deleteMcCompletely(${mc.id})">Delete Credential</button>` : ''}
+                    </div>
+                </div>`;
+
+            // Add a blank row if creating new
+            if (!mc) { addMcCpRow(); addMcCpRow(); addMcCpRow(); }
+        }
+
+        function mcCpRowHtml(cpId, name) {
+            const IS = 'style="flex:1;padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;box-sizing:border-box;outline:none"';
+            return `<div class="mc-cp-row" style="display:flex;gap:0.375rem;align-items:center" data-cp-id="${cpId ?? ''}">
+                <input type="text" ${IS} value="${esc(name ?? '')}" placeholder="Checkpoint name…"
+                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                <button class="mc-list-remove" style="font-size:1.125rem" onclick="this.closest('.mc-cp-row').remove()" title="Remove">×</button>
+            </div>`;
+        }
+
+        function addMcCpRow() {
+            const list = document.getElementById('mc-checkpoint-list');
+            if (!list) return;
+            list.insertAdjacentHTML('beforeend', mcCpRowHtml(null, ''));
+            list.lastElementChild?.querySelector('input')?.focus();
+        }
+
+        function cancelMcEditor() {
+            mcState.editingMcId = null;
+            if (mcState.activeMcId) {
+                selectMc(mcState.activeMcId);
+            } else {
+                document.getElementById('mc-grid-area').innerHTML =
+                    '<p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>';
+            }
+        }
+
+        async function saveMcEditor() {
+            const name = document.getElementById('mc-editor-name')?.value.trim();
+            const statusEl = document.getElementById('mc-editor-status');
+            const setErr = msg => { if (statusEl) statusEl.textContent = msg; };
+
+            if (!name) { setErr('Enter a name.'); return; }
+
+            const rows = document.querySelectorAll('#mc-checkpoint-list .mc-cp-row');
+            const checkpoints = [];
+            for (const row of rows) {
+                const cpName = row.querySelector('input')?.value.trim();
+                if (!cpName) continue;
+                checkpoints.push({ id: row.dataset.cpId ? Number(row.dataset.cpId) : null, name: cpName });
+            }
+            if (!checkpoints.length) { setErr('Add at least one checkpoint.'); return; }
+
+            const isNew = !mcState.editingMcId;
+
+            if (isNew) {
+                const res = await teacherFetch('/api/teacher/microcredentials/import-csv', {
+                    method: 'POST',
+                    body: JSON.stringify({ class_id: mcState.classId, microcredentials: [{ name, checkpoints: checkpoints.map(c => c.name) }] }),
+                });
+                if (!res.ok) { setErr('Failed to create — a credential with that name may already exist.'); return; }
+            } else {
+                const mcId    = mcState.editingMcId;
+                const original = mcState.mcs.find(m => m.id === mcId);
+
+                if (name !== original.name) {
+                    const r = await teacherFetch(`/api/teacher/microcredentials/${mcId}`, {
+                        method: 'PATCH', body: JSON.stringify({ name }),
+                    });
+                    if (!r.ok) { setErr('Failed to rename — that name may already be taken.'); return; }
+                }
+
+                // Delete removed checkpoints
+                const keptIds = new Set(checkpoints.filter(c => c.id).map(c => c.id));
+                for (const oldCp of original.checkpoints) {
+                    if (!keptIds.has(oldCp.id)) {
+                        await teacherFetch(`/api/teacher/microcredentials/${mcId}/checkpoints/${oldCp.id}`, { method: 'DELETE' });
+                    }
+                }
+
+                // Rename changed checkpoints and add new ones
+                for (const cp of checkpoints) {
+                    if (cp.id) {
+                        const oldCp = original.checkpoints.find(c => c.id === cp.id);
+                        if (oldCp && oldCp.name !== cp.name) {
+                            await teacherFetch(`/api/teacher/microcredentials/${mcId}/checkpoints/${cp.id}`, {
+                                method: 'PATCH', body: JSON.stringify({ name: cp.name }),
+                            });
+                        }
+                    } else {
+                        await teacherFetch(`/api/teacher/microcredentials/${mcId}/checkpoints`, {
+                            method: 'POST', body: JSON.stringify({ name: cp.name }),
+                        });
+                    }
+                }
+
+                mcState.activeMcId = mcId;
+            }
+
+            mcState.editingMcId = null;
+            await loadMicrocredentials();
+            if (mcState.activeMcId) selectMc(mcState.activeMcId);
+        }
+
+        async function deleteMcCompletely(mcId) {
+            if (!confirm('Permanently delete this microcredential and all completion data across every class? This cannot be undone.')) return;
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}`, { method: 'DELETE' });
+            mcState.activeMcId = null;
+            mcState.editingMcId = null;
+            loadMicrocredentials();
+        }
+
+        function downloadMcTemplate() {
+            const csv = [
+                'Microcredential,Checkpoint',
+                'Algebra Foundations,Understand variables and expressions',
+                'Algebra Foundations,Solve one-step equations',
+                'Algebra Foundations,Solve two-step equations',
+                'Algebra Foundations,Graph on a number line',
+                'Number Theory,Identify prime and composite numbers',
+                'Number Theory,Find factors and multiples',
+                'Number Theory,Apply divisibility rules',
+            ].join('\r\n');
+            const a = Object.assign(document.createElement('a'), {
+                href:     URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+                download: 'microcredentials-template.csv',
+            });
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function handleMcCsvUpload(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            const classId = document.getElementById('mc-class-select')?.value;
+            if (!classId) { alert('Select a class before importing.'); return; }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const parsed = parseMcCsv(e.target.result);
+                const note   = document.getElementById('mc-import-note');
+                if (!parsed.length) {
+                    note.textContent = 'Could not parse CSV — expected two columns: Microcredential, Checkpoint.';
+                    note.style.color = '#dc2626';
+                    setTimeout(() => { note.textContent = ''; note.style.color = '#16a34a'; }, 4000);
+                    return;
+                }
+                note.textContent = 'Importing…';
+                note.style.color = '#64748b';
+
+                const res = await teacherFetch('/api/teacher/microcredentials/import-csv', {
+                    method: 'POST',
+                    body: JSON.stringify({ class_id: classId, microcredentials: parsed }),
+                });
+                if (!res.ok) {
+                    note.textContent = 'Import failed.';
+                    note.style.color = '#dc2626';
+                    setTimeout(() => { note.textContent = ''; note.style.color = '#16a34a'; }, 3000);
+                    return;
+                }
+                const data = await res.json();
+                note.textContent = `Imported ${data.imported} microcredential${data.imported !== 1 ? 's' : ''}.`;
+                note.style.color = '#16a34a';
+                setTimeout(() => { note.textContent = ''; }, 3000);
+                loadMicrocredentials();
+            };
+            reader.readAsText(file);
+        }
+
+        function parseMcCsv(text) {
+            const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+            const mcMap = new Map();
+            for (const line of lines) {
+                const cols  = splitCsvRow(line);
+                if (cols.length < 2) continue;
+                const mc = cols[0].trim();
+                const cp = cols[1].trim();
+                if (!mc || !cp) continue;
+                // Skip header row
+                if (mc.toLowerCase() === 'microcredential' && cp.toLowerCase() === 'checkpoint') continue;
+                if (!mcMap.has(mc)) mcMap.set(mc, []);
+                mcMap.get(mc).push(cp);
+            }
+            return [...mcMap.entries()].map(([name, checkpoints]) => ({ name, checkpoints }));
+        }
+
+        function splitCsvRow(line) {
+            const cols = [];
+            let field = '', inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                if (line[i] === '"') { inQ = !inQ; }
+                else if (line[i] === ',' && !inQ) { cols.push(field); field = ''; }
+                else { field += line[i]; }
+            }
+            cols.push(field);
+            return cols;
+        }
+
         // ── Utilities ─────────────────────────────────────────────────────────
         function esc(str) {
             return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1289,149 +1732,6 @@
             showPortal();
         }
 
-        let setupParsed = null;
-        const setupImportedClasses = [];
-
-        function parsePowerSchoolCSV(text) {
-            function parseRow(line) {
-                const cols = [];
-                let field = '', inQ = false;
-                for (let i = 0; i < line.length; i++) {
-                    if (line[i] === '"') { inQ = !inQ; }
-                    else if (line[i] === ',' && !inQ) { cols.push(field.trim()); field = ''; }
-                    else { field += line[i]; }
-                }
-                cols.push(field.trim());
-                return cols;
-            }
-            const lines = text.trim().split(/\r?\n/);
-            if (lines.length < 8) return null;
-            const teacherName = parseRow(lines[0])[1] || '';
-            const className   = parseRow(lines[1])[1] || '';
-            const maxScore    = parseFloat(parseRow(lines[4])[1]) || 100;
-            // Row 7 is the header (Student Num, Student Name, Score); students start at row 8
-            const students = [];
-            for (let i = 8; i < lines.length; i++) {
-                const cols = parseRow(lines[i]);
-                const id   = cols[0]?.trim();
-                const name = cols[1]?.trim();
-                if (!id || !/^\d+$/.test(id)) continue;
-                students.push({ student_id: id, student_name: name || id });
-            }
-            return { teacherName, className, maxScore, students };
-        }
-
-        function handleSetupCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            document.getElementById('setup-upload-note').textContent = file.name;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const parsed = parsePowerSchoolCSV(e.target.result);
-                if (!parsed || !parsed.className) {
-                    alert('Could not read the CSV. Make sure it is a PowerSchool scores template.');
-                    event.target.value = '';
-                    return;
-                }
-                setupParsed = parsed;
-                showSetupPreview(parsed);
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-
-        function showSetupPreview(parsed) {
-            document.getElementById('setup-preview-content').innerHTML = `
-                <div class="settings-grid" style="margin-bottom:0.5rem">
-                    <div class="settings-field">
-                        <span class="settings-label">Class Name</span>
-                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.className)}</span>
-                    </div>
-                    <div class="settings-field">
-                        <span class="settings-label">Teacher Name</span>
-                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${esc(parsed.teacherName) || '&mdash;'}</span>
-                    </div>
-                    <div class="settings-field">
-                        <span class="settings-label">Points Possible</span>
-                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.maxScore}</span>
-                    </div>
-                    <div class="settings-field">
-                        <span class="settings-label">Students Found</span>
-                        <span style="font-size:0.9375rem;color:#0f172a;font-weight:600">${parsed.students.length}</span>
-                    </div>
-                </div>
-            `;
-            document.getElementById('setup-step').style.display = 'none';
-            document.getElementById('setup-preview').style.display = '';
-        }
-
-        async function confirmSetupImport() {
-            if (!setupParsed) return;
-            const { teacherName, className, maxScore, students } = setupParsed;
-
-            // Set teacher name on first import if profile is empty
-            if (teacherName) {
-                const profileData = await (await teacherFetch('/api/teacher/profile')).json();
-                if (!profileData.name) {
-                    await teacherFetch('/api/teacher/profile', {
-                        method: 'POST',
-                        body: JSON.stringify({ name: teacherName }),
-                    });
-                }
-            }
-
-            // Set gradebook max score from CSV
-            const gsData = await (await teacherFetch('/api/teacher/gradebook-settings')).json();
-            await teacherFetch('/api/teacher/gradebook-settings', {
-                method: 'POST',
-                body: JSON.stringify({
-                    assignment_max_score:    maxScore,
-                    completion_score_pct:    gsData.completion_score_pct    ?? 100,
-                    no_submission_score_pct: gsData.no_submission_score_pct ?? 0,
-                }),
-            });
-
-            // Create the class
-            const cls = await (await teacherFetch('/api/teacher/classes', {
-                method: 'POST',
-                body: JSON.stringify({ name: className }),
-            })).json();
-
-            // Import students
-            if (students.length > 0) {
-                await teacherFetch(`/api/teacher/classes/${cls.id}/students`, {
-                    method: 'POST',
-                    body: JSON.stringify({ students }),
-                });
-            }
-
-            setupImportedClasses.push({ name: className, student_count: students.length });
-            setupParsed = null;
-            showSetupDone();
-        }
-
-        function cancelSetupPreview() {
-            setupParsed = null;
-            document.getElementById('setup-preview').style.display = 'none';
-            document.getElementById('setup-step').style.display = '';
-        }
-
-        function showSetupDone() {
-            document.getElementById('setup-preview').style.display = 'none';
-            document.getElementById('setup-step').style.display = 'none';
-            document.getElementById('setup-imported-list').innerHTML = setupImportedClasses.map(c => `
-                <div class="setup-imported-row">
-                    <span style="font-weight:600;color:#0f172a;flex:1">${esc(c.name)}</span>
-                    <span style="color:#64748b;font-size:0.8125rem">${c.student_count} student${c.student_count !== 1 ? 's' : ''}</span>
-                </div>
-            `).join('');
-            document.getElementById('setup-done-section').style.display = '';
-        }
-
-        function setupAddAnother() {
-            document.getElementById('setup-done-section').style.display = 'none';
-            document.getElementById('setup-step').style.display = '';
-        }
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 </body>
