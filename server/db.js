@@ -149,10 +149,31 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_mc_checkpoints_mc    ON mc_checkpoints(mc_id);
     CREATE INDEX IF NOT EXISTS idx_mc_completions_cp    ON mc_completions(checkpoint_id, class_id);
     CREATE INDEX IF NOT EXISTS idx_mc_completions_class ON mc_completions(class_id);
+
+    -- Sub-tasks within a checkpoint
+    CREATE TABLE IF NOT EXISTS mc_subtasks (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        checkpoint_id INTEGER NOT NULL REFERENCES mc_checkpoints(id) ON DELETE CASCADE,
+        name          TEXT    NOT NULL,
+        order_idx     INTEGER NOT NULL
+    );
+
+    -- Per-student sub-task completion
+    CREATE TABLE IF NOT EXISTS mc_subtask_completions (
+        subtask_id   INTEGER NOT NULL REFERENCES mc_subtasks(id) ON DELETE CASCADE,
+        class_id     INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        student_id   TEXT    NOT NULL,
+        completed_at INTEGER NOT NULL,
+        UNIQUE(subtask_id, class_id, student_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mc_subtasks_cp   ON mc_subtasks(checkpoint_id);
+    CREATE INDEX IF NOT EXISTS idx_mc_subtask_comps ON mc_subtask_completions(subtask_id, class_id);
 `);
 
-// Add ps_section_id to classes if not present (one-time migration)
+// One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NULL DEFAULT ""').run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

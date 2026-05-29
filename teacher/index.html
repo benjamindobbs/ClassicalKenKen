@@ -117,6 +117,22 @@
         .mc-cell.done:hover { background: #1d4ed8; border-color: #1d4ed8; }
         .mc-earned { width: 22px; height: 22px; border-radius: 3px; margin: 0 auto; background: #e2e8f0; transition: background 0.15s; }
         .mc-earned.done { background: #16a34a; }
+        .mc-grid-table th:not(.mc-name-col) { cursor: pointer; }
+        .mc-grid-table th:not(.mc-name-col):hover { background: #eff6ff; color: var(--accent); }
+
+        /* Checkpoint / student popup modal */
+        .mc-modal-bg   { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:2000; }
+        .mc-modal-box  { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:10px; padding:1.5rem; width:460px; max-width:90vw; max-height:82vh; overflow-y:auto; z-index:2001; box-shadow:0 8px 40px rgba(0,0,0,0.18); }
+        .mc-modal-title { font-size:1rem; font-weight:700; color:#0f172a; margin:0 2rem 0.25rem 0; }
+        .mc-modal-sub   { font-size:0.8125rem; color:#64748b; margin:0 0 0.875rem; }
+        .mc-modal-desc  { font-size:0.875rem; color:#334155; line-height:1.6; margin:0 0 1.25rem; }
+        .mc-modal-close { position:absolute; top:12px; right:14px; background:none; border:none; font-size:1.375rem; color:#94a3b8; cursor:pointer; line-height:1; padding:0; }
+        .mc-modal-close:hover { color:#334155; }
+        .mc-modal-section { font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:.04em; margin:0 0 0.5rem; }
+        .mc-subtask-row { display:flex; align-items:center; gap:0.625rem; padding:0.4rem 0; border-bottom:1px solid #f1f5f9; cursor:pointer; user-select:none; }
+        .mc-subtask-row:last-child { border-bottom:none; }
+        .mc-subtask-row span { font-size:0.875rem; color:#334155; flex:1; }
+        .mc-subtask-row .mc-cell { flex-shrink:0; pointer-events:none; }
     </style>
 </head>
 <body>
@@ -260,6 +276,13 @@
                     <input type="file" id="mc-csv-input" accept=".csv,.txt" style="display:none" onchange="handleMcCsvUpload(event)">
                     <button class="btn btn-outline btn-sm" onclick="downloadMcTemplate()">Download Template</button>
                     <span id="mc-import-note" style="font-size:0.8125rem;color:#16a34a"></span>
+                </div>
+
+                <!-- Checkpoint / student popup -->
+                <div id="mc-modal-bg"  class="mc-modal-bg"  onclick="closeMcModal()"></div>
+                <div id="mc-modal-box" class="mc-modal-box">
+                    <button class="mc-modal-close" onclick="closeMcModal()">×</button>
+                    <div id="mc-modal-content"></div>
                 </div>
 
                 <div class="mc-layout">
@@ -1409,13 +1432,13 @@
             const earnedCount = students.filter(s => s.earned).length;
 
             const headerCells = checkpoints.map(cp =>
-                `<th title="${esc(cp.name)}">${esc(cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name)}</th>`
+                `<th onclick="openCpPopup(${cp.id})" title="${esc(cp.description || cp.name)}">${esc(cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name)}</th>`
             ).join('');
 
             const bodyRows = students.map(s => {
                 const cells = checkpoints.map(cp => {
                     const done = !!s.completions[cp.id];
-                    return `<td><div class="mc-cell${done ? ' done' : ''}" onclick="toggleCell(this,${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div></td>`;
+                    return `<td><div class="mc-cell${done ? ' done' : ''}" onclick="openStudentCpPopup('${s.student_id}',${cp.id})"></div></td>`;
                 }).join('');
                 return `<tr>
                     <td class="mc-name-col">${esc(s.student_name)}</td>
@@ -1441,34 +1464,6 @@
                 </div>`;
         }
 
-        function toggleCell(cellEl, mcId, classId, studentId, checkpointId, currentDone) {
-            const newDone = !currentDone;
-            cellEl.classList.toggle('done', newDone);
-            cellEl.setAttribute('onclick',
-                `toggleCell(this,${mcId},${classId},'${studentId}',${checkpointId},${newDone})`);
-
-            // Update earned indicator for this student in state + DOM
-            const progress = mcState.progress;
-            if (progress) {
-                const student = progress.students.find(s => s.student_id === String(studentId));
-                if (student) {
-                    student.completions[checkpointId] = newDone ? Date.now() : null;
-                    student.earned = progress.checkpoints.every(cp => student.completions[cp.id]);
-                    const earnedCell = cellEl.closest('tr')?.querySelector('.mc-earned');
-                    if (earnedCell) earnedCell.classList.toggle('done', student.earned);
-                    // Update earned count in heading
-                    const earnedCount = progress.students.filter(s => s.earned).length;
-                    const heading = document.getElementById('mc-grid-area').querySelector('span[style*="64748b"]');
-                    if (heading) heading.textContent = `${earnedCount} / ${progress.students.length} earned`;
-                }
-            }
-
-            teacherFetch(`/api/teacher/microcredentials/${mcId}/toggle`, {
-                method: 'POST',
-                body: JSON.stringify({ class_id: classId, student_id: studentId, checkpoint_id: checkpointId, completed: newDone }),
-            });
-        }
-
         async function unlinkMc(mcId) {
             if (!confirm('Remove this microcredential from the class? Completion data for this class will be deleted.')) return;
             await teacherFetch(`/api/teacher/microcredentials/${mcId}/classes/${mcState.classId}`, { method: 'DELETE' });
@@ -1479,6 +1474,181 @@
                     '<p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>';
             }
             loadMicrocredentials();
+        }
+
+        // ── Checkpoint / student popup ────────────────────────────────────────
+
+        function showMcModal() {
+            document.getElementById('mc-modal-bg').style.display  = '';
+            document.getElementById('mc-modal-box').style.display = '';
+        }
+
+        function closeMcModal() {
+            document.getElementById('mc-modal-bg').style.display  = 'none';
+            document.getElementById('mc-modal-box').style.display = 'none';
+        }
+
+        // Checkpoint header click → description editor + sub-task management
+        function openCpPopup(cpId) {
+            const cp = mcState.progress?.checkpoints.find(c => c.id === cpId);
+            if (!cp) return;
+
+            const renderList = () => {
+                const list = document.getElementById('mc-st-list');
+                if (!list) return;
+                list.innerHTML = cp.subtasks.length
+                    ? cp.subtasks.map(st => `
+                        <div style="display:flex;align-items:center;gap:0.5rem;padding:0.375rem 0;border-bottom:1px solid #f1f5f9">
+                            <span style="flex:1;font-size:0.875rem;color:#334155">${esc(st.name)}</span>
+                            <button onclick="deleteMcSubtask(${mcState.activeMcId},${cpId},${st.id})" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.125rem;line-height:1;padding:0" title="Remove">×</button>
+                        </div>`).join('')
+                    : '<p style="color:#94a3b8;font-size:0.8125rem;margin:0">No sub-tasks yet.</p>';
+            };
+
+            const IS = 'style="width:100%;padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;box-sizing:border-box;outline:none;font-family:inherit;resize:vertical"';
+            document.getElementById('mc-modal-content').innerHTML = `
+                <p class="mc-modal-title">${esc(cp.name)}</p>
+
+                <div style="margin-bottom:1.25rem">
+                    <p class="mc-modal-section">Description</p>
+                    <textarea id="cp-desc-ta" rows="3" ${IS}>${esc(cp.description || '')}</textarea>
+                    <button class="btn btn-outline btn-sm" style="margin-top:0.5rem"
+                        onclick="saveCpDescription(${mcState.activeMcId},${cpId})">Save</button>
+                    <span id="cp-desc-saved" style="display:none;margin-left:0.5rem;font-size:0.8125rem;color:#10b981">Saved</span>
+                </div>
+
+                <div>
+                    <p class="mc-modal-section">Sub-tasks</p>
+                    <div id="mc-st-list"></div>
+                    <div style="display:flex;gap:0.5rem;margin-top:0.625rem">
+                        <input type="text" id="mc-st-input" placeholder="New sub-task…"
+                            style="flex:1;padding:0.375rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none"
+                            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor=''"
+                            onkeydown="if(event.key==='Enter')addMcSubtask(${mcState.activeMcId},${cpId})">
+                        <button class="btn btn-primary btn-sm" onclick="addMcSubtask(${mcState.activeMcId},${cpId})">Add</button>
+                    </div>
+                </div>`;
+            renderList();
+            showMcModal();
+        }
+
+        async function saveCpDescription(mcId, cpId) {
+            const desc = document.getElementById('cp-desc-ta')?.value ?? '';
+            const cp   = mcState.progress?.checkpoints.find(c => c.id === cpId);
+            if (!cp) return;
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}/checkpoints/${cpId}`, {
+                method: 'PATCH', body: JSON.stringify({ name: cp.name, description: desc }),
+            });
+            cp.description = desc;
+            const msg = document.getElementById('cp-desc-saved');
+            if (msg) { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
+        }
+
+        async function addMcSubtask(mcId, cpId) {
+            const input = document.getElementById('mc-st-input');
+            const name  = input?.value.trim();
+            if (!name) return;
+            const res = await teacherFetch(`/api/teacher/microcredentials/${mcId}/checkpoints/${cpId}/subtasks`, {
+                method: 'POST', body: JSON.stringify({ name }),
+            });
+            if (!res.ok) return;
+            const st = await res.json();
+            const cp = mcState.progress?.checkpoints.find(c => c.id === cpId);
+            if (cp) { cp.subtasks.push(st); if (input) input.value = ''; openCpPopup(cpId); }
+        }
+
+        async function deleteMcSubtask(mcId, cpId, stId) {
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}/subtasks/${stId}`, { method: 'DELETE' });
+            const cp = mcState.progress?.checkpoints.find(c => c.id === cpId);
+            if (cp) {
+                cp.subtasks = cp.subtasks.filter(s => s.id !== stId);
+                mcState.progress.students.forEach(s => { delete s.subtask_completions[stId]; });
+                openCpPopup(cpId);
+            }
+        }
+
+        // Cell click → student + checkpoint popup with sub-task checklist
+        function openStudentCpPopup(studentId, cpId) {
+            const progress = mcState.progress;
+            if (!progress) return;
+            const cp      = progress.checkpoints.find(c => c.id === cpId);
+            const student = progress.students.find(s => s.student_id === String(studentId));
+            if (!cp || !student) return;
+            const done = !!student.completions[cpId];
+
+            const subtaskRows = cp.subtasks.map(st => {
+                const stDone = !!student.subtask_completions[st.id];
+                return `<div class="mc-subtask-row" onclick="toggleSubtask(${progress.mc_id},${st.id},'${studentId}',${stDone})">
+                    <div class="mc-cell${stDone ? ' done' : ''}"></div>
+                    <span>${esc(st.name)}</span>
+                </div>`;
+            }).join('');
+
+            document.getElementById('mc-modal-content').innerHTML = `
+                <p class="mc-modal-title">${esc(student.student_name)}</p>
+                <p class="mc-modal-sub">${esc(cp.name)}</p>
+                ${cp.description ? `<p class="mc-modal-desc">${esc(cp.description)}</p>` : ''}
+
+                ${cp.subtasks.length ? `
+                <div style="margin-bottom:1.25rem">
+                    <p class="mc-modal-section">Sub-tasks</p>
+                    <div id="modal-st-rows">${subtaskRows}</div>
+                </div>` : ''}
+
+                <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid #e2e8f0">
+                    <div class="mc-earned${done ? ' done' : ''}" id="modal-earned-dot"></div>
+                    <span style="font-size:0.875rem;color:#334155;flex:1">${done ? 'Checkpoint complete' : 'Not yet complete'}</span>
+                    <button class="btn btn-sm ${done ? 'btn-outline' : 'btn-primary'}" id="modal-toggle-btn"
+                        onclick="toggleCellFromPopup(${progress.mc_id},${progress.class_id},'${studentId}',${cpId},${done})">
+                        ${done ? 'Mark Incomplete' : 'Mark Complete'}
+                    </button>
+                </div>`;
+            showMcModal();
+        }
+
+        async function toggleSubtask(mcId, stId, studentId, currentDone) {
+            const newDone = !currentDone;
+            const student = mcState.progress?.students.find(s => s.student_id === String(studentId));
+            if (student) student.subtask_completions[stId] = newDone ? Date.now() : null;
+            const cp = mcState.progress?.checkpoints.find(c => c.subtasks?.some(s => s.id === stId));
+            if (cp) openStudentCpPopup(studentId, cp.id);
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}/subtasks/${stId}/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({ class_id: mcState.classId, student_id: studentId, completed: newDone }),
+            });
+        }
+
+        function toggleCellFromPopup(mcId, classId, studentId, cpId, currentDone) {
+            const newDone = !currentDone;
+            const progress = mcState.progress;
+            const student  = progress?.students.find(s => s.student_id === String(studentId));
+            if (student) {
+                student.completions[cpId] = newDone ? Date.now() : null;
+                student.earned = progress.checkpoints.every(cp => student.completions[cp.id]);
+            }
+
+            // Update grid cell in background
+            const cpIdx      = progress.checkpoints.findIndex(c => c.id === cpId);
+            const studentIdx = progress.students.findIndex(s => s.student_id === String(studentId));
+            const rows       = document.querySelectorAll('.mc-grid-table tbody tr');
+            if (rows[studentIdx] && cpIdx >= 0) {
+                const tds     = rows[studentIdx].querySelectorAll('td');
+                const cellDiv = tds[cpIdx + 1]?.querySelector('.mc-cell');
+                if (cellDiv) cellDiv.classList.toggle('done', newDone);
+                const earnedDiv = tds[tds.length - 1]?.querySelector('.mc-earned');
+                if (earnedDiv) earnedDiv.classList.toggle('done', student?.earned ?? false);
+                const countEl = document.querySelector('#mc-grid-area span[style*="64748b"]');
+                if (countEl) {
+                    const n = progress.students.filter(s => s.earned).length;
+                    countEl.textContent = `${n} / ${progress.students.length} earned`;
+                }
+            }
+
+            closeMcModal();
+            teacherFetch(`/api/teacher/microcredentials/${mcId}/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({ class_id: classId, student_id: studentId, checkpoint_id: cpId, completed: newDone }),
+            });
         }
 
         // ── MC editor (create / edit) ─────────────────────────────────────────
@@ -1690,17 +1860,17 @@
 
         function parseMcCsv(text) {
             const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-            const mcMap = new Map();
+            const mcMap = new Map(); // name → [{ name, description }]
             for (const line of lines) {
-                const cols  = splitCsvRow(line);
+                const cols = splitCsvRow(line);
                 if (cols.length < 2) continue;
-                const mc = cols[0].trim();
-                const cp = cols[1].trim();
+                const mc   = cols[0].trim();
+                const cp   = cols[1].trim();
+                const desc = (cols[2] ?? '').trim();
                 if (!mc || !cp) continue;
-                // Skip header row
                 if (mc.toLowerCase() === 'microcredential' && cp.toLowerCase() === 'checkpoint') continue;
                 if (!mcMap.has(mc)) mcMap.set(mc, []);
-                mcMap.get(mc).push(cp);
+                mcMap.get(mc).push({ name: cp, description: desc });
             }
             return [...mcMap.entries()].map(([name, checkpoints]) => ({ name, checkpoints }));
         }

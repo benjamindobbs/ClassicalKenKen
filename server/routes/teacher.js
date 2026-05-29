@@ -316,7 +316,7 @@ router.post('/microcredentials/import-csv', requireTeacher, (req, res) => {
     );
     const getMc    = db.prepare('SELECT id FROM microcredentials WHERE teacher_key = ? AND name = ?');
     const getCps   = db.prepare('SELECT id FROM mc_checkpoints WHERE mc_id = ?');
-    const insertCp = db.prepare('INSERT INTO mc_checkpoints(mc_id, name, order_idx) VALUES(?, ?, ?)');
+    const insertCp = db.prepare('INSERT INTO mc_checkpoints(mc_id, name, order_idx, description) VALUES(?, ?, ?, ?)');
     const assignMc = db.prepare('INSERT OR IGNORE INTO mc_class_assignments(mc_id, class_id) VALUES(?, ?)');
 
     const results = [];
@@ -327,8 +327,11 @@ router.post('/microcredentials/import-csv', requireTeacher, (req, res) => {
         const existing = getCps.all(mc.id);
         // Only populate checkpoints on first creation; reused templates keep their original list
         if (existing.length === 0) {
-            checkpoints.forEach((cpName, i) => {
-                if (cpName?.trim()) insertCp.run(mc.id, cpName.trim(), i);
+            checkpoints.forEach((cp, i) => {
+                // Accept either a plain string or { name, description }
+                const cpName = typeof cp === 'string' ? cp : cp?.name;
+                const cpDesc = typeof cp === 'string' ? '' : (cp?.description ?? '');
+                if (cpName?.trim()) insertCp.run(mc.id, cpName.trim(), i, cpDesc);
             });
         }
         assignMc.run(mc.id, Number(class_id));
@@ -381,9 +384,12 @@ router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
     ).get(mcId, classId);
     if (!assignment) return res.status(404).json({ error: 'Microcredential not assigned to this class' });
 
-    const checkpoints = db.prepare(
+    const rawCheckpoints = db.prepare(
         'SELECT * FROM mc_checkpoints WHERE mc_id = ? ORDER BY order_idx'
     ).all(mcId);
+
+    const getSubtasks = db.prepare('SELECT * FROM mc_subtasks WHERE checkpoint_id = ? ORDER BY order_idx');
+    const checkpoints = rawCheckpoints.map(cp => ({ ...cp, subtasks: getSubtasks.all(cp.id) }));
 
     const students = db.prepare(
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
@@ -399,6 +405,13 @@ router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
         SELECT s.* FROM mc_checkpoint_sync s
         JOIN mc_checkpoints cp ON cp.id = s.checkpoint_id
         WHERE s.class_id = ? AND cp.mc_id = ?
+    `).all(classId, mcId);
+
+    const subtaskCompletions = db.prepare(`
+        SELECT sc.* FROM mc_subtask_completions sc
+        JOIN mc_subtasks st ON st.id = sc.subtask_id
+        JOIN mc_checkpoints cp ON cp.id = st.checkpoint_id
+        WHERE sc.class_id = ? AND cp.mc_id = ?
     `).all(classId, mcId);
 
     // checkpoint_id → { student_id → completed_at }
@@ -417,6 +430,13 @@ router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
         };
     }
 
+    // student_id → { subtask_id → completed_at }
+    const subtaskDoneMap = {};
+    for (const sc of subtaskCompletions) {
+        if (!subtaskDoneMap[sc.student_id]) subtaskDoneMap[sc.student_id] = {};
+        subtaskDoneMap[sc.student_id][sc.subtask_id] = sc.completed_at;
+    }
+
     const studentRows = students.map(s => {
         const completionMap = {};
         let earned = checkpoints.length > 0;
@@ -425,7 +445,13 @@ router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
             completionMap[cp.id] = ts;
             if (!ts) earned = false;
         }
-        return { student_id: s.student_id, student_name: s.student_name, completions: completionMap, earned };
+        return {
+            student_id:          s.student_id,
+            student_name:        s.student_name,
+            completions:         completionMap,
+            subtask_completions: subtaskDoneMap[s.student_id] ?? {},
+            earned
+        };
     });
 
     res.json({
@@ -549,25 +575,33 @@ router.post('/microcredentials/:id/checkpoints', requireTeacher, (req, res) => {
     const maxIdx = db.prepare('SELECT MAX(order_idx) AS m FROM mc_checkpoints WHERE mc_id = ?')
         .get(mcId)?.m ?? -1;
     const result = db.prepare(
-        'INSERT INTO mc_checkpoints(mc_id, name, order_idx) VALUES(?, ?, ?)'
-    ).run(mcId, name.trim(), maxIdx + 1);
+        'INSERT INTO mc_checkpoints(mc_id, name, order_idx, description) VALUES(?, ?, ?, ?)'
+    ).run(mcId, name.trim(), maxIdx + 1, '');
 
-    res.json({ id: result.lastInsertRowid, mc_id: mcId, name: name.trim(), order_idx: maxIdx + 1 });
+    res.json({ id: result.lastInsertRowid, mc_id: mcId, name: name.trim(), order_idx: maxIdx + 1, description: '' });
 });
 
-// Rename a checkpoint
+// Update a checkpoint (name and/or description)
 router.patch('/microcredentials/:id/checkpoints/:cpId', requireTeacher, (req, res) => {
     const mcId = Number(req.params.id);
     const cpId = Number(req.params.cpId);
-    const { name } = req.body;
-    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+    const { name, description } = req.body;
+    if (name == null && description == null)
+        return res.status(400).json({ error: 'name or description required' });
 
     const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
         .get(mcId, req.teacherKey);
     if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
 
-    db.prepare('UPDATE mc_checkpoints SET name = ? WHERE id = ? AND mc_id = ?')
-        .run(name.trim(), cpId, mcId);
+    if (name != null) {
+        if (!name.trim()) return res.status(400).json({ error: 'name cannot be empty' });
+        db.prepare('UPDATE mc_checkpoints SET name = ? WHERE id = ? AND mc_id = ?')
+            .run(name.trim(), cpId, mcId);
+    }
+    if (description != null) {
+        db.prepare('UPDATE mc_checkpoints SET description = ? WHERE id = ? AND mc_id = ?')
+            .run(description, cpId, mcId);
+    }
     res.json({ ok: true });
 });
 
@@ -581,6 +615,88 @@ router.delete('/microcredentials/:id/checkpoints/:cpId', requireTeacher, (req, r
     if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
 
     db.prepare('DELETE FROM mc_checkpoints WHERE id = ? AND mc_id = ?').run(cpId, mcId);
+    res.json({ ok: true });
+});
+
+// ── Sub-tasks ─────────────────────────────────────────────────────────────────
+
+// Add a sub-task to a checkpoint
+router.post('/microcredentials/:id/checkpoints/:cpId/subtasks', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const cpId = Number(req.params.cpId);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    const cp = db.prepare('SELECT id FROM mc_checkpoints WHERE id = ? AND mc_id = ?').get(cpId, mcId);
+    if (!cp) return res.status(404).json({ error: 'Checkpoint not found' });
+
+    const maxIdx = db.prepare('SELECT MAX(order_idx) AS m FROM mc_subtasks WHERE checkpoint_id = ?')
+        .get(cpId)?.m ?? -1;
+    const result = db.prepare(
+        'INSERT INTO mc_subtasks(checkpoint_id, name, order_idx) VALUES(?, ?, ?)'
+    ).run(cpId, name.trim(), maxIdx + 1);
+
+    res.json({ id: result.lastInsertRowid, checkpoint_id: cpId, name: name.trim(), order_idx: maxIdx + 1 });
+});
+
+// Rename a sub-task
+router.patch('/microcredentials/:id/subtasks/:stId', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const stId = Number(req.params.stId);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare(`
+        UPDATE mc_subtasks SET name = ? WHERE id = ?
+        AND checkpoint_id IN (SELECT id FROM mc_checkpoints WHERE mc_id = ?)
+    `).run(name.trim(), stId, mcId);
+    res.json({ ok: true });
+});
+
+// Delete a sub-task (cascades completions)
+router.delete('/microcredentials/:id/subtasks/:stId', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const stId = Number(req.params.stId);
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare(`
+        DELETE FROM mc_subtasks WHERE id = ?
+        AND checkpoint_id IN (SELECT id FROM mc_checkpoints WHERE mc_id = ?)
+    `).run(stId, mcId);
+    res.json({ ok: true });
+});
+
+// Toggle a sub-task completion for one student
+router.post('/microcredentials/:id/subtasks/:stId/toggle', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const stId = Number(req.params.stId);
+    const { class_id, student_id, completed } = req.body;
+    if (!class_id || !student_id) return res.status(400).json({ error: 'class_id and student_id required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    if (completed) {
+        db.prepare(
+            'INSERT OR IGNORE INTO mc_subtask_completions(subtask_id, class_id, student_id, completed_at) VALUES(?, ?, ?, ?)'
+        ).run(stId, Number(class_id), String(student_id), Date.now());
+    } else {
+        db.prepare(
+            'DELETE FROM mc_subtask_completions WHERE subtask_id = ? AND class_id = ? AND student_id = ?'
+        ).run(stId, Number(class_id), String(student_id));
+    }
     res.json({ ok: true });
 });
 
