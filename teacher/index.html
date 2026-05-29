@@ -103,11 +103,11 @@
         .mc-list-remove { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; flex-shrink: 0; margin-top: 1px; }
         .mc-list-remove:hover { color: #dc2626; }
         .mc-grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
-        .mc-grid-table { border-collapse: collapse; font-size: 0.8125rem; white-space: nowrap; }
-        .mc-grid-table th { background: #f8fafc; padding: 0.5rem 0.75rem; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); text-align: center; }
-        .mc-grid-table th.mc-name-col { text-align: left; min-width: 160px; position: sticky; left: 0; background: #f8fafc; z-index: 1; }
-        .mc-grid-table td { padding: 0.375rem 0.75rem; border-bottom: 1px solid #f1f5f9; text-align: center; }
-        .mc-grid-table td.mc-name-col { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; color: #334155; }
+        .mc-grid-table { border-collapse: collapse; font-size: 0.8125rem; }
+        .mc-grid-table th { background: #f8fafc; padding: 0.5rem 0.75rem; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); text-align: center; white-space: normal; word-break: break-word; min-width: 72px; max-width: 130px; vertical-align: bottom; line-height: 1.35; }
+        .mc-grid-table th.mc-name-col { text-align: left; min-width: 160px; max-width: none; white-space: nowrap; vertical-align: middle; position: sticky; left: 0; background: #f8fafc; z-index: 1; }
+        .mc-grid-table td { padding: 0.375rem 0.75rem; border-bottom: 1px solid #f1f5f9; text-align: center; white-space: nowrap; }
+        .mc-grid-table td.mc-name-col { text-align: left; white-space: nowrap; position: sticky; left: 0; background: #fff; z-index: 1; color: #334155; }
         .mc-grid-table tr:last-child td { border-bottom: none; }
         .mc-grid-table tr:hover td { background: #f8fafc; }
         .mc-grid-table tr:hover td.mc-name-col { background: #f8fafc; }
@@ -1446,84 +1446,95 @@
                 return;
             }
 
-            const exp = mcState.expandedCheckpoints;
-            const cpStates = checkpoints.map(cp => ({
-                cp,
-                isExpanded: exp.has(cp.id) && (cp.subtasks?.length ?? 0) > 0,
-                hasSubs:    (cp.subtasks?.length ?? 0) > 0
-            }));
-            const hasSubRow = cpStates.some(s => s.isExpanded);
-            const spanAttr  = hasSubRow ? ' rowspan="2"' : '';
+            // At most one checkpoint is expanded; all others are hidden when one is open
+            const expandedId = mcState.expandedCheckpoints.size ? [...mcState.expandedCheckpoints][0] : null;
+            const expandedCp = expandedId ? checkpoints.find(c => c.id === expandedId) : null;
+            const isExpMode  = !!(expandedId && expandedCp?.subtasks?.length);
 
-            // ── Thead ──────────────────────────────────────────────────────────
-            let th1 = `<th class="mc-name-col"${spanAttr}>Student</th>`;
-            let th2 = '';
+            const infoBtn = (cpId) =>
+                `<button onclick="event.stopPropagation();openCpPopup(${cpId})" title="Description &amp; sub-tasks"
+                    style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;padding:0 0 0 4px;line-height:1;vertical-align:middle">ⓘ</button>`;
 
-            for (const { cp, isExpanded, hasSubs } of cpStates) {
-                const infoBtn = `<button onclick="event.stopPropagation();openCpPopup(${cp.id})" title="Description &amp; sub-tasks"
-                    style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;padding:0 0 0 3px;line-height:1">ⓘ</button>`;
-                const label = cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name;
+            let theadHtml, bodyRows;
 
-                if (isExpanded) {
-                    th1 += `<th colspan="${cp.subtasks.length + 1}" style="border-left:2px solid #e2e8f0;cursor:pointer;text-align:center"
-                            onclick="toggleExpandCp(${cp.id})" title="Collapse">
-                        ${esc(label)} <span style="font-size:10px;color:#7c3aed">▼</span>${infoBtn}
-                    </th>`;
-                    th2 += `<th style="border-left:2px solid #e2e8f0" title="Overall completion">✓</th>`;
-                    for (const st of cp.subtasks) {
-                        const sl = st.name.length > 11 ? st.name.slice(0, 10) + '…' : st.name;
-                        th2 += `<th title="${esc(st.name)}">${esc(sl)}</th>`;
-                    }
-                } else {
-                    const click = hasSubs
-                        ? `onclick="toggleExpandCp(${cp.id})"`
-                        : `onclick="openCpPopup(${cp.id})"`;
-                    const hint = hasSubs ? ` <span style="font-size:10px;color:#94a3b8">▶</span>` : '';
-                    th1 += `<th style="cursor:pointer" ${click} title="${esc(cp.description || cp.name)}">${esc(label)}${hint}${hasSubs ? infoBtn : ''}</th>`;
-                    if (hasSubRow) th2 += '<th></th>';
-                }
-            }
-            th1 += `<th${spanAttr}>Earned</th>`;
-            const theadHtml = hasSubRow
-                ? `<tr>${th1}</tr><tr style="background:#fafafa;font-size:10px;font-weight:500;color:#64748b">${th2}</tr>`
-                : `<tr>${th1}</tr>`;
+            if (isExpMode) {
+                // ── Expanded view: student | overall | subtask… | earned ─────────
+                const colspan = expandedCp.subtasks.length + 1;
+                theadHtml = `
+                    <tr>
+                        <th class="mc-name-col" rowspan="2">Student</th>
+                        <th colspan="${colspan}" onclick="toggleExpandCp(${expandedId})" style="text-align:center">
+                            ${esc(expandedCp.name)}
+                            <span style="font-size:10px;color:#7c3aed"> ▼</span>
+                            ${infoBtn(expandedId)}
+                        </th>
+                        <th rowspan="2">Earned</th>
+                    </tr>
+                    <tr style="font-size:10px;font-weight:500;color:#64748b;background:#fafafa">
+                        <th style="border-left:2px solid #e2e8f0">✓ Done</th>
+                        ${expandedCp.subtasks.map(st => `<th title="${esc(st.name)}">${esc(st.name)}</th>`).join('')}
+                    </tr>`;
 
-            // ── Tbody ──────────────────────────────────────────────────────────
-            const bodyRows = students.map(s => {
-                let cells = '';
-                for (const { cp, isExpanded, hasSubs } of cpStates) {
-                    const done = !!s.completions[cp.id];
+                bodyRows = students.map(s => {
+                    const done = !!s.completions[expandedId];
                     const subs = s.subtask_completions || {};
+                    const subtaskCells = expandedCp.subtasks.map(st => {
+                        const stDone = !!subs[st.id];
+                        return `<td><div class="mc-cell${stDone ? ' done' : ''}" onclick="directToggleSub(${mc_id},${st.id},'${s.student_id}',${stDone})"></div></td>`;
+                    }).join('');
+                    return `<tr>
+                        <td class="mc-name-col">${esc(s.student_name)}</td>
+                        <td style="border-left:2px solid #e2e8f0"><div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${expandedId},${done})"></div></td>
+                        ${subtaskCells}
+                        <td><div class="mc-earned${s.earned ? ' done' : ''}"></div></td>
+                    </tr>`;
+                }).join('');
 
-                    if (isExpanded) {
-                        cells += `<td style="border-left:2px solid #e2e8f0">
-                            <div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div>
-                        </td>`;
-                        for (const st of cp.subtasks) {
-                            const stDone = !!subs[st.id];
-                            cells += `<td><div class="mc-cell${stDone ? ' done' : ''}" onclick="directToggleSub(${mc_id},${st.id},'${s.student_id}',${stDone})"></div></td>`;
+            } else {
+                // ── Collapsed view: all checkpoints shown ─────────────────────────
+                const cpStates = checkpoints.map(cp => ({
+                    cp, hasSubs: (cp.subtasks?.length ?? 0) > 0
+                }));
+
+                const headerCells = cpStates.map(({ cp, hasSubs }) => {
+                    const hint  = hasSubs ? ` <span style="font-size:10px;color:#94a3b8">▶</span>` : '';
+                    const click = hasSubs ? `onclick="toggleExpandCp(${cp.id})"` : `onclick="openCpPopup(${cp.id})"`;
+                    return `<th ${click} title="${esc(cp.description || cp.name)}">${esc(cp.name)}${hint}${infoBtn(cp.id)}</th>`;
+                }).join('');
+                theadHtml = `<tr><th class="mc-name-col">Student</th>${headerCells}<th>Earned</th></tr>`;
+
+                bodyRows = students.map(s => {
+                    const cells = cpStates.map(({ cp, hasSubs }) => {
+                        const done = !!s.completions[cp.id];
+                        const subs = s.subtask_completions || {};
+                        if (hasSubs) {
+                            const filled = cp.subtasks.filter(st => !!subs[st.id]).length;
+                            return `<td onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})" style="cursor:pointer">
+                                <div style="display:flex;flex-direction:column;align-items:center">
+                                    <div class="mc-cell${done ? ' done' : ''}" style="margin:0"></div>
+                                    ${miniPie(filled, cp.subtasks.length)}
+                                </div>
+                            </td>`;
                         }
-                    } else if (hasSubs) {
-                        const filled = cp.subtasks.filter(st => !!subs[st.id]).length;
-                        cells += `<td style="cursor:pointer" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})">
-                            <div style="display:flex;flex-direction:column;align-items:center">
-                                <div class="mc-cell${done ? ' done' : ''}" style="margin:0"></div>
-                                ${miniPie(filled, cp.subtasks.length)}
-                            </div>
-                        </td>`;
-                    } else {
-                        cells += `<td><div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div></td>`;
-                    }
-                }
-                return `<tr>
-                    <td class="mc-name-col">${esc(s.student_name)}</td>
-                    ${cells}
-                    <td><div class="mc-earned${s.earned ? ' done' : ''}"></div></td>
-                </tr>`;
-            }).join('');
+                        return `<td><div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div></td>`;
+                    }).join('');
+                    return `<tr>
+                        <td class="mc-name-col">${esc(s.student_name)}</td>
+                        ${cells}
+                        <td><div class="mc-earned${s.earned ? ' done' : ''}"></div></td>
+                    </tr>`;
+                }).join('');
+            }
 
             const earnedCount = students.filter(s => s.earned).length;
+            const breadcrumb  = isExpMode
+                ? `<div style="margin-bottom:0.625rem">
+                       <button class="btn btn-outline btn-sm" onclick="toggleExpandCp(${expandedId})">← All checkpoints</button>
+                   </div>`
+                : '';
+
             area.innerHTML = `
+                ${breadcrumb}
                 <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;gap:1rem;flex-wrap:wrap">
                     <span style="font-size:1rem;font-weight:700;color:#0f172a">${esc(mc_name)}</span>
                     <span style="font-size:0.8125rem;color:#64748b">${earnedCount} / ${students.length} earned</span>
@@ -1545,9 +1556,14 @@
             if (nw) nw.scrollLeft = sl;
         }
 
+        // Only one checkpoint can be expanded at a time; expanding one collapses any other
         function toggleExpandCp(cpId) {
-            if (mcState.expandedCheckpoints.has(cpId)) mcState.expandedCheckpoints.delete(cpId);
-            else mcState.expandedCheckpoints.add(cpId);
+            if (mcState.expandedCheckpoints.has(cpId)) {
+                mcState.expandedCheckpoints.clear();
+            } else {
+                mcState.expandedCheckpoints.clear();
+                mcState.expandedCheckpoints.add(cpId);
+            }
             rerenderGrid();
         }
 
@@ -1916,16 +1932,139 @@
         }
 
         function downloadMcTemplate() {
-            const csv = [
-                'Microcredential,Checkpoint',
-                'Algebra Foundations,Understand variables and expressions',
-                'Algebra Foundations,Solve one-step equations',
-                'Algebra Foundations,Solve two-step equations',
-                'Algebra Foundations,Graph on a number line',
-                'Number Theory,Identify prime and composite numbers',
-                'Number Theory,Find factors and multiples',
-                'Number Theory,Apply divisibility rules',
-            ].join('\r\n');
+            const csv = `Microcredential,Checkpoint,Description,Subtask\r
+Habits of Mind,Persistence,"Develop the resilience to work through obstacles without giving up. In design and production, challenges are opportunities to deepen understanding and strengthen technique.",\r
+Habits of Mind,Academic Curiosity,"Cultivate a genuine drive to learn and investigate beyond the minimum. Great designers ask 'why' and 'what if' at every stage of the creative process.",\r
+Habits of Mind,Commitment to Excellence,"Hold every project — regardless of complexity — to the highest standard you are capable of. Excellence is a habit built through intentional, consistent practice.",\r
+Habits of Mind,Extending Knowledge,"Actively seek new skills, techniques, and perspectives that expand what you can bring to your work. Professional growth does not stop at the classroom door.",\r
+Habits of Mind,Application of Previous Knowledge,"Recognize when and how past skills apply to new challenges. The ability to transfer learning across contexts is the mark of a truly adaptable professional.",\r
+Adobe Illustrator,Working in the Design Industry,"Understand the professional landscape of graphic design — roles, workflows, client relationships, and industry expectations.",\r
+Adobe Illustrator,Project Setup & Interface,"Navigate Illustrator's workspace with confidence. Set up documents with correct artboard dimensions, color modes, and units.",Create new document with correct artboard dimensions\r
+Adobe Illustrator,Project Setup & Interface,,,Set correct color mode (CMYK for print, RGB for screen)\r
+Adobe Illustrator,Project Setup & Interface,,,Configure document units and bleed settings\r
+Adobe Illustrator,Project Setup & Interface,,,Save document using correct file naming convention\r
+Adobe Illustrator,Organizing Documents,"Use layers, groups, and naming conventions to keep complex files manageable.",Create and name layers appropriately\r
+Adobe Illustrator,Organizing Documents,,,Group related design elements\r
+Adobe Illustrator,Organizing Documents,,,Lock background and base layers\r
+Adobe Illustrator,Organizing Documents,,,Archive source files separately from output files\r
+Adobe Illustrator,Creating & Modifying Visual Elements,"Build and refine vector shapes, paths, and objects using Illustrator's core tools.",\r
+Adobe Illustrator,Publishing Digital Media,"Prepare and export artwork for digital and print output in the correct file formats and resolution settings.",Export print-ready PDF with correct settings\r
+Adobe Illustrator,Publishing Digital Media,,,Export PNG at correct resolution for screen use\r
+Adobe Illustrator,Publishing Digital Media,,,Package file with linked assets\r
+Silk Screening,Prepare Silk Screens,"Coat screens with emulsion, dry them in a light-safe environment, and inspect for defects before exposure.",Degrease screen and rinse thoroughly\r
+Silk Screening,Prepare Silk Screens,,,Apply emulsion coat evenly with scoop coater\r
+Silk Screening,Prepare Silk Screens,,,Dry in light-safe environment until fully set\r
+Silk Screening,Prepare Silk Screens,,,Inspect for pinholes or uneven coverage\r
+Silk Screening,Design Positives & Transparencies,"Create print-ready positive films or transparencies used to expose the screen.",Print film at correct opacity (optical density)\r
+Silk Screening,Design Positives & Transparencies,,,Verify image is mirrored correctly for emulsion-side down\r
+Silk Screening,Design Positives & Transparencies,,,Add registration marks for multi-color jobs\r
+Silk Screening,Expose and Wash Out Frames,"Use a UV exposure unit to transfer the design onto the coated screen, then wash out unexposed emulsion.",Position film on screen emulsion-side down\r
+Silk Screening,Expose and Wash Out Frames,,,Expose for correct time with UV unit\r
+Silk Screening,Expose and Wash Out Frames,,,Rinse both sides until image washes out cleanly\r
+Silk Screening,Expose and Wash Out Frames,,,Hold up to light and inspect stencil integrity\r
+Silk Screening,Align & Set Up Single and Multi-Color Print Jobs,"Register screens accurately on the press to ensure precise alignment.",Set up micro-registration on press\r
+Silk Screening,Align & Set Up Single and Multi-Color Print Jobs,,,Tape off screen borders to prevent ink bleed\r
+Silk Screening,Align & Set Up Single and Multi-Color Print Jobs,,,Print registration marks on test substrate\r
+Silk Screening,Align & Set Up Single and Multi-Color Print Jobs,,,Adjust and verify alignment before production run\r
+Silk Screening,Prepare & Mix Plastisol Ink,"Mix and prepare plastisol inks to achieve the correct color, viscosity, and opacity.",\r
+Silk Screening,Single & Multi-Color Printing,"Execute print runs with consistent squeegee pressure, angle, and speed.",\r
+Silk Screening,Cure & Finish Prints,"Pass printed garments through a conveyor dryer or use a flash unit to fully cure plastisol ink.",Set conveyor dryer to correct temperature\r
+Silk Screening,Cure & Finish Prints,,,Verify belt speed for correct dwell time\r
+Silk Screening,Cure & Finish Prints,,,Perform stretch test on cured print\r
+Silk Screening,Cure & Finish Prints,,,Inspect print for full opacity and washfastness\r
+Embroidery,Design for Embroidery,"Understand the constraints of embroidery as a medium — minimum detail size, stitch count, and fabric considerations.",\r
+Embroidery,Embroidery Digitizing,"Use digitizing software to convert artwork into a stitch file.",Open artwork and set correct canvas size in digitizing software\r
+Embroidery,Embroidery Digitizing,,,Assign correct stitch types to each element\r
+Embroidery,Embroidery Digitizing,,,Set stitch density and direction\r
+Embroidery,Embroidery Digitizing,,,Define correct color sequence\r
+Embroidery,Embroidery Digitizing,,,Export stitch file in correct format for machine\r
+Embroidery,Machine Maintenance and Setup,"Perform routine maintenance to keep machines running reliably.",Clean lint from bobbin case and hook area\r
+Embroidery,Machine Maintenance and Setup,,,Oil machine at designated oiling points\r
+Embroidery,Machine Maintenance and Setup,,,Thread upper thread through correct guides\r
+Embroidery,Machine Maintenance and Setup,,,Wind and install bobbin correctly\r
+Embroidery,Machine Maintenance and Setup,,,Set correct thread tension and verify on scrap\r
+Embroidery,Machine Operation,"Thread, hoop, and operate commercial embroidery machines safely and efficiently.",Hoop garment with correct tension and alignment\r
+Embroidery,Machine Operation,,,Load design file and position on virtual hoop\r
+Embroidery,Machine Operation,,,Perform test run on scrap fabric\r
+Embroidery,Machine Operation,,,Monitor run and stop for thread breaks or tension issues\r
+Direct to Film,Design for the DTF Process,"Prepare artwork files with the correct resolution, color profile, and white underbase settings.",Set resolution to 300 DPI minimum\r
+Direct to Film,Design for the DTF Process,,,Convert to correct color profile\r
+Direct to Film,Design for the DTF Process,,,Add white underbase layer beneath colored elements\r
+Direct to Film,Machine Maintenance and Setup,"Maintain the DTF printer through regular cleaning cycles and film path checks.",Run daily head cleaning cycle\r
+Direct to Film,Machine Maintenance and Setup,,,Check ink levels in all channels\r
+Direct to Film,Machine Maintenance and Setup,,,Inspect film path and clear any jams\r
+Direct to Film,RasterLink 7 Print Setup and Operation,"Configure RasterLink 7 RIP software for DTF output.",Import artwork and set print size\r
+Direct to Film,RasterLink 7 Print Setup and Operation,,,Select correct DTF media profile\r
+Direct to Film,RasterLink 7 Print Setup and Operation,,,Configure print resolution and pass count\r
+Direct to Film,RasterLink 7 Print Setup and Operation,,,Send job to printer queue and monitor output\r
+Direct to Film,Heater/Shaker Setup Operation and Maintenance,"Operate the powder adhesive heater and shaker at correct temperatures.",Set heater to correct temperature for adhesive\r
+Direct to Film,Heater/Shaker Setup Operation and Maintenance,,,Set shaker speed for even powder distribution\r
+Direct to Film,Heater/Shaker Setup Operation and Maintenance,,,Verify full powder melt before collecting sheets\r
+Direct to Film,Heat Press Setup Operation and Maintenance,"Set heat press time, temperature, and pressure for different garment types.",Calibrate temperature with heat probe\r
+Direct to Film,Heat Press Setup Operation and Maintenance,,,Set correct pressure for garment and transfer type\r
+Direct to Film,Heat Press Setup Operation and Maintenance,,,Verify platen surface is clean and level\r
+Direct to Film,Heat Press Laser Alignment Setup & Utilization,"Use laser alignment tools to position transfers accurately.",Calibrate laser alignment to press center\r
+Direct to Film,Heat Press Laser Alignment Setup & Utilization,,,Mark standard placement positions for common garment sizes\r
+Direct to Film,DTF Transfer Application,"Apply cured DTF transfers to garments using correct heat and pressure parameters.",Pre-press garment to remove moisture and wrinkles\r
+Direct to Film,DTF Transfer Application,,,Position transfer using laser alignment\r
+Direct to Film,DTF Transfer Application,,,Apply heat press at correct time and temperature\r
+Direct to Film,DTF Transfer Application,,,Peel at correct temperature (hot or cold peel)\r
+Direct to Film,DTF Transfer Application,,,Post-press for final adhesion\r
+Digital Signmaking & Printing,Design for Digital Signmaking & Printing,"Create artwork sized and colored correctly for wide-format output.",\r
+Digital Signmaking & Printing,Media & Substrate Management,"Select, load, and handle print media correctly.",Load roll media and align to feed guides\r
+Digital Signmaking & Printing,Media & Substrate Management,,,Set correct media width and margins in printer software\r
+Digital Signmaking & Printing,Media & Substrate Management,,,Run media feed test before print job\r
+Digital Signmaking & Printing,RasterLink 7 Print/Cut Setup and Operation,"Configure RasterLink 7 for print-only, cut-only, and print-then-cut workflows.",\r
+Digital Signmaking & Printing,Solvent Printer Setup Operation and Maintenance,"Operate the solvent printer through daily startup and maintenance.",Perform daily startup sequence\r
+Digital Signmaking & Printing,Solvent Printer Setup Operation and Maintenance,,,Run nozzle check and clean heads if needed\r
+Digital Signmaking & Printing,Solvent Printer Setup Operation and Maintenance,,,Log maintenance in machine service record\r
+Digital Signmaking & Printing,Media Application,"Apply printed media to surfaces cleanly and without defects.",Clean application surface\r
+Digital Signmaking & Printing,Media Application,,,Apply transfer tape and squeegee air out\r
+Digital Signmaking & Printing,Media Application,,,Position and apply to surface with squeegee\r
+Digital Signmaking & Printing,Media Application,,,Remove backing and post-heat if required\r
+Digital Signmaking & Printing,Design for Banners Signs & More,"Apply design principles for signage and branded environment applications.",\r
+Logistics & Operations,Client Communication,"Interact professionally with clients from initial inquiry through job completion.",Record job specifications on intake form\r
+Logistics & Operations,Client Communication,,,Provide written quote or invoice\r
+Logistics & Operations,Client Communication,,,Send order confirmation with expected timeline\r
+Logistics & Operations,Client Communication,,,Follow up after delivery to confirm satisfaction\r
+Logistics & Operations,Procurement Shipping & Receiving,"Source materials from vendors and accurately receive incoming goods.",Identify correct vendor and place order\r
+Logistics & Operations,Procurement Shipping & Receiving,,,Track shipment and note expected delivery date\r
+Logistics & Operations,Procurement Shipping & Receiving,,,Receive delivery and verify against purchase order\r
+Logistics & Operations,Procurement Shipping & Receiving,,,Inspect goods for damage or shortages\r
+Logistics & Operations,Procurement Shipping & Receiving,,,Log received items into inventory\r
+Logistics & Operations,Quality Control,"Inspect finished products against established standards before they leave the shop.",Compare finished product to order specifications\r
+Logistics & Operations,Quality Control,,,Check print quality, registration, and color accuracy\r
+Logistics & Operations,Quality Control,,,"Document any defects and determine disposition"\r
+Logistics & Operations,Quality Control,,,Approve order for fulfillment or flag for rework\r
+Logistics & Operations,Outgoing Packaging & Shipping,"Package finished orders safely and professionally.",Fold or hang garments per customer preference\r
+Logistics & Operations,Outgoing Packaging & Shipping,,,Package to prevent damage in transit\r
+Logistics & Operations,Outgoing Packaging & Shipping,,,Generate and attach shipping label\r
+Logistics & Operations,Outgoing Packaging & Shipping,,,Record outgoing shipment in order log\r
+Logistics & Operations,Outgoing Packaging & Shipping,,,Notify customer that order has shipped\r
+Logistics & Operations,Project Management,"Coordinate tasks, timelines, and resources across a job from intake through completion.",Create job sheet with specifications and deadline\r
+Logistics & Operations,Project Management,,,Assign production tasks to team members\r
+Logistics & Operations,Project Management,,,Check in on progress at midpoint of job\r
+Logistics & Operations,Project Management,,,Confirm all steps are complete before final QC\r
+Logistics & Operations,Project Management,,,Close job in tracking system after delivery\r
+Marketing & Advertisement,Market Research,"Identify target audiences, analyze competitors, and gather insights.",\r
+Marketing & Advertisement,Product Photography,"Capture clean, well-lit product images suitable for marketing use.",Set up clean background and lighting\r
+Marketing & Advertisement,Product Photography,,,Shoot multiple angles per product\r
+Marketing & Advertisement,Product Photography,,,Edit images for brightness, color, and cropping\r
+Marketing & Advertisement,Product Photography,,,Export at correct resolution for each use case\r
+Marketing & Advertisement,Physical & Digital Marketing Design,"Design cohesive promotional materials for print and digital channels.",\r
+Storefront & Enterprise,Operate School-Based Enterprise,"Run day-to-day business operations in the school store.",Complete opening checklist\r
+Storefront & Enterprise,Operate School-Based Enterprise,,,Assign roles to team members for the shift\r
+Storefront & Enterprise,Operate School-Based Enterprise,,,Complete closing checklist and secure premises\r
+Storefront & Enterprise,Inventory Management,"Track stock levels, record incoming and outgoing goods, and flag low inventory.",Conduct physical inventory count\r
+Storefront & Enterprise,Inventory Management,,,Update inventory records with incoming stock\r
+Storefront & Enterprise,Inventory Management,,,Flag items below reorder threshold\r
+Storefront & Enterprise,Point of Sale,"Process customer transactions accurately using point-of-sale software.",Open register and verify starting cash\r
+Storefront & Enterprise,Point of Sale,,,Process a standard sale transaction\r
+Storefront & Enterprise,Point of Sale,,,Handle a return or exchange correctly\r
+Storefront & Enterprise,Point of Sale,,,Reconcile end-of-day sales with register total\r
+Storefront & Enterprise,Bookkeeping,"Record financial transactions, track income and expenses, and maintain accurate books.",Record all transactions in ledger or software\r
+Storefront & Enterprise,Bookkeeping,,,Reconcile weekly income and expense totals\r
+Storefront & Enterprise,Bookkeeping,,,Generate a basic income statement`;
             const a = Object.assign(document.createElement('a'), {
                 href:     URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
                 download: 'microcredentials-template.csv',
