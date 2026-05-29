@@ -102,6 +102,9 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_class_students_user  ON class_students(user_key);
 `);
 
+// Add ps_section_id to classes if not present (one-time migration)
+try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
+
 function upsertUser(userKey, email) {
     db.prepare(
         'INSERT OR IGNORE INTO users(user_key, email, first_seen) VALUES(?, ?, ?)'

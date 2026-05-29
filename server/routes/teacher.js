@@ -108,7 +108,7 @@ router.post('/assignment-settings', requireTeacher, (req, res) => {
 // ── Classes ───────────────────────────────────────────────────────────────────
 router.get('/classes', requireTeacher, (req, res) => {
     const rows = db.prepare(`
-        SELECT c.id, c.name, c.created_at,
+        SELECT c.id, c.name, c.created_at, c.ps_section_id,
                COUNT(cs.id)       AS student_count,
                COUNT(cs.user_key) AS linked_count
         FROM classes c
@@ -127,6 +127,30 @@ router.post('/classes', requireTeacher, (req, res) => {
         'INSERT INTO classes(teacher_key, name, created_at) VALUES(?, ?, ?)'
     ).run(req.teacherKey, name.trim(), Date.now());
     res.json({ id: result.lastInsertRowid, name: name.trim(), student_count: 0, linked_count: 0 });
+});
+
+// Import a PS roster as a new class in one shot (used by Chrome extension)
+router.post('/classes/import-roster', requireTeacher, (req, res) => {
+    const { name, ps_section_id, students } = req.body;
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name required' });
+    if (!ps_section_id)                    return res.status(400).json({ error: 'ps_section_id required' });
+    if (!Array.isArray(students))          return res.status(400).json({ error: 'students array required' });
+
+    const result = db.prepare(
+        'INSERT INTO classes(teacher_key, name, ps_section_id, created_at) VALUES(?, ?, ?, ?)'
+    ).run(req.teacherKey, name.trim(), String(ps_section_id), Date.now());
+
+    const classId = result.lastInsertRowid;
+    const insert  = db.prepare(
+        'INSERT OR IGNORE INTO class_students(class_id, student_id, student_name) VALUES(?, ?, ?)'
+    );
+    let added = 0;
+    for (const s of students) {
+        if (!s.student_id || !s.student_name) continue;
+        const r = insert.run(classId, String(s.student_id).trim(), String(s.student_name).trim());
+        added += r.changes;
+    }
+    res.json({ id: classId, name: name.trim(), ps_section_id: String(ps_section_id), student_count: added });
 });
 
 router.delete('/classes/:id', requireTeacher, (req, res) => {
