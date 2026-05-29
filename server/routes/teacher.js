@@ -218,9 +218,12 @@ router.get('/grades', requireTeacher, (req, res) => {
     const startMs = new Date(start + 'T00:00:00').getTime();
     const endMs   = new Date(end   + 'T23:59:59').getTime();
 
+    const maxScore   = settings.assignment_max_score;
+    const noSubGrade = Math.round(maxScore * settings.no_submission_score_pct / 100);
+
     const results = students.map(student => {
         if (!student.user_key)
-            return { student_id: student.student_id, student_name: student.student_name, grade: null, unlinked: true };
+            return { student_id: student.student_id, student_name: student.student_name, grade: noSubGrade, unlinked: true };
 
         // All-time average determines qualifying threshold for KenKen submissions
         const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
@@ -241,10 +244,9 @@ router.get('/grades', requireTeacher, (req, res) => {
         else if (ra === 'both')   { required = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
         else /* either */         { required = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
 
-        const maxScore = settings.assignment_max_score;
         let grade;
         if (actual === 0) {
-            grade = Math.round(maxScore * settings.no_submission_score_pct / 100);
+            grade = noSubGrade;
         } else {
             grade = Math.round((actual / required) * maxScore);
             grade = actual >= required
