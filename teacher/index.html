@@ -1348,7 +1348,7 @@
 
         // ── Microcredentials ──────────────────────────────────────────────────
 
-        let mcState = { classId: null, mcs: [], activeMcId: null, progress: null, editingMcId: null };
+        let mcState = { classId: null, mcs: [], activeMcId: null, progress: null, editingMcId: null, expandedCheckpoints: new Set() };
 
         async function loadMcClassSelect() {
             const sel = document.getElementById('mc-class-select');
@@ -1404,6 +1404,7 @@
 
         async function selectMc(mcId) {
             mcState.activeMcId = mcId;
+            mcState.expandedCheckpoints = new Set();
             document.querySelectorAll('.mc-list-item').forEach(el =>
                 el.classList.toggle('active', el.id === `mc-item-${mcId}`)
             );
@@ -1420,6 +1421,22 @@
             renderMcGrid(mcState.progress);
         }
 
+        function miniPie(filled, total) {
+            if (total === 0) return '';
+            const pct   = filled / total;
+            const r     = 7, cx = 9, cy = 9, circ = 2 * Math.PI * r;
+            const color = filled === total ? '#16a34a' : '#2563eb';
+            return `<div style="display:flex;align-items:center;gap:2px;margin-top:2px">
+                <svg width="18" height="18" viewBox="0 0 18 18" style="flex-shrink:0">
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="2.5"
+                        stroke-dasharray="${(pct*circ).toFixed(2)} ${circ.toFixed(2)}"
+                        stroke-dashoffset="${(circ/4).toFixed(2)}" stroke-linecap="round"/>
+                </svg>
+                <span style="font-size:9px;color:#64748b">${filled}/${total}</span>
+            </div>`;
+        }
+
         function renderMcGrid(data) {
             const { checkpoints, students, mc_name, mc_id, class_id } = data;
             const area = document.getElementById('mc-grid-area');
@@ -1429,17 +1446,75 @@
                 return;
             }
 
-            const earnedCount = students.filter(s => s.earned).length;
+            const exp = mcState.expandedCheckpoints;
+            const cpStates = checkpoints.map(cp => ({
+                cp,
+                isExpanded: exp.has(cp.id) && (cp.subtasks?.length ?? 0) > 0,
+                hasSubs:    (cp.subtasks?.length ?? 0) > 0
+            }));
+            const hasSubRow = cpStates.some(s => s.isExpanded);
+            const spanAttr  = hasSubRow ? ' rowspan="2"' : '';
 
-            const headerCells = checkpoints.map(cp =>
-                `<th onclick="openCpPopup(${cp.id})" title="${esc(cp.description || cp.name)}">${esc(cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name)}</th>`
-            ).join('');
+            // ── Thead ──────────────────────────────────────────────────────────
+            let th1 = `<th class="mc-name-col"${spanAttr}>Student</th>`;
+            let th2 = '';
 
+            for (const { cp, isExpanded, hasSubs } of cpStates) {
+                const infoBtn = `<button onclick="event.stopPropagation();openCpPopup(${cp.id})" title="Description &amp; sub-tasks"
+                    style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;padding:0 0 0 3px;line-height:1">ⓘ</button>`;
+                const label = cp.name.length > 20 ? cp.name.slice(0, 19) + '…' : cp.name;
+
+                if (isExpanded) {
+                    th1 += `<th colspan="${cp.subtasks.length + 1}" style="border-left:2px solid #e2e8f0;cursor:pointer;text-align:center"
+                            onclick="toggleExpandCp(${cp.id})" title="Collapse">
+                        ${esc(label)} <span style="font-size:10px;color:#7c3aed">▼</span>${infoBtn}
+                    </th>`;
+                    th2 += `<th style="border-left:2px solid #e2e8f0" title="Overall completion">✓</th>`;
+                    for (const st of cp.subtasks) {
+                        const sl = st.name.length > 11 ? st.name.slice(0, 10) + '…' : st.name;
+                        th2 += `<th title="${esc(st.name)}">${esc(sl)}</th>`;
+                    }
+                } else {
+                    const click = hasSubs
+                        ? `onclick="toggleExpandCp(${cp.id})"`
+                        : `onclick="openCpPopup(${cp.id})"`;
+                    const hint = hasSubs ? ` <span style="font-size:10px;color:#94a3b8">▶</span>` : '';
+                    th1 += `<th style="cursor:pointer" ${click} title="${esc(cp.description || cp.name)}">${esc(label)}${hint}${hasSubs ? infoBtn : ''}</th>`;
+                    if (hasSubRow) th2 += '<th></th>';
+                }
+            }
+            th1 += `<th${spanAttr}>Earned</th>`;
+            const theadHtml = hasSubRow
+                ? `<tr>${th1}</tr><tr style="background:#fafafa;font-size:10px;font-weight:500;color:#64748b">${th2}</tr>`
+                : `<tr>${th1}</tr>`;
+
+            // ── Tbody ──────────────────────────────────────────────────────────
             const bodyRows = students.map(s => {
-                const cells = checkpoints.map(cp => {
+                let cells = '';
+                for (const { cp, isExpanded, hasSubs } of cpStates) {
                     const done = !!s.completions[cp.id];
-                    return `<td><div class="mc-cell${done ? ' done' : ''}" onclick="openStudentCpPopup('${s.student_id}',${cp.id})"></div></td>`;
-                }).join('');
+                    const subs = s.subtask_completions || {};
+
+                    if (isExpanded) {
+                        cells += `<td style="border-left:2px solid #e2e8f0">
+                            <div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div>
+                        </td>`;
+                        for (const st of cp.subtasks) {
+                            const stDone = !!subs[st.id];
+                            cells += `<td><div class="mc-cell${stDone ? ' done' : ''}" onclick="directToggleSub(${mc_id},${st.id},'${s.student_id}',${stDone})"></div></td>`;
+                        }
+                    } else if (hasSubs) {
+                        const filled = cp.subtasks.filter(st => !!subs[st.id]).length;
+                        cells += `<td style="cursor:pointer" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})">
+                            <div style="display:flex;flex-direction:column;align-items:center">
+                                <div class="mc-cell${done ? ' done' : ''}" style="margin:0"></div>
+                                ${miniPie(filled, cp.subtasks.length)}
+                            </div>
+                        </td>`;
+                    } else {
+                        cells += `<td><div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${cp.id},${done})"></div></td>`;
+                    }
+                }
                 return `<tr>
                     <td class="mc-name-col">${esc(s.student_name)}</td>
                     ${cells}
@@ -1447,6 +1522,7 @@
                 </tr>`;
             }).join('');
 
+            const earnedCount = students.filter(s => s.earned).length;
             area.innerHTML = `
                 <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;gap:1rem;flex-wrap:wrap">
                     <span style="font-size:1rem;font-weight:700;color:#0f172a">${esc(mc_name)}</span>
@@ -1454,14 +1530,53 @@
                 </div>
                 <div class="mc-grid-wrap">
                     <table class="mc-grid-table">
-                        <thead><tr>
-                            <th class="mc-name-col">Student</th>
-                            ${headerCells}
-                            <th>Earned</th>
-                        </tr></thead>
+                        <thead>${theadHtml}</thead>
                         <tbody>${bodyRows}</tbody>
                     </table>
                 </div>`;
+        }
+
+        function rerenderGrid() {
+            if (!mcState.progress) return;
+            const wrap = document.querySelector('.mc-grid-wrap');
+            const sl   = wrap?.scrollLeft ?? 0;
+            renderMcGrid(mcState.progress);
+            const nw = document.querySelector('.mc-grid-wrap');
+            if (nw) nw.scrollLeft = sl;
+        }
+
+        function toggleExpandCp(cpId) {
+            if (mcState.expandedCheckpoints.has(cpId)) mcState.expandedCheckpoints.delete(cpId);
+            else mcState.expandedCheckpoints.add(cpId);
+            rerenderGrid();
+        }
+
+        function directToggle(mcId, classId, studentId, cpId, currentDone) {
+            const newDone = !currentDone;
+            const s = mcState.progress?.students.find(s => s.student_id === String(studentId));
+            if (s) {
+                s.completions[cpId] = newDone ? Date.now() : null;
+                s.earned = mcState.progress.checkpoints.every(cp => !!s.completions[cp.id]);
+            }
+            rerenderGrid();
+            teacherFetch(`/api/teacher/microcredentials/${mcId}/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({ class_id: classId, student_id: studentId, checkpoint_id: cpId, completed: newDone }),
+            });
+        }
+
+        function directToggleSub(mcId, stId, studentId, currentDone) {
+            const newDone = !currentDone;
+            const s = mcState.progress?.students.find(s => s.student_id === String(studentId));
+            if (s) {
+                if (!s.subtask_completions) s.subtask_completions = {};
+                s.subtask_completions[stId] = newDone ? Date.now() : null;
+            }
+            rerenderGrid();
+            teacherFetch(`/api/teacher/microcredentials/${mcId}/subtasks/${stId}/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({ class_id: mcState.classId, student_id: studentId, completed: newDone }),
+            });
         }
 
         async function unlinkMc(mcId) {
@@ -1567,8 +1682,8 @@
             }
         }
 
-        // Cell click → student + checkpoint popup with sub-task checklist
-        function openStudentCpPopup(studentId, cpId) {
+        // (removed — cell clicks now use directToggle / directToggleSub directly)
+        function openStudentCpPopup_UNUSED(studentId, cpId) {
             const progress = mcState.progress;
             if (!progress) return;
             const cp      = progress.checkpoints.find(c => c.id === cpId);
@@ -1606,7 +1721,7 @@
             showMcModal();
         }
 
-        async function toggleSubtask(mcId, stId, studentId, currentDone) {
+        async function toggleSubtask_UNUSED(mcId, stId, studentId, currentDone) {
             const newDone = !currentDone;
             const student = mcState.progress?.students.find(s => s.student_id === String(studentId));
             if (student) student.subtask_completions[stId] = newDone ? Date.now() : null;
@@ -1618,7 +1733,7 @@
             });
         }
 
-        function toggleCellFromPopup(mcId, classId, studentId, cpId, currentDone) {
+        function toggleCellFromPopup_UNUSED(mcId, classId, studentId, cpId, currentDone) {
             const newDone = !currentDone;
             const progress = mcState.progress;
             const student  = progress?.students.find(s => s.student_id === String(studentId));
