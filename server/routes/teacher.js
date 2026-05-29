@@ -319,28 +319,26 @@ router.post('/microcredentials/import-csv', requireTeacher, (req, res) => {
     const insertCp = db.prepare('INSERT INTO mc_checkpoints(mc_id, name, order_idx) VALUES(?, ?, ?)');
     const assignMc = db.prepare('INSERT OR IGNORE INTO mc_class_assignments(mc_id, class_id) VALUES(?, ?)');
 
-    const results = db.transaction(() => {
-        return microcredentials
-            .filter(({ name, checkpoints }) => name?.trim() && Array.isArray(checkpoints) && checkpoints.length)
-            .map(({ name, checkpoints }) => {
-                insertMc.run(req.teacherKey, name.trim(), Date.now());
-                const mc     = getMc.get(req.teacherKey, name.trim());
-                const existing = getCps.all(mc.id);
-                // Only populate checkpoints on first creation; reused templates keep their original list
-                if (existing.length === 0) {
-                    checkpoints.forEach((cpName, i) => {
-                        if (cpName?.trim()) insertCp.run(mc.id, cpName.trim(), i);
-                    });
-                }
-                assignMc.run(mc.id, Number(class_id));
-                return {
-                    id:              mc.id,
-                    name:            name.trim(),
-                    reused:          existing.length > 0,
-                    checkpoint_count: existing.length || checkpoints.filter(c => c?.trim()).length
-                };
+    const results = [];
+    for (const { name, checkpoints } of microcredentials) {
+        if (!name?.trim() || !Array.isArray(checkpoints) || !checkpoints.length) continue;
+        insertMc.run(req.teacherKey, name.trim(), Date.now());
+        const mc       = getMc.get(req.teacherKey, name.trim());
+        const existing = getCps.all(mc.id);
+        // Only populate checkpoints on first creation; reused templates keep their original list
+        if (existing.length === 0) {
+            checkpoints.forEach((cpName, i) => {
+                if (cpName?.trim()) insertCp.run(mc.id, cpName.trim(), i);
             });
-    })();
+        }
+        assignMc.run(mc.id, Number(class_id));
+        results.push({
+            id:               mc.id,
+            name:             name.trim(),
+            reused:           existing.length > 0,
+            checkpoint_count: existing.length || checkpoints.filter(c => c?.trim()).length
+        });
+    }
 
     res.json({ imported: results.length, microcredentials: results });
 });
@@ -500,24 +498,22 @@ router.post('/microcredentials/:id/sync-ids', requireTeacher, (req, res) => {
         WHERE mc_id = ? AND class_id = ?
     `);
 
-    db.transaction(() => {
-        if (Array.isArray(checkpoints)) {
-            for (const { checkpoint_id, ps_assignment_id, ps_assignmentsection_id } of checkpoints) {
-                if (!checkpoint_id || !ps_assignment_id) continue;
-                upsertCpSync.run(
-                    Number(checkpoint_id), Number(class_id),
-                    String(ps_assignment_id), String(ps_assignmentsection_id ?? '')
-                );
-            }
-        }
-        if (summative?.ps_assignment_id) {
-            updateSummative.run(
-                String(summative.ps_assignment_id),
-                String(summative.ps_assignmentsection_id ?? ''),
-                mcId, Number(class_id)
+    if (Array.isArray(checkpoints)) {
+        for (const { checkpoint_id, ps_assignment_id, ps_assignmentsection_id } of checkpoints) {
+            if (!checkpoint_id || !ps_assignment_id) continue;
+            upsertCpSync.run(
+                Number(checkpoint_id), Number(class_id),
+                String(ps_assignment_id), String(ps_assignmentsection_id ?? '')
             );
         }
-    })();
+    }
+    if (summative?.ps_assignment_id) {
+        updateSummative.run(
+            String(summative.ps_assignment_id),
+            String(summative.ps_assignmentsection_id ?? ''),
+            mcId, Number(class_id)
+        );
+    }
 
     res.json({ ok: true });
 });
