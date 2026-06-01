@@ -620,6 +620,22 @@ router.delete('/microcredentials/:id/checkpoints/:cpId', requireTeacher, (req, r
 
 // ── Sub-tasks ─────────────────────────────────────────────────────────────────
 
+// Clear all sub-tasks for a checkpoint (called before re-importing to prevent duplicates)
+router.delete('/microcredentials/:id/checkpoints/:cpId/subtasks', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const cpId = Number(req.params.cpId);
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare(`
+        DELETE FROM mc_subtasks WHERE checkpoint_id = ?
+        AND checkpoint_id IN (SELECT id FROM mc_checkpoints WHERE mc_id = ?)
+    `).run(cpId, mcId);
+    res.json({ ok: true });
+});
+
 // Add a sub-task to a checkpoint
 router.post('/microcredentials/:id/checkpoints/:cpId/subtasks', requireTeacher, (req, res) => {
     const mcId = Number(req.params.id);
