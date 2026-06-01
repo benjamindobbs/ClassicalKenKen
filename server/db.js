@@ -189,6 +189,7 @@ db.exec(`
 
 // One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE class_students ADD COLUMN ps_dcid TEXT').run(); } catch { /* already exists */ }
 try { db.prepare("ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_subtask_max_score REAL NOT NULL DEFAULT 10').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_credential_max_score REAL NOT NULL DEFAULT 50').run(); } catch { /* already exists */ }

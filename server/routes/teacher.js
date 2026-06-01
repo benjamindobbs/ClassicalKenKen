@@ -160,12 +160,12 @@ router.post('/classes/import-roster', requireTeacher, (req, res) => {
 
     const classId = result.lastInsertRowid;
     const insert  = db.prepare(
-        'INSERT OR IGNORE INTO class_students(class_id, student_id, student_name) VALUES(?, ?, ?)'
+        'INSERT OR IGNORE INTO class_students(class_id, student_id, student_name, ps_dcid) VALUES(?, ?, ?, ?)'
     );
     let added = 0;
     for (const s of students) {
         if (!s.student_id || !s.student_name) continue;
-        const r = insert.run(classId, String(s.student_id).trim(), String(s.student_name).trim());
+        const r = insert.run(classId, String(s.student_id).trim(), String(s.student_name).trim(), s.ps_dcid ? String(s.ps_dcid) : null);
         added += r.changes;
     }
     res.json({ id: classId, name: name.trim(), ps_section_id: String(ps_section_id), student_count: added });
