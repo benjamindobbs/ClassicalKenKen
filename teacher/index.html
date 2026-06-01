@@ -950,7 +950,7 @@
             const res  = await teacherFetch('/api/teacher/classes');
             const list = await res.json();
             sel.innerHTML = '<option value="">Select a class&hellip;</option>' +
-                list.map(c => `<option value="${c.id}"${c.id == prev ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+                list.map(c => `<option value="${c.id}" data-ps-section="${c.ps_section_id || ''}"${c.id == prev ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
 
             // Set date to today if blank
             const dateEl = document.getElementById('rubric-tab-date');
