@@ -340,6 +340,38 @@
                     </div>
                 </div>
 
+                <!-- Microcredential grading settings -->
+                <div class="section-title">Microcredential Grading</div>
+                <div class="settings-card">
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label class="settings-label">Sub Skill Max Points</label>
+                            <input type="number" id="mc-subtask-max" min="0.01" step="0.01" placeholder="10" />
+                        </div>
+                        <div class="settings-field">
+                            <label class="settings-label">Microcredential Max Points</label>
+                            <input type="number" id="mc-credential-max" min="0.01" step="0.01" placeholder="50" />
+                        </div>
+                    </div>
+                    <div class="settings-field" style="margin-top:1rem">
+                        <label class="settings-label">Microcredential Grade Calculation</label>
+                        <div class="activity-options" style="margin-top:0.4rem">
+                            <label class="activity-option">
+                                <input type="radio" name="mc-include-subtasks" value="1">
+                                <span>Include sub skills <span style="font-size:0.75rem;color:#64748b">(% of all subtasks × max)</span></span>
+                            </label>
+                            <label class="activity-option">
+                                <input type="radio" name="mc-include-subtasks" value="0">
+                                <span>Completed checkpoints only <span style="font-size:0.75rem;color:#64748b">(fully done checkpoints ÷ total × max)</span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveMcGradebookSettings()">Save Settings</button>
+                        <span id="mc-gs-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
                 <!-- Chrome extension token -->
                 <div class="section-title">Chrome Extension</div>
                 <div class="settings-card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
@@ -798,6 +830,12 @@
             document.getElementById('gs-max-score').value      = data.assignment_max_score;
             document.getElementById('gs-completion-pct').value = data.completion_score_pct;
             document.getElementById('gs-no-sub-pct').value     = data.no_submission_score_pct;
+            document.getElementById('mc-subtask-max').value    = data.mc_subtask_max_score    ?? 1;
+            document.getElementById('mc-credential-max').value = data.mc_credential_max_score ?? 1;
+            const includeVal = (data.mc_include_subtasks ?? 1) ? '1' : '0';
+            document.querySelectorAll('input[name="mc-include-subtasks"]').forEach(r => {
+                r.checked = (r.value === includeVal);
+            });
         }
 
         async function saveGradebookSettings() {
@@ -811,9 +849,37 @@
             await teacherFetch('/api/teacher/gradebook-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct }),
+                body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct,
+                    mc_subtask_max_score: gradebookSettings?.mc_subtask_max_score ?? 1,
+                    mc_credential_max_score: gradebookSettings?.mc_credential_max_score ?? 1,
+                    mc_include_subtasks: gradebookSettings?.mc_include_subtasks ?? 1 }),
             });
             const msg = document.getElementById('gs-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function saveMcGradebookSettings() {
+            const mc_subtask_max_score    = parseFloat(document.getElementById('mc-subtask-max').value);
+            const mc_credential_max_score = parseFloat(document.getElementById('mc-credential-max').value);
+            const mc_include_subtasks     = document.querySelector('input[name="mc-include-subtasks"]:checked')?.value ?? '1';
+            if ([mc_subtask_max_score, mc_credential_max_score].some(isNaN)) {
+                alert('Max points fields must be valid numbers.');
+                return;
+            }
+            await teacherFetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignment_max_score:    gradebookSettings?.assignment_max_score    ?? 100,
+                    completion_score_pct:    gradebookSettings?.completion_score_pct    ?? 100,
+                    no_submission_score_pct: gradebookSettings?.no_submission_score_pct ?? 0,
+                    mc_subtask_max_score, mc_credential_max_score,
+                    mc_include_subtasks: Number(mc_include_subtasks)
+                }),
+            });
+            gradebookSettings = { ...gradebookSettings, mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks: Number(mc_include_subtasks) };
+            const msg = document.getElementById('mc-gs-saved-msg');
             msg.style.display = '';
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }

@@ -70,19 +70,34 @@ router.post('/profile', requireTeacher, (req, res) => {
 });
 
 // ── Gradebook settings ────────────────────────────────────────────────────────
+const GS_DEFAULTS = {
+    assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0,
+    mc_subtask_max_score: 10,  mc_credential_max_score: 50, mc_include_subtasks: 1
+};
+
 router.get('/gradebook-settings', requireTeacher, (req, res) => {
     const row = db.prepare('SELECT * FROM gradebook_settings WHERE teacher_key = ?').get(req.teacherKey);
-    res.json(row ?? { assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0 });
+    res.json(row ?? GS_DEFAULTS);
 });
 
 router.post('/gradebook-settings', requireTeacher, (req, res) => {
-    const { assignment_max_score, completion_score_pct, no_submission_score_pct } = req.body;
-    if ([assignment_max_score, completion_score_pct, no_submission_score_pct].some(v => v == null || isNaN(Number(v))))
-        return res.status(400).json({ error: 'All three fields are required and must be numbers' });
+    const {
+        assignment_max_score, completion_score_pct, no_submission_score_pct,
+        mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks
+    } = req.body;
+    if ([assignment_max_score, completion_score_pct, no_submission_score_pct,
+         mc_subtask_max_score, mc_credential_max_score].some(v => v == null || isNaN(Number(v))))
+        return res.status(400).json({ error: 'All numeric fields are required' });
     db.prepare(`
-        INSERT OR REPLACE INTO gradebook_settings(teacher_key, assignment_max_score, completion_score_pct, no_submission_score_pct)
-        VALUES(?, ?, ?, ?)
-    `).run(req.teacherKey, Number(assignment_max_score), Number(completion_score_pct), Number(no_submission_score_pct));
+        INSERT OR REPLACE INTO gradebook_settings(
+            teacher_key, assignment_max_score, completion_score_pct, no_submission_score_pct,
+            mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks
+        ) VALUES(?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        req.teacherKey,
+        Number(assignment_max_score), Number(completion_score_pct), Number(no_submission_score_pct),
+        Number(mc_subtask_max_score), Number(mc_credential_max_score), mc_include_subtasks ? 1 : 0
+    );
     res.json({ ok: true });
 });
 
