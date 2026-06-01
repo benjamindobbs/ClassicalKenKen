@@ -1015,6 +1015,7 @@
                 const tot = tl + ps + tc;
                 return `<tr>
                     <td style="${tdStyle};font-size:0.875rem">${esc(s.student_name)}</td>
+                    <td style="${tdStyle};font-size:0.75rem;color:#94a3b8">${s.ps_dcid ?? '—'}</td>
                     <td style="${tdStyle}">${selHtml(`rb-tl-${s.student_id}`, timelinesOpts, tl)}</td>
                     <td style="${tdStyle}">${selHtml(`rb-ps-${s.student_id}`, scaleOpts, ps)}</td>
                     <td style="${tdStyle}">${selHtml(`rb-tc-${s.student_id}`, scaleOpts, tc)}</td>
@@ -1028,6 +1029,7 @@
                     <thead>
                         <tr>
                             <th style="${thStyle}">Student</th>
+                            <th style="${thStyle}">PS DCID</th>
                             <th style="${thStyle}">Timeliness</th>
                             <th style="${thStyle}">Problem Solving (1–5)</th>
                             <th style="${thStyle}">Task Completion (1–5)</th>
