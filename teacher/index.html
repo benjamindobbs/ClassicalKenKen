@@ -372,6 +372,22 @@
                     </div>
                 </div>
 
+                <!-- Daily rubric settings -->
+                <div class="section-title">Daily Rubric</div>
+                <div class="settings-card">
+                    <div class="settings-grid">
+                        <div class="settings-field">
+                            <label class="settings-label">Rubric Max Score (per day)</label>
+                            <input type="number" id="rubric-max-score" min="1" step="1" placeholder="15" />
+                        </div>
+                    </div>
+                    <p style="font-size:0.8125rem;color:#64748b;margin:0.5rem 0 1rem">Max possible score is 15 (Timeliness 5 + Problem Solving 5 + Task Completion 5). Adjust if you modify point values.</p>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.5rem">
+                        <button class="btn btn-primary" onclick="saveRubricSettings()">Save Settings</button>
+                        <span id="rubric-gs-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+
                 <!-- Chrome extension token -->
                 <div class="section-title">Chrome Extension</div>
                 <div class="settings-card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
@@ -830,8 +846,9 @@
             document.getElementById('gs-max-score').value      = data.assignment_max_score;
             document.getElementById('gs-completion-pct').value = data.completion_score_pct;
             document.getElementById('gs-no-sub-pct').value     = data.no_submission_score_pct;
-            document.getElementById('mc-subtask-max').value    = data.mc_subtask_max_score    ?? 1;
-            document.getElementById('mc-credential-max').value = data.mc_credential_max_score ?? 1;
+            document.getElementById('mc-subtask-max').value    = data.mc_subtask_max_score    ?? 10;
+            document.getElementById('mc-credential-max').value = data.mc_credential_max_score ?? 50;
+            document.getElementById('rubric-max-score').value  = data.rubric_max_score        ?? 15;
             const includeVal = (data.mc_include_subtasks ?? 1) ? '1' : '0';
             document.querySelectorAll('input[name="mc-include-subtasks"]').forEach(r => {
                 r.checked = (r.value === includeVal);
@@ -850,9 +867,10 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ assignment_max_score, completion_score_pct, no_submission_score_pct,
-                    mc_subtask_max_score: gradebookSettings?.mc_subtask_max_score ?? 1,
-                    mc_credential_max_score: gradebookSettings?.mc_credential_max_score ?? 1,
-                    mc_include_subtasks: gradebookSettings?.mc_include_subtasks ?? 1 }),
+                    mc_subtask_max_score:    gradebookSettings?.mc_subtask_max_score    ?? 10,
+                    mc_credential_max_score: gradebookSettings?.mc_credential_max_score ?? 50,
+                    mc_include_subtasks:     gradebookSettings?.mc_include_subtasks     ?? 1,
+                    rubric_max_score:        gradebookSettings?.rubric_max_score        ?? 15 }),
             });
             const msg = document.getElementById('gs-saved-msg');
             msg.style.display = '';
@@ -875,11 +893,128 @@
                     completion_score_pct:    gradebookSettings?.completion_score_pct    ?? 100,
                     no_submission_score_pct: gradebookSettings?.no_submission_score_pct ?? 0,
                     mc_subtask_max_score, mc_credential_max_score,
-                    mc_include_subtasks: Number(mc_include_subtasks)
+                    mc_include_subtasks:  Number(mc_include_subtasks),
+                    rubric_max_score:     gradebookSettings?.rubric_max_score ?? 15
                 }),
             });
             gradebookSettings = { ...gradebookSettings, mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks: Number(mc_include_subtasks) };
             const msg = document.getElementById('mc-gs-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function saveRubricSettings() {
+            const rubric_max_score = parseFloat(document.getElementById('rubric-max-score').value);
+            if (isNaN(rubric_max_score)) { alert('Rubric max score must be a valid number.'); return; }
+            await teacherFetch('/api/teacher/gradebook-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignment_max_score:    gradebookSettings?.assignment_max_score    ?? 100,
+                    completion_score_pct:    gradebookSettings?.completion_score_pct    ?? 100,
+                    no_submission_score_pct: gradebookSettings?.no_submission_score_pct ?? 0,
+                    mc_subtask_max_score:    gradebookSettings?.mc_subtask_max_score    ?? 10,
+                    mc_credential_max_score: gradebookSettings?.mc_credential_max_score ?? 50,
+                    mc_include_subtasks:     gradebookSettings?.mc_include_subtasks     ?? 1,
+                    rubric_max_score
+                }),
+            });
+            gradebookSettings = { ...gradebookSettings, rubric_max_score };
+            const msg = document.getElementById('rubric-gs-saved-msg');
+            msg.style.display = '';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+
+        async function loadRubricForDate(classId, date) {
+            const container = document.getElementById('rubric-grid-container');
+            if (!container) return;
+            container.innerHTML = '<p style="color:var(--muted);font-size:0.875rem">Loading…</p>';
+            const res  = await teacherFetch(`/api/teacher/rubric?class_id=${classId}&date=${date}`);
+            const data = await res.json();
+            renderRubricGrid(classId, date, data.entries || []);
+        }
+
+        function renderRubricGrid(classId, date, entries) {
+            const container = document.getElementById('rubric-grid-container');
+            if (!container) return;
+
+            const entryMap = {};
+            for (const e of entries) entryMap[e.student_id] = e;
+
+            const timelinesOpts = [
+                { value: 5, label: 'On Time (5)' },
+                { value: 3, label: 'Tardy (3)' },
+                { value: 0, label: 'Absent (0)' },
+            ];
+            const scaleOpts = [1,2,3,4,5].map(n => ({ value: n, label: String(n) }));
+
+            function selHtml(id, opts, current) {
+                const iStyle = 'padding:0.25rem 0.375rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.8125rem;background:#fff;width:100%';
+                return `<select id="${id}" style="${iStyle}" onchange="updateRubricTotal(this)">${
+                    opts.map(o => `<option value="${o.value}"${o.value === current ? ' selected' : ''}>${o.label}</option>`).join('')
+                }</select>`;
+            }
+
+            const thStyle = 'padding:0.5rem 0.75rem;text-align:left;font-size:0.75rem;font-weight:600;color:#64748b;border-bottom:2px solid var(--border);white-space:nowrap';
+            const tdStyle = 'padding:0.375rem 0.5rem;border-bottom:1px solid var(--border);vertical-align:middle';
+
+            const rows = classStudents.map(s => {
+                const e = entryMap[s.student_id] ?? {};
+                const tl = e.timeliness      ?? 5;
+                const ps = e.problem_solving  ?? 3;
+                const tc = e.task_completion  ?? 3;
+                const tot = tl + ps + tc;
+                return `<tr>
+                    <td style="${tdStyle};font-size:0.875rem">${esc(s.student_name)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-tl-${s.student_id}`,  timelinesOpts, tl)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-ps-${s.student_id}`,  scaleOpts, ps)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-tc-${s.student_id}`,  scaleOpts, tc)}</td>
+                    <td style="${tdStyle};font-weight:600;text-align:center" id="rb-tot-${s.student_id}">${tot}</td>
+                </tr>`;
+            }).join('');
+
+            container.innerHTML = `
+                <table style="width:100%;border-collapse:collapse;min-width:520px">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle}">Student</th>
+                            <th style="${thStyle}">Timeliness</th>
+                            <th style="${thStyle}">Problem Solving (1–5)</th>
+                            <th style="${thStyle}">Task Completion (1–5)</th>
+                            <th style="${thStyle};text-align:center">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        }
+
+        function updateRubricTotal(changedSel) {
+            const sid = changedSel.id.replace(/^rb-(tl|ps|tc)-/, '');
+            const tl  = parseInt(document.getElementById(`rb-tl-${sid}`)?.value  ?? 0);
+            const ps  = parseInt(document.getElementById(`rb-ps-${sid}`)?.value  ?? 0);
+            const tc  = parseInt(document.getElementById(`rb-tc-${sid}`)?.value  ?? 0);
+            const tot = document.getElementById(`rb-tot-${sid}`);
+            if (tot) tot.textContent = tl + ps + tc;
+        }
+
+        async function submitRubric(classId) {
+            const date = document.getElementById('rubric-date')?.value;
+            if (!date) { alert('No date selected.'); return; }
+
+            const entries = classStudents.map(s => ({
+                student_id:      s.student_id,
+                timeliness:      parseInt(document.getElementById(`rb-tl-${s.student_id}`)?.value ?? 0),
+                problem_solving: parseInt(document.getElementById(`rb-ps-${s.student_id}`)?.value ?? 1),
+                task_completion: parseInt(document.getElementById(`rb-tc-${s.student_id}`)?.value ?? 1),
+            }));
+
+            await teacherFetch('/api/teacher/rubric', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ class_id: classId, date, entries }),
+            });
+            const msg = document.getElementById('rubric-saved-msg');
             msg.style.display = '';
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }
@@ -1113,6 +1248,22 @@
                 </div>
             ` : '';
 
+            const today = new Date().toISOString().slice(0, 10);
+            const rubricHTML = cls.students.length > 0 ? `
+                <div class="section-title">Daily Rubric</div>
+                <div class="settings-card">
+                    <div class="date-range-row" style="margin-bottom:1rem">
+                        <label>Date</label>
+                        <input type="date" id="rubric-date" value="${today}" onchange="loadRubricForDate(${cls.id}, this.value)" />
+                    </div>
+                    <div id="rubric-grid-container" style="overflow-x:auto"></div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="submitRubric(${cls.id})">Submit Rubric</button>
+                        <span id="rubric-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
+                    </div>
+                </div>
+            ` : '';
+
             document.getElementById('class-detail-content').innerHTML = `
                 <div class="detail-header">
                     <h2 class="detail-title">${esc(cls.name)}</h2>
@@ -1144,9 +1295,11 @@
                 ${notice}
                 ${chartsHTML}
                 ${exportHTML}
+                ${rubricHTML}
             `;
 
             if (linkedCount > 0) renderClassCharts();
+            if (cls.students.length > 0) loadRubricForDate(cls.id, today);
         }
 
         function renderClassCharts() {

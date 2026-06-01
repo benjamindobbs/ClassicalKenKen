@@ -169,6 +169,22 @@ db.exec(`
 
     CREATE INDEX IF NOT EXISTS idx_mc_subtasks_cp   ON mc_subtasks(checkpoint_id);
     CREATE INDEX IF NOT EXISTS idx_mc_subtask_comps ON mc_subtask_completions(subtask_id, class_id);
+
+    -- Daily rubric scores per student per date
+    CREATE TABLE IF NOT EXISTS daily_rubric (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id        INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        student_id      TEXT    NOT NULL,
+        date            TEXT    NOT NULL,
+        timeliness      INTEGER NOT NULL DEFAULT 0,
+        problem_solving INTEGER NOT NULL DEFAULT 3,
+        task_completion INTEGER NOT NULL DEFAULT 3,
+        total           INTEGER NOT NULL,
+        submitted_at    INTEGER NOT NULL,
+        UNIQUE(class_id, student_id, date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_daily_rubric_class_date ON daily_rubric(class_id, date);
 `);
 
 // One-time migrations
@@ -177,6 +193,7 @@ try { db.prepare("ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NUL
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_subtask_max_score REAL NOT NULL DEFAULT 10').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_credential_max_score REAL NOT NULL DEFAULT 50').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_include_subtasks INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN rubric_max_score REAL NOT NULL DEFAULT 15').run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

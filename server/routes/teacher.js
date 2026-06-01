@@ -72,7 +72,8 @@ router.post('/profile', requireTeacher, (req, res) => {
 // ── Gradebook settings ────────────────────────────────────────────────────────
 const GS_DEFAULTS = {
     assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0,
-    mc_subtask_max_score: 10,  mc_credential_max_score: 50, mc_include_subtasks: 1
+    mc_subtask_max_score: 10,  mc_credential_max_score: 50, mc_include_subtasks: 1,
+    rubric_max_score: 15
 };
 
 router.get('/gradebook-settings', requireTeacher, (req, res) => {
@@ -83,20 +84,22 @@ router.get('/gradebook-settings', requireTeacher, (req, res) => {
 router.post('/gradebook-settings', requireTeacher, (req, res) => {
     const {
         assignment_max_score, completion_score_pct, no_submission_score_pct,
-        mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks
+        mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks,
+        rubric_max_score
     } = req.body;
     if ([assignment_max_score, completion_score_pct, no_submission_score_pct,
-         mc_subtask_max_score, mc_credential_max_score].some(v => v == null || isNaN(Number(v))))
+         mc_subtask_max_score, mc_credential_max_score, rubric_max_score].some(v => v == null || isNaN(Number(v))))
         return res.status(400).json({ error: 'All numeric fields are required' });
     db.prepare(`
         INSERT OR REPLACE INTO gradebook_settings(
             teacher_key, assignment_max_score, completion_score_pct, no_submission_score_pct,
-            mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks
-        ) VALUES(?, ?, ?, ?, ?, ?, ?)
+            mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks, rubric_max_score
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         req.teacherKey,
         Number(assignment_max_score), Number(completion_score_pct), Number(no_submission_score_pct),
-        Number(mc_subtask_max_score), Number(mc_credential_max_score), mc_include_subtasks ? 1 : 0
+        Number(mc_subtask_max_score), Number(mc_credential_max_score), mc_include_subtasks ? 1 : 0,
+        Number(rubric_max_score)
     );
     res.json({ ok: true });
 });
@@ -752,6 +755,81 @@ router.delete('/microcredentials/:id', requireTeacher, (req, res) => {
     if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
     db.prepare('DELETE FROM microcredentials WHERE id = ?').run(mcId);
     res.json({ ok: true });
+});
+
+// ── Daily rubric ──────────────────────────────────────────────────────────────
+
+// Get entries for a class on a specific date
+router.get('/rubric', requireTeacher, (req, res) => {
+    const classId = Number(req.query.class_id);
+    const date    = req.query.date;
+    if (!classId || !date) return res.status(400).json({ error: 'class_id and date required' });
+
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(classId, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const entries = db.prepare(
+        'SELECT student_id, timeliness, problem_solving, task_completion, total FROM daily_rubric WHERE class_id = ? AND date = ?'
+    ).all(classId, date);
+
+    res.json({ date, entries });
+});
+
+// Upsert rubric entries for a class on a date (batch)
+router.post('/rubric', requireTeacher, (req, res) => {
+    const { class_id, date, entries } = req.body;
+    if (!class_id || !date || !Array.isArray(entries))
+        return res.status(400).json({ error: 'class_id, date, and entries array required' });
+
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(Number(class_id), req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const upsert = db.prepare(`
+        INSERT INTO daily_rubric(class_id, student_id, date, timeliness, problem_solving, task_completion, total, submitted_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(class_id, student_id, date) DO UPDATE SET
+            timeliness = excluded.timeliness,
+            problem_solving = excluded.problem_solving,
+            task_completion = excluded.task_completion,
+            total = excluded.total,
+            submitted_at = excluded.submitted_at
+    `);
+
+    const now = Date.now();
+    const insertMany = db.transaction((rows) => {
+        for (const e of rows) {
+            const timeliness      = Number(e.timeliness)      || 0;
+            const problem_solving = Number(e.problem_solving) || 1;
+            const task_completion = Number(e.task_completion) || 1;
+            const total           = timeliness + problem_solving + task_completion;
+            upsert.run(Number(class_id), String(e.student_id), date, timeliness, problem_solving, task_completion, total, now);
+        }
+    });
+    insertMany(entries);
+    res.json({ ok: true });
+});
+
+// Sum rubric totals per student across a date range (for PowerSchool sync)
+router.get('/rubric/totals', requireTeacher, (req, res) => {
+    const classId = Number(req.query.class_id);
+    const start   = req.query.start;
+    const end     = req.query.end;
+    if (!classId || !start || !end) return res.status(400).json({ error: 'class_id, start, and end required' });
+
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(classId, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const rows = db.prepare(`
+        SELECT student_id, SUM(total) AS total_score, COUNT(*) AS days_scored
+        FROM daily_rubric
+        WHERE class_id = ? AND date >= ? AND date <= ?
+        GROUP BY student_id
+    `).all(classId, start, end);
+
+    res.json({ class_id: classId, start, end, students: rows });
 });
 
 // ── All data ──────────────────────────────────────────────────────────────────
