@@ -1466,12 +1466,11 @@
             let theadHtml, bodyRows;
 
             if (isExpMode) {
-                // ── Expanded view: student | overall | subtask… | earned ─────────
-                const colspan = expandedCp.subtasks.length + 1;
+                // ── Expanded view: student | subtask… | earned ────────────────────
                 theadHtml = `
                     <tr>
                         <th class="mc-name-col" rowspan="2">Student</th>
-                        <th colspan="${colspan}" onclick="toggleExpandCp(${expandedId})" style="text-align:center">
+                        <th colspan="${expandedCp.subtasks.length}" onclick="toggleExpandCp(${expandedId})" style="text-align:center">
                             ${esc(expandedCp.name)}
                             <span style="font-size:10px;color:#7c3aed"> ▼</span>
                             ${infoBtn(expandedId)}
@@ -1480,7 +1479,6 @@
                     </tr>
                     <tr style="font-size:10px;font-weight:500;color:#64748b;background:#fafafa">
                         ${expandedCp.subtasks.map(st => `<th title="${esc(st.name)}">${esc(st.name)}</th>`).join('')}
-                        <th style="border-left:2px solid #e2e8f0" title="Overall checkpoint completion">✓ Overall</th>
                     </tr>`;
 
                 bodyRows = students.map(s => {
@@ -1494,7 +1492,6 @@
                         <td class="mc-name-col">${esc(s.student_name)}</td>
                         ${subtaskCells}
                         <td style="border-left:2px solid #e2e8f0"><div class="mc-cell${done ? ' done' : ''}" onclick="directToggle(${mc_id},${class_id},'${s.student_id}',${expandedId},${done})"></div></td>
-                        <td><div class="mc-earned${s.earned ? ' done' : ''}"></div></td>
                     </tr>`;
                 }).join('');
 
