@@ -212,6 +212,7 @@
             <button class="tab-btn active" id="tab-btn-data"               onclick="switchTab('data')">All Data</button>
             <button class="tab-btn"        id="tab-btn-lookup"             onclick="switchTab('lookup')">Student Lookup</button>
             <button class="tab-btn"        id="tab-btn-classes"            onclick="switchTab('classes')">Classes</button>
+            <button class="tab-btn"        id="tab-btn-rubric"             onclick="switchTab('rubric')">Daily Rubric</button>
             <button class="tab-btn"        id="tab-btn-microcredentials"   onclick="switchTab('microcredentials')">Microcredentials</button>
         </div>
 
@@ -262,6 +263,23 @@
                 </div>
 
                 <p id="lookup-message" style="display:none;color:#64748b;font-size:0.9375rem"></p>
+            </div>
+        </div>
+
+        <!-- ── Daily Rubric tab ─────────────────────────────────────────────── -->
+        <div id="tab-rubric" style="display:none">
+            <div class="portal-wrap">
+                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem">
+                    <select id="rubric-class-select" onchange="loadRubricTab()" style="padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;background:#fff;color:#0f172a;outline:none;cursor:pointer">
+                        <option value="">Select a class&hellip;</option>
+                    </select>
+                    <input type="date" id="rubric-tab-date" onchange="loadRubricTab()" style="padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;outline:none" />
+                </div>
+                <div id="rubric-tab-grid"></div>
+                <div id="rubric-tab-actions" style="display:none;margin-top:1rem">
+                    <button class="btn btn-primary" onclick="submitRubricTab()">Submit Rubric</button>
+                    <span id="rubric-tab-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem;margin-left:0.75rem">Saved</span>
+                </div>
             </div>
         </div>
 
@@ -590,12 +608,13 @@
         };
 
         function switchTab(tab) {
-            ['data','lookup','classes','microcredentials'].forEach(t => {
+            ['data','lookup','classes','rubric','microcredentials'].forEach(t => {
                 document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
                 document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
             });
-            document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab];
+            document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab] ?? '';
             if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+            if (tab === 'rubric')           { loadRubricClassSelect(); }
             if (tab === 'microcredentials') { loadMcClassSelect(); }
         }
 
@@ -925,17 +944,47 @@
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }
 
-        async function loadRubricForDate(classId, date) {
-            const container = document.getElementById('rubric-grid-container');
-            if (!container) return;
-            container.innerHTML = '<p style="color:var(--muted);font-size:0.875rem">Loading…</p>';
-            const res  = await teacherFetch(`/api/teacher/rubric?class_id=${classId}&date=${date}`);
-            const data = await res.json();
-            renderRubricGrid(classId, date, data.entries || []);
+        async function loadRubricClassSelect() {
+            const sel  = document.getElementById('rubric-class-select');
+            const prev = sel.value;
+            const res  = await teacherFetch('/api/teacher/classes');
+            const list = await res.json();
+            sel.innerHTML = '<option value="">Select a class&hellip;</option>' +
+                list.map(c => `<option value="${c.id}"${c.id == prev ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+
+            // Set date to today if blank
+            const dateEl = document.getElementById('rubric-tab-date');
+            if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+
+            if (sel.value) loadRubricTab();
         }
 
-        function renderRubricGrid(classId, date, entries) {
-            const container = document.getElementById('rubric-grid-container');
+        async function loadRubricTab() {
+            const classId = document.getElementById('rubric-class-select')?.value;
+            const date    = document.getElementById('rubric-tab-date')?.value;
+            const grid    = document.getElementById('rubric-tab-grid');
+            const actions = document.getElementById('rubric-tab-actions');
+            if (!classId || !date) {
+                if (grid) grid.innerHTML = '<p style="color:#94a3b8;font-size:0.875rem">Select a class and date to begin.</p>';
+                if (actions) actions.style.display = 'none';
+                return;
+            }
+            if (grid) grid.innerHTML = '<p style="color:var(--muted);font-size:0.875rem">Loading…</p>';
+
+            // Load class students for this class
+            const clsRes = await teacherFetch('/api/teacher/classes/' + classId);
+            const cls    = await clsRes.json();
+            const students = cls.students;
+
+            const rubRes = await teacherFetch(`/api/teacher/rubric?class_id=${classId}&date=${date}`);
+            const data   = await rubRes.json();
+
+            renderRubricGrid('tab', students, data.entries || []);
+            if (actions) actions.style.display = '';
+        }
+
+        function renderRubricGrid(ctx, students, entries) {
+            const container = document.getElementById(ctx === 'tab' ? 'rubric-tab-grid' : 'rubric-grid-container');
             if (!container) return;
 
             const entryMap = {};
@@ -958,22 +1007,23 @@
             const thStyle = 'padding:0.5rem 0.75rem;text-align:left;font-size:0.75rem;font-weight:600;color:#64748b;border-bottom:2px solid var(--border);white-space:nowrap';
             const tdStyle = 'padding:0.375rem 0.5rem;border-bottom:1px solid var(--border);vertical-align:middle';
 
-            const rows = classStudents.map(s => {
-                const e = entryMap[s.student_id] ?? {};
-                const tl = e.timeliness      ?? 5;
-                const ps = e.problem_solving  ?? 3;
-                const tc = e.task_completion  ?? 3;
+            const rows = students.map(s => {
+                const e   = entryMap[s.student_id] ?? {};
+                const tl  = e.timeliness      ?? 5;
+                const ps  = e.problem_solving  ?? 3;
+                const tc  = e.task_completion  ?? 3;
                 const tot = tl + ps + tc;
                 return `<tr>
                     <td style="${tdStyle};font-size:0.875rem">${esc(s.student_name)}</td>
-                    <td style="${tdStyle}">${selHtml(`rb-tl-${s.student_id}`,  timelinesOpts, tl)}</td>
-                    <td style="${tdStyle}">${selHtml(`rb-ps-${s.student_id}`,  scaleOpts, ps)}</td>
-                    <td style="${tdStyle}">${selHtml(`rb-tc-${s.student_id}`,  scaleOpts, tc)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-tl-${s.student_id}`, timelinesOpts, tl)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-ps-${s.student_id}`, scaleOpts, ps)}</td>
+                    <td style="${tdStyle}">${selHtml(`rb-tc-${s.student_id}`, scaleOpts, tc)}</td>
                     <td style="${tdStyle};font-weight:600;text-align:center" id="rb-tot-${s.student_id}">${tot}</td>
                 </tr>`;
             }).join('');
 
             container.innerHTML = `
+                <div style="overflow-x:auto">
                 <table style="width:100%;border-collapse:collapse;min-width:520px">
                     <thead>
                         <tr>
@@ -986,6 +1036,7 @@
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
+                </div>
             `;
         }
 
@@ -998,23 +1049,32 @@
             if (tot) tot.textContent = tl + ps + tc;
         }
 
-        async function submitRubric(classId) {
-            const date = document.getElementById('rubric-date')?.value;
-            if (!date) { alert('No date selected.'); return; }
+        async function submitRubricTab() {
+            const classId = document.getElementById('rubric-class-select')?.value;
+            const date    = document.getElementById('rubric-tab-date')?.value;
+            if (!classId || !date) { alert('Select a class and date first.'); return; }
 
-            const entries = classStudents.map(s => ({
-                student_id:      s.student_id,
-                timeliness:      parseInt(document.getElementById(`rb-tl-${s.student_id}`)?.value ?? 0),
-                problem_solving: parseInt(document.getElementById(`rb-ps-${s.student_id}`)?.value ?? 1),
-                task_completion: parseInt(document.getElementById(`rb-tc-${s.student_id}`)?.value ?? 1),
-            }));
+            // Collect every student row currently rendered
+            const rows    = document.querySelectorAll('#rubric-tab-grid tbody tr');
+            const entries = [];
+            rows.forEach(row => {
+                const tlSel = row.querySelector('select[id^="rb-tl-"]');
+                if (!tlSel) return;
+                const sid = tlSel.id.replace('rb-tl-', '');
+                entries.push({
+                    student_id:      sid,
+                    timeliness:      parseInt(document.getElementById(`rb-tl-${sid}`)?.value ?? 0),
+                    problem_solving: parseInt(document.getElementById(`rb-ps-${sid}`)?.value ?? 1),
+                    task_completion: parseInt(document.getElementById(`rb-tc-${sid}`)?.value ?? 1),
+                });
+            });
 
             await teacherFetch('/api/teacher/rubric', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ class_id: classId, date, entries }),
             });
-            const msg = document.getElementById('rubric-saved-msg');
+            const msg = document.getElementById('rubric-tab-saved-msg');
             msg.style.display = '';
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }
@@ -1248,22 +1308,6 @@
                 </div>
             ` : '';
 
-            const today = new Date().toISOString().slice(0, 10);
-            const rubricHTML = cls.students.length > 0 ? `
-                <div class="section-title">Daily Rubric</div>
-                <div class="settings-card">
-                    <div class="date-range-row" style="margin-bottom:1rem">
-                        <label>Date</label>
-                        <input type="date" id="rubric-date" value="${today}" onchange="loadRubricForDate(${cls.id}, this.value)" />
-                    </div>
-                    <div id="rubric-grid-container" style="overflow-x:auto"></div>
-                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
-                        <button class="btn btn-primary" onclick="submitRubric(${cls.id})">Submit Rubric</button>
-                        <span id="rubric-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
-                    </div>
-                </div>
-            ` : '';
-
             document.getElementById('class-detail-content').innerHTML = `
                 <div class="detail-header">
                     <h2 class="detail-title">${esc(cls.name)}</h2>
@@ -1295,11 +1339,9 @@
                 ${notice}
                 ${chartsHTML}
                 ${exportHTML}
-                ${rubricHTML}
             `;
 
             if (linkedCount > 0) renderClassCharts();
-            if (cls.students.length > 0) loadRubricForDate(cls.id, today);
         }
 
         function renderClassCharts() {
