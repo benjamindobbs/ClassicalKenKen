@@ -807,7 +807,12 @@ router.post('/rubric', requireTeacher, (req, res) => {
             upsert.run(Number(class_id), String(e.student_id), date, timeliness, problem_solving, task_completion, total, now);
         }
     });
-    insertMany(entries);
+    try {
+        insertMany(entries);
+    } catch (err) {
+        console.error('[POST /rubric]', err);
+        return res.status(500).json({ error: err.message });
+    }
     res.json({ ok: true });
 });
 
