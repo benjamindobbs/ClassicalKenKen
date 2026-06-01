@@ -799,16 +799,20 @@ router.post('/rubric', requireTeacher, (req, res) => {
         `);
 
         const now = Date.now();
-        const insertMany = db.transaction((rows) => {
-            for (const e of rows) {
+        db.exec('BEGIN');
+        try {
+            for (const e of entries) {
                 const timeliness      = Number(e.timeliness)      || 0;
                 const problem_solving = Number(e.problem_solving) || 1;
                 const task_completion = Number(e.task_completion) || 1;
                 const total           = timeliness + problem_solving + task_completion;
                 upsert.run(Number(class_id), String(e.student_id), date, timeliness, problem_solving, task_completion, total, now);
             }
-        });
-        insertMany(entries);
+            db.exec('COMMIT');
+        } catch (e) {
+            db.exec('ROLLBACK');
+            throw e;
+        }
         res.json({ ok: true });
     } catch (err) {
         console.error('[POST /rubric]', err);
