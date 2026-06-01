@@ -778,42 +778,42 @@ router.get('/rubric', requireTeacher, (req, res) => {
 
 // Upsert rubric entries for a class on a date (batch)
 router.post('/rubric', requireTeacher, (req, res) => {
-    const { class_id, date, entries } = req.body;
-    if (!class_id || !date || !Array.isArray(entries))
-        return res.status(400).json({ error: 'class_id, date, and entries array required' });
-
-    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
-        .get(Number(class_id), req.teacherKey);
-    if (!cls) return res.status(404).json({ error: 'Class not found' });
-
-    const upsert = db.prepare(`
-        INSERT INTO daily_rubric(class_id, student_id, date, timeliness, problem_solving, task_completion, total, submitted_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(class_id, student_id, date) DO UPDATE SET
-            timeliness = excluded.timeliness,
-            problem_solving = excluded.problem_solving,
-            task_completion = excluded.task_completion,
-            total = excluded.total,
-            submitted_at = excluded.submitted_at
-    `);
-
-    const now = Date.now();
-    const insertMany = db.transaction((rows) => {
-        for (const e of rows) {
-            const timeliness      = Number(e.timeliness)      || 0;
-            const problem_solving = Number(e.problem_solving) || 1;
-            const task_completion = Number(e.task_completion) || 1;
-            const total           = timeliness + problem_solving + task_completion;
-            upsert.run(Number(class_id), String(e.student_id), date, timeliness, problem_solving, task_completion, total, now);
-        }
-    });
     try {
+        const { class_id, date, entries } = req.body;
+        if (!class_id || !date || !Array.isArray(entries))
+            return res.status(400).json({ error: 'class_id, date, and entries array required' });
+
+        const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+            .get(Number(class_id), req.teacherKey);
+        if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+        const upsert = db.prepare(`
+            INSERT INTO daily_rubric(class_id, student_id, date, timeliness, problem_solving, task_completion, total, submitted_at)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(class_id, student_id, date) DO UPDATE SET
+                timeliness = excluded.timeliness,
+                problem_solving = excluded.problem_solving,
+                task_completion = excluded.task_completion,
+                total = excluded.total,
+                submitted_at = excluded.submitted_at
+        `);
+
+        const now = Date.now();
+        const insertMany = db.transaction((rows) => {
+            for (const e of rows) {
+                const timeliness      = Number(e.timeliness)      || 0;
+                const problem_solving = Number(e.problem_solving) || 1;
+                const task_completion = Number(e.task_completion) || 1;
+                const total           = timeliness + problem_solving + task_completion;
+                upsert.run(Number(class_id), String(e.student_id), date, timeliness, problem_solving, task_completion, total, now);
+            }
+        });
         insertMany(entries);
+        res.json({ ok: true });
     } catch (err) {
         console.error('[POST /rubric]', err);
-        return res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message });
     }
-    res.json({ ok: true });
 });
 
 // Sum rubric totals per student across a date range (for PowerSchool sync)
