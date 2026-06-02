@@ -639,6 +639,31 @@ function clusterTagHTML(tag) {
   return '<span class="cluster-tag" style="background:' + bg + ';color:' + tag.color + ';border:1px solid ' + border + '">' + tag.label + '</span>';
 }
 
+// Both .topic-node and .skill-node share the same flex layout: circle on top,
+// label below, whole div centered at (anchorX, anchorY). The visual circle center
+// therefore sits CIRCLE_DY px above anchorY (midpoint of the 13–21 px range from
+// 1–2 line labels). Lines are shortened to stop at the circle edge.
+const SKILL_NODE_R    = 36;  // half of 72px .skill-node circle
+const SKILL_CIRCLE_DY = 20;  // estimated offset for skill nodes (1–3 line labels)
+const PLANET_NODE_R   = 43;  // half of 86px .topic-node circle
+const PLANET_CIRCLE_DY = 17; // estimated offset for planet nodes (1–2 line labels)
+
+function lineEnd(px, py, anchorX, anchorY, dy, r) {
+  const cx = anchorX, cy = anchorY - dy;
+  const dx = cx - px, ddy = cy - py;
+  const len = Math.sqrt(dx * dx + ddy * ddy);
+  if (len <= r) return { x: cx, y: cy };
+  return { x: cx - (dx / len) * r, y: cy - (ddy / len) * r };
+}
+
+function moonLineEnd(px, py, skillX, skillY) {
+  return lineEnd(px, py, skillX, skillY, SKILL_CIRCLE_DY, SKILL_NODE_R);
+}
+
+function planetLineEnd(px, py, topicX, topicY) {
+  return lineEnd(px, py, topicX, topicY, PLANET_CIRCLE_DY, PLANET_NODE_R);
+}
+
 function drawLine(x1, y1, x2, y2, color, id) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
@@ -708,7 +733,8 @@ function buildAll() {
     const topicX = cx + mainR * Math.cos(tAngle);
     const topicY = cy + mainR * Math.sin(tAngle);
 
-    drawLine(cx, cy, topicX, topicY, topic.color, 't' + topic.id);
+    const pep = planetLineEnd(cx, cy, topicX, topicY);
+    drawLine(cx, cy, pep.x, pep.y, topic.color, 't' + topic.id);
 
     const topicNode = createNode(
       't' + topic.id, topicX, topicY,
@@ -726,7 +752,8 @@ function buildAll() {
       const skillY  = topicY + baseSkillR * Math.sin(sAngle);
       const skillId = 't' + topic.id + 's' + j;
 
-      drawLine(topicX, topicY, skillX, skillY, topic.color, skillId);
+      const ep = moonLineEnd(topicX, topicY, skillX, skillY);
+      drawLine(topicX, topicY, ep.x, ep.y, topic.color, skillId);
       document.getElementById('line-' + skillId).style.opacity = '0';
 
       const skillNode = createNode(
@@ -820,8 +847,9 @@ function expandTopicLayout(topicId) {
 
   const topicLine = document.getElementById('line-t' + topicId);
   if (topicLine) {
-    topicLine.setAttribute('x2', expandedX);
-    topicLine.setAttribute('y2', expandedY);
+    const pep = planetLineEnd(cx, cy, expandedX, expandedY);
+    topicLine.setAttribute('x2', pep.x);
+    topicLine.setAttribute('y2', pep.y);
   }
 
   topic.skills.forEach((skill, j) => {
@@ -837,10 +865,11 @@ function expandTopicLayout(topicId) {
       skillNode.style.top  = skillY + 'px';
     }
     if (skillLine) {
+      const ep = moonLineEnd(expandedX, expandedY, skillX, skillY);
       skillLine.setAttribute('x1', expandedX);
       skillLine.setAttribute('y1', expandedY);
-      skillLine.setAttribute('x2', skillX);
-      skillLine.setAttribute('y2', skillY);
+      skillLine.setAttribute('x2', ep.x);
+      skillLine.setAttribute('y2', ep.y);
     }
   });
 
@@ -863,8 +892,10 @@ function restoreTopicLayout(topicId) {
 
   const topicLine = document.getElementById('line-t' + topicId);
   if (topicLine) {
-    topicLine.setAttribute('x2', compactX);
-    topicLine.setAttribute('y2', compactY);
+    const { x: scx, y: scy } = getCenter();
+    const pep = planetLineEnd(scx, scy, compactX, compactY);
+    topicLine.setAttribute('x2', pep.x);
+    topicLine.setAttribute('y2', pep.y);
   }
 
   topic.skills.forEach((skill, j) => {
@@ -878,10 +909,11 @@ function restoreTopicLayout(topicId) {
       skillNode.style.left = csx + 'px';
       skillNode.style.top  = csy + 'px';
       if (skillLine) {
+        const ep = moonLineEnd(compactX, compactY, csx, csy);
         skillLine.setAttribute('x1', compactX);
         skillLine.setAttribute('y1', compactY);
-        skillLine.setAttribute('x2', csx);
-        skillLine.setAttribute('y2', csy);
+        skillLine.setAttribute('x2', ep.x);
+        skillLine.setAttribute('y2', ep.y);
       }
     }
   });
@@ -1005,6 +1037,13 @@ function openPanel() {
   clearTimeout(panelSlideTimer);
   infoPanel.classList.add('open');
   if (currentTopic) {
+    topics.forEach(t => {
+      if (t.id === currentTopic.id) return;
+      const node = document.getElementById('node-t' + t.id);
+      const line = document.getElementById('line-t' + t.id);
+      if (node) node.style.opacity = '0';
+      if (line) line.style.opacity = '0';
+    });
     stage.style.transition = 'transform ' + PANEL_MS + 'ms ease-out';
     stage.style.transform  = 'translate(' + (focusPanX - PANEL_W / 2) + 'px, ' + focusPanY + 'px)';
     panelSlideTimer = setTimeout(() => { stage.style.transition = ''; }, PANEL_MS + 20);
@@ -1025,6 +1064,7 @@ function closePanel(resetActive) {
   if (infoPanel.classList.contains('open')) {
     infoPanel.classList.remove('open');
     if (currentTopic) {
+      focusTopicVisibility(currentTopic.id);
       stage.style.transition = 'transform ' + PANEL_MS + 'ms ease-out';
       stage.style.transform  = 'translate(' + focusPanX + 'px, ' + focusPanY + 'px)';
       panelSlideTimer = setTimeout(() => { stage.style.transition = ''; }, PANEL_MS + 20);
@@ -1120,6 +1160,15 @@ window.addEventListener('resize', () => {
     }
 
     focusTopicVisibility(prevTopic.id);
+    if (panelOpen) {
+      topics.forEach(t => {
+        if (t.id === prevTopic.id) return;
+        const node = document.getElementById('node-t' + t.id);
+        const line = document.getElementById('line-t' + t.id);
+        if (node) node.style.opacity = '0';
+        if (line) line.style.opacity = '0';
+      });
+    }
     showTopicSkills(prevTopic.id);
     backBtn.classList.add('visible');
     hintEl.textContent = 'Select a skill to learn more';
