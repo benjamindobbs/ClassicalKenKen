@@ -690,7 +690,7 @@ function buildAll() {
   const { x: cx, y: cy } = getCenter();
   const minR  = Math.min(cx, cy);
   const mainR = Math.round(minR * 0.64);
-  const baseSkillR = Math.round(minR * 0.27);
+  const baseSkillR = Math.round(minR * 0.34);
 
   svg.setAttribute('width',  container.offsetWidth);
   svg.setAttribute('height', container.offsetHeight);
@@ -804,10 +804,11 @@ function expandTopicLayout(topicId) {
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   const n          = topic.skills.length;
-  const baseR      = Math.round(Math.min(cx, cy) * 0.27);
-  const neededR    = n > 1 ? Math.ceil(120 / (2 * Math.sin(Math.PI / n))) : baseR;
+  const baseR      = Math.round(Math.min(cx, cy) * 0.34);
+  const neededR    = n > 1 ? Math.ceil(160 / (2 * Math.sin(Math.PI / n))) : baseR;
   const skillR     = Math.max(baseR, neededR);
-  const extraPush  = skillR - baseR;
+  const MIN_EXPAND = 120;
+  const extraPush  = Math.max(skillR - baseR, 0) + MIN_EXPAND;
 
   const expandedX = cx + (dx / dist) * (dist + extraPush);
   const expandedY = cy + (dy / dist) * (dist + extraPush);
