@@ -483,6 +483,7 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: 'https://www.googleapis.com/auth/userinfo.email',
+                hosted_domain: 'hartfordschools.org',
                 callback: '',
             });
             document.getElementById('teacher-sign-in-btn').disabled = false;
