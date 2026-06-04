@@ -193,6 +193,62 @@ window.SKILL_MAP_DATA = {
     ],
   },
   {
+    id: 4,
+    name: "CNC Router/Mill Op",
+    initials: "CN",
+    color: "#C84B00",
+    glow: "rgba(200,75,0,0.35)",
+    bg: "rgba(200,75,0,0.12)",
+    icon: "precision_manufacturing",
+    description: "Hands-on operation and maintenance of CNC routers and milling machines — from physical setup and job preparation through running production parts safely and keeping equipment in working order.",
+    clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" },
+        { label: "Industrial Machinery", color: "#BF360C" }
+      ],
+    skills: [
+      {
+        name: "Tool Setup",
+        icon: "home_repair_service",
+        description: "Selecting, measuring, and installing cutting tools into holders; setting tool length offsets in the controller; and verifying tool condition before starting a job.",
+        clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" }
+      ],
+      },
+      {
+        name: "Machine Setup",
+        icon: "build",
+        description: "Configuring the CNC machine for a job — including squaring the table, mounting workholding, loading the program, and verifying all axes move to expected positions.",
+        clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" }
+      ],
+      },
+      {
+        name: "Job Setup (Touch Offs / Work Offsets / Fixturing)",
+        icon: "my_location",
+        description: "Establishing the work coordinate origin by touching off the part datum, entering work offsets (G54–G59), and confirming fixturing securely holds the stock in the correct position.",
+        clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" }
+      ],
+      },
+      {
+        name: "Machine Operation",
+        icon: "precision_manufacturing",
+        description: "Running CNC programs safely — including dry runs, feed-hold use, chip management, monitoring cut quality, and making offset adjustments during production.",
+        clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" }
+      ],
+      },
+      {
+        name: "Machine Maintenance",
+        icon: "build_circle",
+        description: "Performing routine machine maintenance including lubrication, chip removal, axis way cleaning, spindle inspection, and identifying issues that require escalation.",
+        clusterTags: [
+        { label: "Advanced Manufacturing", color: "#E65100" }
+      ],
+      }
+    ],
+  },
+  {
     id: 5,
     name: "Cordless Tools",
     initials: "Ct",
