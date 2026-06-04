@@ -374,7 +374,7 @@ router.get('/microcredentials', requireTeacher, (req, res) => {
     if (!cls) return res.status(404).json({ error: 'Class not found' });
 
     const mcs  = db.prepare(`
-        SELECT m.id, m.name, m.created_at
+        SELECT m.id, m.name, m.created_at, a.sync_enabled
         FROM microcredentials m
         JOIN mc_class_assignments a ON a.mc_id = m.id
         WHERE a.class_id = ? AND m.teacher_key = ?
@@ -382,7 +382,7 @@ router.get('/microcredentials', requireTeacher, (req, res) => {
     `).all(Number(class_id), req.teacherKey);
 
     const getCps = db.prepare(
-        'SELECT id, name, order_idx FROM mc_checkpoints WHERE mc_id = ? ORDER BY order_idx'
+        'SELECT id, name, order_idx, sync_enabled FROM mc_checkpoints WHERE mc_id = ? ORDER BY order_idx'
     );
     res.json(mcs.map(mc => ({ ...mc, checkpoints: getCps.all(mc.id) })));
 });
@@ -473,11 +473,12 @@ router.get('/microcredentials/:id/progress', requireTeacher, (req, res) => {
     });
 
     res.json({
-        mc_id:      mcId,
-        mc_name:    mc.name,
-        class_id:   classId,
+        mc_id:        mcId,
+        mc_name:      mc.name,
+        class_id:     classId,
+        sync_enabled: assignment.sync_enabled ?? 1,
         checkpoints,
-        students:   studentRows,
+        students:     studentRows,
         ps_ids: {
             summative: {
                 ps_assignment_id:        assignment.summative_ps_assignment_id ?? null,
@@ -559,6 +560,39 @@ router.post('/microcredentials/:id/sync-ids', requireTeacher, (req, res) => {
         );
     }
 
+    res.json({ ok: true });
+});
+
+// Toggle gradebook sync for a checkpoint (global across classes)
+router.patch('/microcredentials/checkpoint/:cpId/sync', requireTeacher, (req, res) => {
+    const cpId = Number(req.params.cpId);
+    const { sync_enabled } = req.body;
+    if (sync_enabled == null) return res.status(400).json({ error: 'sync_enabled required' });
+
+    const cp = db.prepare(`
+        SELECT c.id FROM mc_checkpoints c
+        JOIN microcredentials m ON m.id = c.mc_id
+        WHERE c.id = ? AND m.teacher_key = ?
+    `).get(cpId, req.teacherKey);
+    if (!cp) return res.status(404).json({ error: 'Checkpoint not found' });
+
+    db.prepare('UPDATE mc_checkpoints SET sync_enabled = ? WHERE id = ?')
+        .run(sync_enabled ? 1 : 0, cpId);
+    res.json({ ok: true });
+});
+
+// Toggle gradebook sync for a microcredential in a specific class
+router.patch('/microcredentials/:id/class-sync', requireTeacher, (req, res) => {
+    const mcId = Number(req.params.id);
+    const { class_id, sync_enabled } = req.body;
+    if (!class_id || sync_enabled == null) return res.status(400).json({ error: 'class_id and sync_enabled required' });
+
+    const mc = db.prepare('SELECT id FROM microcredentials WHERE id = ? AND teacher_key = ?')
+        .get(mcId, req.teacherKey);
+    if (!mc) return res.status(404).json({ error: 'Microcredential not found' });
+
+    db.prepare('UPDATE mc_class_assignments SET sync_enabled = ? WHERE mc_id = ? AND class_id = ?')
+        .run(sync_enabled ? 1 : 0, mcId, Number(class_id));
     res.json({ ok: true });
 });
 

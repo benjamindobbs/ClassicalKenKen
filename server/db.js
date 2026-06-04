@@ -195,6 +195,8 @@ try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_subtask_max_score
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_credential_max_score REAL NOT NULL DEFAULT 50').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_include_subtasks INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN rubric_max_score REAL NOT NULL DEFAULT 15').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE mc_class_assignments ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE mc_checkpoints ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

@@ -1662,12 +1662,39 @@
                         <div class="mc-list-name">${esc(mc.name)}</div>
                         <div class="mc-list-meta">${mc.checkpoints.length} checkpoint${mc.checkpoints.length !== 1 ? 's' : ''}</div>
                     </div>
-                    <div style="display:flex;gap:0.25rem;flex-shrink:0">
+                    <div style="display:flex;gap:0.25rem;flex-shrink:0;align-items:center">
+                        <button class="mc-list-remove" title="${mc.sync_enabled ? 'Included in gradebook sync — click to exclude' : 'Excluded from gradebook sync — click to include'}"
+                            onclick="event.stopPropagation();toggleMcSync(${mc.id},${mc.sync_enabled ? 0 : 1})"
+                            style="color:${mc.sync_enabled ? '#16a34a' : '#94a3b8'}">⇅</button>
                         <button class="mc-list-remove" title="Edit" onclick="event.stopPropagation();showMcEditor(${mc.id})">✏</button>
                         <button class="mc-list-remove" title="Remove from class" onclick="event.stopPropagation();unlinkMc(${mc.id})">×</button>
                     </div>
                 </div>
             `).join('');
+        }
+
+        async function toggleMcSync(mcId, enable) {
+            await teacherFetch(`/api/teacher/microcredentials/${mcId}/class-sync`, {
+                method: 'PATCH',
+                body: JSON.stringify({ class_id: mcState.classId, sync_enabled: enable })
+            });
+            const mc = mcState.mcs.find(m => m.id === mcId);
+            if (mc) mc.sync_enabled = enable;
+            renderMcList(mcState.mcs);
+            if (mcState.progress?.mc_id === mcId) {
+                mcState.progress.sync_enabled = enable;
+                renderMcGrid(mcState.progress);
+            }
+        }
+
+        async function toggleCpSync(cpId, enable) {
+            await teacherFetch(`/api/teacher/microcredentials/checkpoint/${cpId}/sync`, {
+                method: 'PATCH',
+                body: JSON.stringify({ sync_enabled: enable })
+            });
+            const cp = mcState.progress?.checkpoints?.find(c => c.id === cpId);
+            if (cp) cp.sync_enabled = enable;
+            rerenderGrid();
         }
 
         async function selectMc(mcId) {
@@ -1714,7 +1741,7 @@
         }
 
         function renderMcGrid(data) {
-            const { checkpoints, students, mc_name, mc_id, class_id } = data;
+            const { checkpoints, students, mc_name, mc_id, class_id, sync_enabled = 1 } = data;
             const area = document.getElementById('mc-grid-area');
 
             if (!students.length) {
@@ -1769,10 +1796,15 @@
                     cp, hasSubs: (cp.subtasks?.length ?? 0) > 0
                 }));
 
+                const cpSyncBtn = (cp) =>
+                    `<span onclick="event.stopPropagation();toggleCpSync(${cp.id},${cp.sync_enabled !== 0 ? 0 : 1})"
+                        title="${cp.sync_enabled !== 0 ? 'Included in gradebook sync — click to exclude' : 'Excluded from gradebook sync — click to include'}"
+                        style="cursor:pointer;color:${cp.sync_enabled !== 0 ? '#16a34a' : '#94a3b8'};font-size:10px;margin-left:3px;user-select:none">⇅</span>`;
+
                 const headerCells = cpStates.map(({ cp, hasSubs }) => {
                     const hint  = hasSubs ? ` <span style="font-size:10px;color:#94a3b8">▶</span>` : '';
                     const click = hasSubs ? `onclick="toggleExpandCp(${cp.id})"` : `onclick="openCpPopup(${cp.id})"`;
-                    return `<th ${click} title="${esc(cp.description || cp.name)}">${esc(cp.name)}${hint}${infoBtn(cp.id)}</th>`;
+                    return `<th ${click} title="${esc(cp.description || cp.name)}">${esc(cp.name)}${hint}${infoBtn(cp.id)}${cpSyncBtn(cp)}</th>`;
                 }).join('');
                 theadHtml = `<tr><th class="mc-name-col">Student</th>${headerCells}<th>Earned</th></tr>`;
 
@@ -1808,9 +1840,16 @@
 
             area.innerHTML = `
                 ${breadcrumb}
-                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;gap:1rem;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;gap:1rem;flex-wrap:wrap">
                     <span style="font-size:1rem;font-weight:700;color:#0f172a">${esc(mc_name)}</span>
-                    <span style="font-size:0.8125rem;color:#64748b">${earnedCount} / ${students.length} earned</span>
+                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+                        <span style="font-size:0.8125rem;color:#64748b">${earnedCount} / ${students.length} earned</span>
+                        <button onclick="toggleMcSync(${mc_id},${sync_enabled ? 0 : 1})"
+                            title="${sync_enabled ? 'Included in gradebook sync — click to exclude' : 'Excluded from gradebook sync — click to include'}"
+                            style="background:${sync_enabled ? '#f0fdf4' : '#f8fafc'};color:${sync_enabled ? '#16a34a' : '#94a3b8'};border:1px solid ${sync_enabled ? '#bbf7d0' : '#e2e8f0'};border-radius:9999px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;white-space:nowrap">
+                            ${sync_enabled ? '⇅ In sync' : '⊘ Excluded'}
+                        </button>
+                    </div>
                 </div>
                 <div class="mc-grid-wrap">
                     <table class="mc-grid-table">
