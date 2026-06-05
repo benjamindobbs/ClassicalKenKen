@@ -488,34 +488,43 @@
             });
             document.getElementById('teacher-sign-in-btn').disabled = false;
             document.getElementById('login-status').style.display = 'none';
+            // Attempt silent sign-in — succeeds instantly if an active session exists
+            tokenClient.callback = (resp) => handleTokenResponse(resp, true);
+            tokenClient.requestAccessToken({ prompt: 'none' });
         }
 
-        async function handleTeacherSignIn() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error) {
+        async function handleTokenResponse(resp, silent = false) {
+            if (resp.error) {
+                if (!silent) {
                     document.getElementById('login-status').textContent = 'Sign in failed. Please try again.';
                     document.getElementById('login-status').style.display = '';
-                    return;
                 }
-                teacherToken = resp.access_token;
-                const check = await teacherFetch('/api/teacher/check');
-                if (!check.ok) {
+                return;
+            }
+            teacherToken = resp.access_token;
+            const check = await teacherFetch('/api/teacher/check');
+            if (!check.ok) {
+                teacherToken = null;
+                if (!silent) {
                     document.getElementById('login-status').textContent = check.status === 403
                         ? 'Access denied — teacher accounts only (@hartfordschools.org).'
                         : 'Authentication failed.';
                     document.getElementById('login-status').style.display = '';
-                    teacherToken = null;
-                    return;
                 }
-                const classesRes = await teacherFetch('/api/teacher/classes');
-                const existingClasses = await classesRes.json();
-                document.getElementById('login-view').style.display = 'none';
-                if (existingClasses.length === 0) {
-                    showOnboarding();
-                } else {
-                    showPortal();
-                }
-            };
+                return;
+            }
+            const classesRes = await teacherFetch('/api/teacher/classes');
+            const existingClasses = await classesRes.json();
+            document.getElementById('login-view').style.display = 'none';
+            if (existingClasses.length === 0) {
+                showOnboarding();
+            } else {
+                showPortal();
+            }
+        }
+
+        async function handleTeacherSignIn() {
+            tokenClient.callback = (resp) => handleTokenResponse(resp, false);
             tokenClient.requestAccessToken({ prompt: '' });
         }
 
