@@ -144,6 +144,7 @@
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
             <a href="./index.html" class="active nav-teacher">Teacher</a>
+            <button id="teacher-signout-btn" onclick="teacherSignOut()" style="display:none;background:none;border:none;font-size:0.875rem;color:#64748b;cursor:pointer;padding:0 0.25rem">Sign Out</button>
         </div>
     </nav>
 
@@ -474,10 +475,22 @@
     </div>
 
     <script>
-        // ── Teacher OAuth ─────────────────────────────────────────────────────
-        const CLIENT_ID = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
-        let teacherToken = null;
+        // ── Teacher Auth ──────────────────────────────────────────────────────
+        const CLIENT_ID      = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
+        const SESSION_KEY    = 'classtech_teacher_session';
+        let teacherToken     = localStorage.getItem(SESSION_KEY);
         let tokenClient;
+
+        // On load: try the stored session before touching GIS at all
+        (async () => {
+            if (teacherToken) {
+                const ok = await _verifyAndEnter(true);
+                if (ok) return;
+                teacherToken = null;
+                localStorage.removeItem(SESSION_KEY);
+            }
+            // No valid session — show the sign-in button once GIS is ready
+        })();
 
         function gisLoaded() {
             tokenClient = google.accounts.oauth2.initTokenClient({
@@ -488,44 +501,50 @@
             });
             document.getElementById('teacher-sign-in-btn').disabled = false;
             document.getElementById('login-status').style.display = 'none';
-            // Attempt silent sign-in — succeeds instantly if an active session exists
-            tokenClient.callback = (resp) => handleTokenResponse(resp, true);
-            tokenClient.requestAccessToken({ prompt: 'none' });
-        }
-
-        async function handleTokenResponse(resp, silent = false) {
-            if (resp.error) {
-                if (!silent) {
-                    document.getElementById('login-status').textContent = 'Sign in failed. Please try again.';
-                    document.getElementById('login-status').style.display = '';
-                }
-                return;
-            }
-            teacherToken = resp.access_token;
-            const check = await teacherFetch('/api/teacher/check');
-            if (!check.ok) {
-                teacherToken = null;
-                if (!silent) {
-                    document.getElementById('login-status').textContent = check.status === 403
-                        ? 'Access denied — teacher accounts only (@hartfordschools.org).'
-                        : 'Authentication failed.';
-                    document.getElementById('login-status').style.display = '';
-                }
-                return;
-            }
-            const classesRes = await teacherFetch('/api/teacher/classes');
-            const existingClasses = await classesRes.json();
-            document.getElementById('login-view').style.display = 'none';
-            if (existingClasses.length === 0) {
-                showOnboarding();
-            } else {
-                showPortal();
-            }
         }
 
         async function handleTeacherSignIn() {
-            tokenClient.callback = (resp) => handleTokenResponse(resp, false);
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    document.getElementById('login-status').textContent = 'Sign in failed. Please try again.';
+                    document.getElementById('login-status').style.display = '';
+                    return;
+                }
+                // Exchange the short-lived Google token for a persistent session token
+                const loginRes = await fetch('/api/teacher/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resp.access_token }),
+                });
+                if (!loginRes.ok) {
+                    document.getElementById('login-status').textContent = loginRes.status === 403
+                        ? 'Access denied — teacher accounts only (@hartfordschools.org).'
+                        : 'Authentication failed.';
+                    document.getElementById('login-status').style.display = '';
+                    return;
+                }
+                const { sessionToken } = await loginRes.json();
+                teacherToken = sessionToken;
+                localStorage.setItem(SESSION_KEY, sessionToken);
+                await _verifyAndEnter(false);
+            };
             tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        async function _verifyAndEnter(silent) {
+            const classesRes = await teacherFetch('/api/teacher/classes');
+            if (!classesRes.ok) {
+                if (!silent) {
+                    document.getElementById('login-status').textContent = 'Authentication failed.';
+                    document.getElementById('login-status').style.display = '';
+                }
+                return false;
+            }
+            const existingClasses = await classesRes.json();
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('teacher-signout-btn').style.display = '';
+            if (existingClasses.length === 0) showOnboarding(); else showPortal();
+            return true;
         }
 
         function teacherFetch(path, options = {}) {
@@ -540,6 +559,13 @@
         }
 
         function showLogin() { document.getElementById('login-view').style.display = 'flex'; }
+
+        async function teacherSignOut() {
+            await teacherFetch('/api/teacher/logout', { method: 'POST' }).catch(() => {});
+            teacherToken = null;
+            localStorage.removeItem(SESSION_KEY);
+            location.reload();
+        }
         function showPortal() {
             document.getElementById('portal-view').style.display = 'block';
             loadData();

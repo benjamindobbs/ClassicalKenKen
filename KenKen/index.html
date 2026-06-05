@@ -15,9 +15,10 @@
             <a href="../SAT-Questions/">Practice SAT</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
-            <a href="../teacher/index.html" class="nav-teacher">Teacher</a>
+            <span id="nav-auth-slot"></span>
         </div>
     </nav>
+    <script src="../js/nav.js"></script>
 
     <div id="landing" class="landing">
         <div class="landing-card">
@@ -41,19 +42,37 @@
             </div>
         </div>
 
-        <div class="game-controls">
-            <button class="btn btn-primary" id="create_button" onclick="startGame()">New Game</button>
-            <button class="btn btn-outline" id="clear_button" onclick="hide()">Reset</button>
-            <span class="timer-label">Time:</span>
-            <span class="timer-display"><span id="time"></span>s</span>
+        <div id="kk-start-screen" class="start-screen">
+            <div class="start-card">
+                <h2>Classical KenKen</h2>
+                <p>Adaptive logic puzzles that scale with your skill level. Fill the grid using math and deduction — no guessing required.</p>
+                <button class="btn btn-primary btn-lg" onclick="launchKenKen()">Start Puzzle</button>
+            </div>
         </div>
 
-        <div id="container"></div>
+        <div id="kk-game-area" style="display:none">
+            <div class="game-controls">
+                <button class="btn btn-primary" id="create_button" onclick="startGame()">New Game</button>
+                <button class="btn btn-outline" id="clear_button" onclick="hide()">Reset</button>
+                <span class="timer-label">Time:</span>
+                <span class="timer-display"><span id="time"></span>s</span>
+            </div>
 
-        <div class="game-footer">
-            <p id="submitMessage"></p>
+            <div id="container"></div>
+
+            <div class="game-footer">
+                <p id="submitMessage"></p>
+            </div>
         </div>
     </div>
+
+    <script>
+    function launchKenKen() {
+        document.getElementById('kk-start-screen').style.display = 'none';
+        document.getElementById('kk-game-area').style.display = '';
+        startGame();
+    }
+    </script>
 
     <script src="../js/auth.js"></script>
     <script src="../js/dailyprogress.js"></script>

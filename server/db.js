@@ -187,6 +187,13 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_daily_rubric_class_date ON daily_rubric(class_id, date);
 `);
 
+db.exec(`CREATE TABLE IF NOT EXISTS teacher_sessions (
+    token      TEXT    PRIMARY KEY,
+    user_key   TEXT    NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_seen  INTEGER NOT NULL
+)`);
+
 // One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE class_students ADD COLUMN ps_dcid TEXT').run(); } catch { /* already exists */ }

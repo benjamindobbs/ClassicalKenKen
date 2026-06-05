@@ -50,8 +50,9 @@ function buildQuestion(question) {
         document.getElementById(id).closest('.answer-option').style.background = '';
     });
     const rationaleEl = document.getElementById('Rationale');
-    rationaleEl.style.visibility = 'hidden';
-    rationaleEl.style.backgroundColor = '';
+    rationaleEl.innerHTML = '';
+    rationaleEl.style.background = '';
+    rationaleEl.style.borderColor = '';
     document.getElementById('nextquestion').disabled = true;
     document.getElementById('Question').innerHTML = question.Question;
     document.getElementById('A Button').innerHTML = question.A;
@@ -82,14 +83,13 @@ function submit() {
         document.getElementById(question.Answer).closest('.answer-option').style.background = '#dcfce7';
     }
 
-    const rationaleEl = document.getElementById('Rationale');
-    rationaleEl.style.visibility = 'visible';
-    rationaleEl.style.backgroundColor = correct ? '#dcfce7' : '#fef9c3';
-    rationaleEl.innerHTML = question.Rationale;
+    document.getElementById('Rationale').innerHTML = question.Rationale;
     document.getElementById('nextquestion').disabled = false;
+    showRationaleOverlay(correct, selectedAnswer, question.Answer);
 }
 
 async function nextQuestion() {
+    closeRationaleOverlay();
     await ensureQuestionsLoaded();
     document.getElementById('create_button').style.display = 'none';
     document.getElementById('Rationale').innerHTML = '';
@@ -123,6 +123,7 @@ const DOMAIN_DISPLAY = [
 const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
 
 async function completeSession() {
+    closeRationaleOverlay();
     document.querySelector('.quiz-area').style.display = 'none';
     const view = document.getElementById('session-view');
     view.style.display = 'block';
@@ -237,4 +238,26 @@ async function reportQuestion() {
         document.getElementById('submitMessage').innerHTML = 'Error reporting question';
     }
     nextQuestion();
+}
+
+function showRationaleOverlay(correct, selected, answer) {
+    const badge = document.getElementById('rationale-badge');
+    const rationaleEl = document.getElementById('Rationale');
+    if (correct) {
+        badge.textContent = '✓ Correct!';
+        badge.className = 'rationale-result-badge rationale-result-badge--correct';
+        rationaleEl.style.background = '#f0fdf4';
+        rationaleEl.style.borderColor = '#bbf7d0';
+    } else {
+        badge.innerHTML = '✗ Incorrect — correct answer was <strong>' + answer + '</strong>';
+        badge.className = 'rationale-result-badge rationale-result-badge--incorrect';
+        rationaleEl.style.background = '#fefce8';
+        rationaleEl.style.borderColor = '#fde68a';
+    }
+    document.getElementById('rationale-overlay').style.display = '';
+}
+
+function closeRationaleOverlay() {
+    const el = document.getElementById('rationale-overlay');
+    if (el) el.style.display = 'none';
 }

@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const { randomUUID } = require('crypto');
 const { db } = require('../db');
 
 const router = Router();
@@ -48,11 +49,39 @@ async function requireTeacher(req, res, next) {
     const header = req.headers['authorization'] || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) return res.status(401).json({ error: 'Missing token' });
+
+    // Check persistent session tokens first — no network call needed
+    const session = db.prepare('SELECT user_key FROM teacher_sessions WHERE token = ?').get(token);
+    if (session) {
+        db.prepare('UPDATE teacher_sessions SET last_seen = ? WHERE token = ?').run(Date.now(), token);
+        req.teacherKey = session.user_key;
+        return next();
+    }
+
+    // Fall back to verifying a raw Google access token
     const identity = await verifyTeacherToken(token);
     if (!identity) return res.status(403).json({ error: 'Not authorized as teacher' });
     req.teacherKey = identity.teacherKey;
     next();
 }
+
+// Exchange a short-lived Google access token for a persistent session token
+router.post('/login', async (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'token required' });
+    const identity = await verifyTeacherToken(token);
+    if (!identity) return res.status(403).json({ error: 'Not authorized as teacher' });
+    const sessionToken = randomUUID();
+    db.prepare('INSERT INTO teacher_sessions(token, user_key, created_at, last_seen) VALUES(?, ?, ?, ?)')
+        .run(sessionToken, identity.teacherKey, Date.now(), Date.now());
+    res.json({ sessionToken });
+});
+
+router.post('/logout', requireTeacher, (req, res) => {
+    const token = (req.headers['authorization'] || '').slice(7);
+    db.prepare('DELETE FROM teacher_sessions WHERE token = ?').run(token);
+    res.json({ ok: true });
+});
 
 router.get('/check', requireTeacher, (req, res) => res.json({ ok: true, teacherKey: req.teacherKey }));
 

@@ -15,9 +15,10 @@
             <a href="./" class="active">Practice SAT</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
-            <a href="../teacher/index.html" class="nav-teacher">Teacher</a>
+            <span id="nav-auth-slot"></span>
         </div>
     </nav>
+    <script src="../js/nav.js"></script>
 
     <div id="landing" class="landing">
         <div class="landing-card">
@@ -40,50 +41,74 @@
             </div>
         </div>
 
-        <div class="quiz-area">
-            <div class="begin-bar">
-                <button class="btn btn-primary" id="create_button" onclick="nextQuestion()">Begin</button>
+        <div id="sat-start-screen" class="start-screen">
+            <div class="start-card">
+                <h2>SAT Practice</h2>
+                <p>Targeted English reading and writing questions matched to your current skill level. Each session adapts based on your performance.</p>
+                <button class="btn btn-primary btn-lg" onclick="launchSAT()">Start Practicing</button>
             </div>
+        </div>
 
-            <h2 id="Question"></h2>
+        <div id="sat-quiz-area" style="display:none">
+            <div class="quiz-area">
+                <button id="create_button" style="display:none" onclick="nextQuestion()"></button>
 
-            <div id="questionDiv" style="display:none">
-                <div class="answer-option">
-                    <input type="radio" name="answer" id="A">
-                    <span class="answer-label-letter">A</span>
-                    <label id="A Button"></label>
-                </div>
-                <div class="answer-option">
-                    <input type="radio" name="answer" id="B">
-                    <span class="answer-label-letter">B</span>
-                    <label id="B Button"></label>
-                </div>
-                <div class="answer-option">
-                    <input type="radio" name="answer" id="C">
-                    <span class="answer-label-letter">C</span>
-                    <label id="C Button"></label>
-                </div>
-                <div class="answer-option">
-                    <input type="radio" name="answer" id="D">
-                    <span class="answer-label-letter">D</span>
-                    <label id="D Button"></label>
+                <h2 id="Question"></h2>
+
+                <div id="questionDiv" style="display:none">
+                    <div class="answer-option">
+                        <input type="radio" name="answer" id="A">
+                        <span class="answer-label-letter">A</span>
+                        <label id="A Button"></label>
+                    </div>
+                    <div class="answer-option">
+                        <input type="radio" name="answer" id="B">
+                        <span class="answer-label-letter">B</span>
+                        <label id="B Button"></label>
+                    </div>
+                    <div class="answer-option">
+                        <input type="radio" name="answer" id="C">
+                        <span class="answer-label-letter">C</span>
+                        <label id="C Button"></label>
+                    </div>
+                    <div class="answer-option">
+                        <input type="radio" name="answer" id="D">
+                        <span class="answer-label-letter">D</span>
+                        <label id="D Button"></label>
+                    </div>
                 </div>
 
-                <div id="Rationale"></div>
+                <div id="submissionButtons" class="action-bar" style="visibility:hidden">
+                    <button class="btn btn-primary" id="submit" onclick="submit()">Submit</button>
+                </div>
+
+                <p id="submitMessage"></p>
             </div>
+        </div>
 
-            <div id="submissionButtons" class="action-bar" style="visibility:hidden">
-                <button class="btn btn-primary" id="submit" onclick="submit()">Submit</button>
-                <button class="btn btn-outline" id="nextquestion" onclick="nextQuestion()">Next Question</button>
-                <button class="btn-ghost-small" id="report" onclick="reportQuestion()">Report Question</button>
-                <button class="btn btn-outline" id="complete_session" onclick="completeSession()" style="margin-left:auto">Complete Session</button>
+        <!-- Rationale overlay — shown after submit, closed on next question -->
+        <div id="rationale-overlay" class="rationale-overlay" style="display:none">
+            <div class="rationale-card">
+                <div id="rationale-badge" class="rationale-result-badge"></div>
+                <div id="Rationale" class="rationale-text"></div>
+                <div class="rationale-actions">
+                    <button class="btn btn-primary" id="nextquestion" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-outline" id="complete_session" onclick="completeSession()">Complete Session</button>
+                    <button class="btn-ghost-small" id="report" onclick="reportQuestion()" style="margin-left:auto">Report</button>
+                </div>
             </div>
-
-            <p id="submitMessage"></p>
         </div>
 
         <div id="session-view" style="display:none"></div>
     </div>
+
+    <script>
+    function launchSAT() {
+        document.getElementById('sat-start-screen').style.display = 'none';
+        document.getElementById('sat-quiz-area').style.display = '';
+        nextQuestion();
+    }
+    </script>
 
     <script src="../js/auth.js"></script>
     <script src="../js/dailyprogress.js"></script>
