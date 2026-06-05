@@ -176,6 +176,22 @@ router.delete('/classes/:id', requireTeacher, (req, res) => {
     res.json({ ok: true });
 });
 
+// Link unlinked roster students to matching app accounts by student_id = user_key
+router.post('/classes/:id/auto-link', requireTeacher, (req, res) => {
+    const classId = Number(req.params.id);
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(classId, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const result = db.prepare(`
+        UPDATE class_students SET user_key = student_id
+        WHERE class_id = ? AND user_key IS NULL
+        AND student_id IN (SELECT user_key FROM users)
+    `).run(classId);
+
+    res.json({ ok: true, linked: result.changes });
+});
+
 router.get('/classes/:id', requireTeacher, (req, res) => {
     const cls = db.prepare(
         'SELECT * FROM classes WHERE id = ? AND teacher_key = ?'

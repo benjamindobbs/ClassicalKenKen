@@ -19,6 +19,9 @@ router.post('/login', async (req, res) => {
         if (!ALLOWED_DOMAINS.includes(domain)) return res.status(403).json({ error: 'Unauthorized domain' });
         const userKey = data.email.split('@')[0];
         upsertUser(userKey, data.email);
+        // Auto-link any roster entries whose student_id matches this user's key
+        db.prepare('UPDATE class_students SET user_key = ? WHERE student_id = ? AND user_key IS NULL')
+            .run(userKey, userKey);
         const sessionToken = randomUUID();
         db.prepare('INSERT INTO sessions(token, user_key, created_at, last_seen) VALUES(?, ?, ?, ?)')
           .run(sessionToken, userKey, Date.now(), Date.now());

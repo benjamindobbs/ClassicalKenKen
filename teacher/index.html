@@ -1328,11 +1328,14 @@
             document.getElementById('class-detail-content').innerHTML = `
                 <div class="detail-header">
                     <h2 class="detail-title">${esc(cls.name)}</h2>
-                    <div class="import-row">
-                        <label class="btn btn-outline btn-sm" for="csv-upload" style="cursor:pointer;margin:0">Import CSV</label>
-                        <input type="file" id="csv-upload" accept=".csv,.txt" style="display:none"
-                            onchange="handleCSVUpload(event, ${cls.id})" />
-                        <span class="import-note">Two columns: student ID, student name</span>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                        <div class="import-row" style="margin:0">
+                            <label class="btn btn-outline btn-sm" for="csv-upload" style="cursor:pointer;margin:0">Import CSV</label>
+                            <input type="file" id="csv-upload" accept=".csv,.txt" style="display:none"
+                                onchange="handleCSVUpload(event, ${cls.id})" />
+                            <span class="import-note">Two columns: student ID, student name</span>
+                        </div>
+                        <button class="btn btn-outline btn-sm" id="auto-link-btn" onclick="autoLinkStudents(${cls.id}, this)">Link Accounts</button>
                     </div>
                 </div>
 
@@ -1421,6 +1424,16 @@
             idInput.value = '';
             nameInput.value = '';
             viewClass(classId); // re-fetch so roster re-sorts alphabetically
+        }
+
+        async function autoLinkStudents(classId, btn) {
+            btn.disabled = true;
+            btn.textContent = 'Linking…';
+            const res = await teacherFetch(`/api/teacher/classes/${classId}/auto-link`, { method: 'POST' });
+            if (!res.ok) { alert('Auto-link failed.'); btn.disabled = false; btn.textContent = 'Link Accounts'; return; }
+            const { linked } = await res.json();
+            btn.textContent = `Linked ${linked}`;
+            setTimeout(() => showClassDetail(classId), 1000);
         }
 
         async function removeStudent(classId, studentId, btn) {

@@ -4,6 +4,7 @@ async function onSignedIn() {
         const pd = document.getElementById('playerData');
         if (pd) pd.innerHTML = 'Current Rank ' + Math.floor(data.rank);
     } catch (e) {}
+    initDailyProgress('kenken');
 }
 
 // Returns the player's new avg score after submitting, or null in local/error cases.
@@ -19,6 +20,7 @@ async function writeScore(score, size) {
         });
         const data = await res.json();
         document.getElementById('submitMessage').innerHTML = 'Score submitted';
+        refreshDailyProgress('kenken');
         return data.avg;
     } catch (err) {
         console.error(err);

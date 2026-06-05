@@ -36,6 +36,7 @@
             <span class="game-title">Classical KenKen</span>
             <div class="auth-controls">
                 <span id="playerData" style="font-size:0.875rem;font-weight:600;color:#0f172a;"></span>
+                <span id="daily-pill" class="daily-pill" style="display:none"><span class="dp-count"></span></span>
                 <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
             </div>
         </div>
@@ -55,6 +56,7 @@
     </div>
 
     <script src="../js/auth.js"></script>
+    <script src="../js/dailyprogress.js"></script>
     <script src="../js/submitscore.js"></script>
     <script src="../js/kenken.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>

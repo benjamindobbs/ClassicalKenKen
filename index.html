@@ -13,6 +13,7 @@
         <div class="nav-links">
             <a href="./KenKen/">Play KenKen</a>
             <a href="./SAT-Questions/">Practice SAT</a>
+            <a href="./student/">My Progress</a>
             <a href="./Skill-Maps/">Skill Maps</a>
             <a href="./readme/">ReadMe</a>
             <a href="./teacher/index.html" class="nav-teacher">Teacher</a>
@@ -37,6 +38,11 @@
                 <p>Targeted English reading and writing questions matched to your current level</p>
                 <div id="sat-badge" class="daily-badge" style="display:none"></div>
             </a>
+            <a class="app-card" href="./student/">
+                <span class="app-card-label">Student Dashboard</span>
+                <h2>My Progress</h2>
+                <p>View your KenKen and SAT scores, microcredential progress, and daily rubric history</p>
+            </a>
             <a class="app-card" href="./Skill-Maps/">
                 <span class="app-card-label">Course Tools</span>
                 <h2>Skill Maps</h2>
@@ -53,27 +59,30 @@
     <script>
         (async () => {
             try {
-                const res = await fetch('/api/student/daily-progress');
+                const token = localStorage.getItem('classtech_session');
+                if (!token) return;
+                const res = await fetch('/api/student/daily-progress', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
                 if (!res.ok) return;
-                const { settings, remaining } = await res.json();
+                const { settings, today } = await res.json();
                 if (!settings) return;
 
                 const act = settings.required_activity;
-                if (['kenken', 'both', 'either'].includes(act)) setBadge('kenken-badge', remaining.kenken);
-                if (['sat',    'both', 'either'].includes(act)) setBadge('sat-badge',    remaining.sat);
+                if (['kenken', 'both', 'either'].includes(act))
+                    setBadge('kenken-badge', today.kenken, settings.required_kenken_count);
+                if (['sat', 'both', 'either'].includes(act))
+                    setBadge('sat-badge', today.sat, settings.required_sat_count);
             } catch (_) {}
         })();
 
-        function setBadge(id, remaining) {
+        function setBadge(id, done, required) {
             const el = document.getElementById(id);
             if (!el) return;
-            if (remaining === 0) {
-                el.textContent = 'Done for today!';
-                el.className   = 'daily-badge daily-badge--done';
-            } else {
-                el.textContent = remaining + ' left today';
-                el.className   = 'daily-badge daily-badge--remaining';
-            }
+            const capped = Math.min(done, required);
+            const isDone = capped >= required;
+            el.textContent = isDone ? `${capped} / ${required} ✓` : `${capped} / ${required}`;
+            el.className   = 'daily-badge ' + (isDone ? 'daily-badge--done' : 'daily-badge--remaining');
             el.style.display = '';
         }
     </script>

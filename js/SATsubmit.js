@@ -1,3 +1,7 @@
+function onSignedIn() {
+    initDailyProgress('sat');
+}
+
 async function writeScore(correct, domainIdx, skill, difficulty) {
     if (localMode) {
         document.getElementById('submitMessage').innerHTML = 'Local mode — score not saved';
@@ -8,6 +12,7 @@ async function writeScore(correct, domainIdx, skill, difficulty) {
             method: 'POST',
             body: JSON.stringify({ correct: correct ? 1 : 0, domainIdx, skill, difficulty }),
         });
+        if (correct) refreshDailyProgress('sat');
     } catch (err) {
         console.error(err);
         document.getElementById('submitMessage').innerHTML = 'Error submitting score';
