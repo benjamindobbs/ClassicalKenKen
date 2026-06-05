@@ -130,6 +130,11 @@
 
                 <div class="section-heading">SAT Accuracy Over Time</div>
                 <p class="chart-subtitle">Accuracy % per domain per day</p>
+                <div class="date-row">
+                    <label>From</label><input type="date" id="sat-line-from" />
+                    <label>to</label><input type="date" id="sat-line-to" />
+                    <button class="btn btn-outline btn-xs" onclick="renderSatLineChart()">Apply</button>
+                </div>
                 <div class="chart-card"><canvas id="sat-line-chart"></canvas></div>
 
                 <div class="section-heading">SAT Accuracy by Domain &amp; Skill</div>
@@ -274,6 +279,8 @@
             }
             if (satData.length) {
                 const dates = satData.map(r => new Date(r.submitted_at).toISOString().slice(0,10)).sort();
+                document.getElementById('sat-line-from').value = dates[0];
+                document.getElementById('sat-line-to').value   = dates[dates.length - 1];
                 document.getElementById('bar-from').value = dates[0];
                 document.getElementById('bar-to').value   = dates[dates.length - 1];
             }
@@ -318,8 +325,14 @@
 
         function renderSatLineChart() {
             destroyChart('sat-line-chart');
+            const from = document.getElementById('sat-line-from').value;
+            const to   = document.getElementById('sat-line-to').value;
+            const rows = satData.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
             const byDateDomain = {};
-            satData.forEach(r => {
+            rows.forEach(r => {
                 const d  = new Date(r.submitted_at).toISOString().slice(0,10);
                 const di = Number(r.domain_idx);
                 if (!byDateDomain[d]) byDateDomain[d] = {};

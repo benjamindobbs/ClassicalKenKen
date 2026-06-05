@@ -5,7 +5,7 @@ var currentDifficulty = 'Easy';
 var json = [];
 var roll = 0;
 
-document.getElementById('Rationale').style.visibility = 'hidden';
+document.getElementById('Rationale').innerHTML = '';
 document.getElementById('nextquestion').disabled = true;
 document.getElementById('submit').disabled = true;
 
@@ -255,6 +255,12 @@ function showRationaleOverlay(correct, selected, answer) {
         rationaleEl.style.borderColor = '#fde68a';
     }
     document.getElementById('rationale-overlay').style.display = '';
+
+    const pop = document.createElement('div');
+    pop.className = 'result-pop result-pop--' + (correct ? 'correct' : 'incorrect');
+    pop.textContent = correct ? '✓' : '✗';
+    document.body.appendChild(pop);
+    setTimeout(function () { pop.remove(); }, 1000);
 }
 
 function closeRationaleOverlay() {
