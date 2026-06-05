@@ -244,6 +244,11 @@
 
                     <div class="section-title">SAT Accuracy Over Time <span class="section-count" id="line-meta"></span></div>
                     <p class="lookup-note">Accuracy % per domain per day.</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="line-from" />
+                        <label>to</label><input type="date" id="line-to" />
+                        <button class="btn btn-outline btn-xs" onclick="buildSATLineChart('line-chart', lookupRows, 'line-from', 'line-to')">Apply</button>
+                    </div>
                     <div class="chart-card"><canvas id="line-chart"></canvas></div>
 
                     <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
@@ -725,8 +730,16 @@
             });
         }
 
-        function buildSATLineChart(canvasId, rows) {
+        function buildSATLineChart(canvasId, rows, fromId, toId) {
             destroyChart(canvasId);
+            if (fromId || toId) {
+                const from = document.getElementById(fromId)?.value || '';
+                const to   = document.getElementById(toId)?.value   || '';
+                rows = rows.filter(r => {
+                    const d = new Date(r.submitted_at).toISOString().substring(0, 10);
+                    return (!from || d >= from) && (!to || d <= to);
+                });
+            }
             const byDateDomain = {};
             rows.forEach(r => {
                 const d  = new Date(r.submitted_at).toISOString().substring(0, 10);
@@ -863,13 +876,15 @@
             }
             if (lookupRows.length > 0) {
                 const sDates = lookupRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('line-from').value = sDates[0];
+                document.getElementById('line-to').value   = sDates[sDates.length - 1];
                 document.getElementById('bar-from').value = sDates[0];
                 document.getElementById('bar-to').value   = sDates[sDates.length - 1];
                 document.getElementById('line-meta').textContent = `(${lookupRows.length} answers)`;
             }
 
             renderStudentKenKenChart();
-            buildSATLineChart('line-chart', lookupRows);
+            buildSATLineChart('line-chart', lookupRows, 'line-from', 'line-to');
             renderStudentBarChart();
         }
 
@@ -1298,6 +1313,11 @@
 
                 <div class="section-title">Class SAT Accuracy Over Time</div>
                 <p class="lookup-note">Accuracy % per domain per day across all linked students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-line-from" />
+                    <label>to</label><input type="date" id="class-line-to" />
+                    <button class="btn btn-outline btn-sm" onclick="buildSATLineChart('class-line-chart', satRows, 'class-line-from', 'class-line-to')">Apply</button>
+                </div>
                 <div class="chart-card"><canvas id="class-line-chart"></canvas></div>
 
                 <div class="section-title">Class SAT Accuracy by Domain &amp; Skill</div>
@@ -1402,12 +1422,14 @@
             }
             if (satRows.length > 0) {
                 const sDates = satRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('class-line-from').value = sDates[0];
+                document.getElementById('class-line-to').value   = sDates[sDates.length - 1];
                 document.getElementById('class-bar-from').value = sDates[0];
                 document.getElementById('class-bar-to').value   = sDates[sDates.length - 1];
             }
 
             renderClassKenKenChart();
-            buildSATLineChart('class-line-chart', satRows);
+            buildSATLineChart('class-line-chart', satRows, 'class-line-from', 'class-line-to');
             renderClassBarChart();
         }
 
