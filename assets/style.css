@@ -621,6 +621,37 @@ code {
     flex-wrap: wrap;
 }
 
+/* Result pop animation (correct / incorrect) */
+.result-pop {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #fff;
+    z-index: 600;
+    pointer-events: none;
+    animation: resultPop 1s ease-out forwards;
+}
+
+.result-pop--correct   { background: rgba(22, 163, 74, 0.88); }
+.result-pop--incorrect { background: rgba(220, 38, 38, 0.88); }
+
+@keyframes resultPop {
+    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+    25%  { transform: translate(-50%, -50%) scale(1.18); opacity: 1; }
+    40%  { transform: translate(-50%, -50%) scale(0.92); opacity: 1; }
+    55%  { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+    70%  { transform: translate(-50%, -50%) scale(1.0);  opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.0);  opacity: 0; }
+}
+
 /* === SAT PRACTICE === */
 
 .quiz-area {
@@ -715,7 +746,7 @@ label[id$=" Button"] {
     margin-top: 1.25rem;
 }
 
-.action-bar .btn-ghost-small {
+.btn-ghost-small {
     font-size: 0.8125rem;
     color: var(--muted);
     background: none;
@@ -727,7 +758,7 @@ label[id$=" Button"] {
     transition: color 0.15s, background 0.15s;
 }
 
-.action-bar .btn-ghost-small:hover {
+.btn-ghost-small:hover {
     color: var(--text);
     background: #f1f5f9;
 }
