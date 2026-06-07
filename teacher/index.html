@@ -207,7 +207,7 @@
     <div id="portal-view" style="display:none">
         <div class="page-header">
             <h1>Teacher Portal</h1>
-            <p id="portal-subtitle">Debug view &mdash; all stored data</p>
+            <p id="portal-subtitle">Platform-wide activity &mdash; all students</p>
         </div>
 
         <div class="tab-bar">
@@ -221,8 +221,29 @@
 
         <!-- ── All Data tab ──────────────────────────────────────────────────── -->
         <div id="tab-data">
-            <div class="portal-wrap" id="data-content">
-                <p style="color:var(--muted)">Loading&hellip;</p>
+            <div class="portal-wrap">
+                <div class="section-title">KenKen Score Over Time</div>
+                <p class="lookup-note">Average score per day across all students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-kenken-from" />
+                    <label>to</label><input type="date" id="all-kenken-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllKenKenChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-kenken-chart"></canvas></div>
+
+                <div class="section-title">SAT Accuracy Over Time</div>
+                <p class="lookup-note">Accuracy % per domain per day across all students.</p>
+                <div class="chart-card"><canvas id="all-sat-line-chart"></canvas></div>
+
+                <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-bar-from" />
+                    <label>to</label><input type="date" id="all-bar-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="all-bar-legend"></div>
+                <div class="chart-card"><canvas id="all-sat-bar-chart"></canvas></div>
             </div>
         </div>
 
@@ -692,7 +713,7 @@
 
         // ── Tab switching ─────────────────────────────────────────────────────
         const TAB_SUBTITLES = {
-            data:             'Debug view — all stored data',
+            data:             'Platform-wide activity — all students',
             lookup:           'SAT & KenKen performance breakdown by student',
             classes:          'Manage classes and view cumulative performance',
             microcredentials: 'Track student progress through credential checkpoints',
