@@ -134,28 +134,38 @@ router.post('/gradebook-settings', requireTeacher, (req, res) => {
 });
 
 // ── Assignment settings ───────────────────────────────────────────────────────
-const VALID_ACTIVITIES = new Set(['kenken', 'sat', 'both', 'either']);
+// Activity values: kenken | sat | sat-math | both | sat-both | all | either
+const VALID_ACTIVITIES = new Set(['kenken', 'sat', 'sat-math', 'both', 'sat-both', 'all', 'either']);
+
+const DEFAULT_SETTINGS = { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1, required_sat_math_count: 1 };
 
 router.get('/assignment-settings', requireTeacher, (req, res) => {
     const row = db.prepare('SELECT * FROM assignment_settings WHERE teacher_key = ?').get(req.teacherKey);
-    res.json(row ?? { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1 });
+    res.json(row ?? DEFAULT_SETTINGS);
 });
 
 router.post('/assignment-settings', requireTeacher, (req, res) => {
-    const { required_activity, required_kenken_count, required_sat_count } = req.body;
+    const { required_activity, required_kenken_count, required_sat_count, required_sat_math_count } = req.body;
     if (!VALID_ACTIVITIES.has(required_activity))
         return res.status(400).json({ error: 'invalid required_activity' });
     db.prepare(`
-        INSERT OR REPLACE INTO assignment_settings(teacher_key, required_activity, required_kenken_count, required_sat_count)
-        VALUES(?, ?, ?, ?)
-    `).run(req.teacherKey, required_activity, Number(required_kenken_count) || 1, Number(required_sat_count) || 1);
+        INSERT OR REPLACE INTO assignment_settings
+            (teacher_key, required_activity, required_kenken_count, required_sat_count, required_sat_math_count)
+        VALUES(?, ?, ?, ?, ?)
+    `).run(
+        req.teacherKey,
+        required_activity,
+        Number(required_kenken_count)      || 1,
+        Number(required_sat_count)         || 1,
+        Number(required_sat_math_count)    || 1
+    );
     res.json({ ok: true });
 });
 
 // ── Classes ───────────────────────────────────────────────────────────────────
 router.get('/classes', requireTeacher, (req, res) => {
     const rows = db.prepare(`
-        SELECT c.id, c.name, c.created_at, c.ps_section_id,
+        SELECT c.id, c.name, c.created_at, c.ps_section_id, c.assessment_type,
                COUNT(cs.id)       AS student_count,
                COUNT(cs.user_key) AS linked_count
         FROM classes c
@@ -202,6 +212,35 @@ router.post('/classes/import-roster', requireTeacher, (req, res) => {
 
 router.delete('/classes/:id', requireTeacher, (req, res) => {
     db.prepare('DELETE FROM classes WHERE id = ? AND teacher_key = ?').run(Number(req.params.id), req.teacherKey);
+    res.json({ ok: true });
+});
+
+// PATCH /api/teacher/classes/:id  { name?, assessment_type? }
+const VALID_ASSESSMENT_TYPES = new Set(['sat', 'psat-nmsqt', 'psat89']);
+router.patch('/classes/:id', requireTeacher, (req, res) => {
+    const classId = Number(req.params.id);
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(classId, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Not found' });
+
+    const updates = [];
+    const params  = [];
+
+    if (req.body.name != null) {
+        if (!String(req.body.name).trim()) return res.status(400).json({ error: 'name cannot be empty' });
+        updates.push('name = ?');
+        params.push(String(req.body.name).trim());
+    }
+    if (req.body.assessment_type != null) {
+        if (!VALID_ASSESSMENT_TYPES.has(req.body.assessment_type))
+            return res.status(400).json({ error: 'invalid assessment_type' });
+        updates.push('assessment_type = ?');
+        params.push(req.body.assessment_type);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+
+    params.push(classId, req.teacherKey);
+    db.prepare(`UPDATE classes SET ${updates.join(', ')} WHERE id = ? AND teacher_key = ?`).run(...params);
     res.json({ ok: true });
 });
 
@@ -274,6 +313,7 @@ router.delete('/users/:userKey', requireTeacher, (req, res) => {
     const { userKey } = req.params;
     db.prepare('DELETE FROM kenken_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sat_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM sat_math_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sessions WHERE user_key = ?').run(userKey);
     db.prepare('UPDATE class_students SET user_key = NULL WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM users WHERE user_key = ?').run(userKey);
@@ -296,7 +336,7 @@ router.get('/grades', requireTeacher, (req, res) => {
 
     const asgn = db.prepare('SELECT * FROM assignment_settings WHERE teacher_key = ?')
         .get(req.teacherKey)
-        ?? { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1 };
+        ?? { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1, required_sat_math_count: 1 };
 
     const students = db.prepare(
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
@@ -324,12 +364,20 @@ router.get('/grades', requireTeacher, (req, res) => {
             'SELECT COUNT(*) AS cnt FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
         ).get(student.user_key, startMs, endMs)?.cnt ?? 0;
 
+        const satMathCount = db.prepare(
+            'SELECT COUNT(*) AS cnt FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
+        ).get(student.user_key, startMs, endMs)?.cnt ?? 0;
+
         const ra = asgn.required_activity;
+        const smReq = asgn.required_sat_math_count ?? 1;
         let required, actual;
-        if      (ra === 'kenken') { required = asgn.required_kenken_count; actual = kenkenCount; }
-        else if (ra === 'sat')    { required = asgn.required_sat_count;    actual = satCount; }
-        else if (ra === 'both')   { required = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
-        else /* either */         { required = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
+        if      (ra === 'kenken')   { required = asgn.required_kenken_count; actual = kenkenCount; }
+        else if (ra === 'sat')      { required = asgn.required_sat_count;    actual = satCount; }
+        else if (ra === 'sat-math') { required = smReq;                      actual = satMathCount; }
+        else if (ra === 'both')     { required = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
+        else if (ra === 'sat-both') { required = asgn.required_sat_count + smReq;                     actual = satCount + satMathCount; }
+        else if (ra === 'all')      { required = asgn.required_kenken_count + asgn.required_sat_count + smReq; actual = kenkenCount + satCount + satMathCount; }
+        else /* either */           { required = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
 
         let grade;
         if (actual === 0) {
@@ -343,11 +391,12 @@ router.get('/grades', requireTeacher, (req, res) => {
         grade = Math.min(grade, maxScore);
 
         return {
-            student_id:   student.student_id,
-            student_name: student.student_name,
+            student_id:      student.student_id,
+            student_name:    student.student_name,
             grade,
-            kenken_count: kenkenCount,
-            sat_count:    satCount,
+            kenken_count:    kenkenCount,
+            sat_count:       satCount,
+            sat_math_count:  satMathCount,
             required,
             actual
         };
@@ -929,7 +978,61 @@ router.get('/data', requireTeacher, (_req, res) => {
     const sat = db.prepare(
         'SELECT ss.*, u.email FROM sat_scores ss JOIN users u ON ss.user_key = u.user_key ORDER BY ss.submitted_at DESC'
     ).all();
-    res.json({ users, kenken, sat });
+    const sat_math = db.prepare(
+        'SELECT ms.*, u.email FROM sat_math_scores ms JOIN users u ON ms.user_key = u.user_key ORDER BY ms.submitted_at DESC'
+    ).all();
+    res.json({ users, kenken, sat, sat_math });
+});
+
+// ── Question report management ───────────────────────────────────────────────
+
+// GET /api/teacher/reports?subject=math|english
+router.get('/reports', requireTeacher, (req, res) => {
+    const { subject } = req.query;
+    if (!subject || !['math', 'english'].includes(subject))
+        return res.status(400).json({ error: 'subject must be math or english' });
+
+    const rows = db.prepare(`
+        SELECT
+            question_id,
+            COUNT(DISTINCT user_key) AS report_count,
+            MIN(reported_at)         AS first_reported_at
+        FROM question_reports
+        WHERE subject = ?
+        GROUP BY question_id
+        ORDER BY report_count DESC, first_reported_at ASC
+    `).all(subject);
+
+    res.json(rows);
+});
+
+// DELETE /api/teacher/reports/:questionId?subject=  — Resolve (Keep): clear reports
+router.delete('/reports/:questionId', requireTeacher, (req, res) => {
+    const { subject } = req.query;
+    if (!subject || !['math', 'english'].includes(subject))
+        return res.status(400).json({ error: 'subject must be math or english' });
+
+    db.prepare('DELETE FROM question_reports WHERE question_id = ? AND subject = ?')
+        .run(req.params.questionId, subject);
+
+    res.json({ ok: true });
+});
+
+// POST /api/teacher/reports/:questionId/suppress?subject=  — Remove: permanently suppress
+router.post('/reports/:questionId/suppress', requireTeacher, (req, res) => {
+    const { subject } = req.query;
+    if (!subject || !['math', 'english'].includes(subject))
+        return res.status(400).json({ error: 'subject must be math or english' });
+
+    db.prepare(`
+        INSERT OR IGNORE INTO suppressed_questions(question_id, subject, suppressed_at)
+        VALUES(?, ?, ?)
+    `).run(req.params.questionId, subject, Date.now());
+
+    db.prepare('DELETE FROM question_reports WHERE question_id = ? AND subject = ?')
+        .run(req.params.questionId, subject);
+
+    res.json({ ok: true });
 });
 
 module.exports = router;

@@ -1,6 +1,8 @@
-var questionTypes = null;
+var questionTypes    = null;
+var assessmentType   = 'sat';
+var loadingPromise   = null;
 var currentDomainIdx = 0;
-var currentSkill = '';
+var currentSkill     = '';
 var currentDifficulty = 'Easy';
 var json = [];
 var roll = 0;
@@ -18,12 +20,43 @@ radios.forEach(radio => {
     });
 });
 
+const ENGLISH_QUESTION_FILES = {
+    'sat':        '../SAT-Questions/2026-SAT-Questions.json',
+    'psat-nmsqt': '../SAT-Questions/PSAT-English-Questions.json',
+    'psat89':     '../SAT-Questions/PSAT89-English-Questions.json',
+};
+
+async function _doLoadEnglishQuestions() {
+    if (!localMode) {
+        try {
+            const prog = await authFetch('/api/student/daily-progress').then(r => r.json());
+            if (prog && prog.assessment_type) assessmentType = prog.assessment_type;
+        } catch {}
+    }
+
+    const url = ENGLISH_QUESTION_FILES[assessmentType] || ENGLISH_QUESTION_FILES['sat'];
+    const all = await fetch(url).then(r => r.json());
+
+    var suspended = new Set();
+    if (!localMode) {
+        try {
+            const ids = await authFetch('/api/questions/suspended?subject=english').then(r => r.json());
+            suspended = new Set(ids);
+        } catch {}
+    }
+
+    const DOMAINS = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', ''];
+    const valid = all.filter(q => {
+        if (suspended.has(q.ID)) return false;
+        return DOMAINS.includes(q.Domain) && (q.Domain === '' || (q.Skill && q.Skill.trim()));
+    });
+    questionTypes = DOMAINS.map(d => valid.filter(q => q.Domain === d));
+}
+
 async function ensureQuestionsLoaded() {
     if (questionTypes) return;
-    const all = await fetch('../SAT-Questions/2026-SAT-Questions.json').then(r => r.json());
-    const DOMAINS = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', ''];
-    const valid = all.filter(q => DOMAINS.includes(q.Domain) && (q.Domain === '' || (q.Skill && q.Skill.trim())));
-    questionTypes = DOMAINS.map(d => valid.filter(q => q.Domain === d));
+    if (!loadingPromise) loadingPromise = _doLoadEnglishQuestions();
+    return loadingPromise;
 }
 
 function pickQuestion(pool, skill, difficulty) {

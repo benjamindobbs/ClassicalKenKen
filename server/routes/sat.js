@@ -131,4 +131,21 @@ router.get('/session', (req, res) => {
     res.json({ domains });
 });
 
+// POST /api/sat/report  { questionId, domainIdx }
+router.post('/report', (req, res) => {
+    const { questionId } = req.body;
+    if (!questionId) return res.status(400).json({ error: 'questionId required' });
+
+    db.prepare(`
+        INSERT OR IGNORE INTO question_reports(question_id, subject, user_key, reported_at)
+        VALUES(?, 'english', ?, ?)
+    `).run(questionId, req.userKey, Date.now());
+
+    const { count } = db.prepare(
+        `SELECT COUNT(DISTINCT user_key) AS count FROM question_reports WHERE question_id = ? AND subject = 'english'`
+    ).get(questionId);
+
+    res.json({ ok: true, reportCount: count });
+});
+
 module.exports = router;

@@ -11,13 +11,13 @@ router.use(requireAuth);
 router.get('/daily-progress', (req, res) => {
     // Find this student's teacher via class linkage
     const classRow = db.prepare(`
-        SELECT c.teacher_key FROM class_students cs
+        SELECT c.teacher_key, c.assessment_type FROM class_students cs
         JOIN classes c ON cs.class_id = c.id
         WHERE cs.user_key = ?
         LIMIT 1
     `).get(req.userKey);
 
-    if (!classRow) return res.json({ settings: null });
+    if (!classRow) return res.json({ settings: null, assessment_type: 'sat' });
 
     const settings = db.prepare(
         'SELECT * FROM assignment_settings WHERE teacher_key = ?'
@@ -37,30 +37,45 @@ router.get('/daily-progress', (req, res) => {
         'SELECT COUNT(*) AS n FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND score >= ?'
     ).get(req.userKey, todayStart, avgScore).n;
 
-    // SAT: only count correct answers
+    // SAT English: only count correct answers
     const satToday = db.prepare(
         'SELECT COUNT(*) AS n FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1'
     ).get(req.userKey, todayStart).n;
 
+    // SAT Math: only count correct answers
+    const satMathToday = db.prepare(
+        'SELECT COUNT(*) AS n FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1'
+    ).get(req.userKey, todayStart).n;
+
     const act       = settings.required_activity;
-    const remaining = { kenken: 0, sat: 0 };
+    const remaining = { kenken: 0, sat: 0, sat_math: 0 };
 
     if (act === 'kenken') {
-        remaining.kenken = Math.max(0, settings.required_kenken_count - kenkenToday);
+        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
     } else if (act === 'sat') {
-        remaining.sat    = Math.max(0, settings.required_sat_count - satToday);
+        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
+    } else if (act === 'sat-math') {
+        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
     } else if (act === 'both') {
-        remaining.kenken = Math.max(0, settings.required_kenken_count - kenkenToday);
-        remaining.sat    = Math.max(0, settings.required_sat_count    - satToday);
-    } else if (act === 'either') {
-        remaining.kenken = Math.max(0, settings.required_kenken_count - kenkenToday);
-        remaining.sat    = Math.max(0, settings.required_sat_count    - satToday);
+        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
+        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
+    } else if (act === 'sat-both') {
+        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
+        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
+    } else if (act === 'all') {
+        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
+        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
+        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
+    } else /* either */ {
+        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
+        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
     }
 
     res.json({
         settings,
-        today:     { kenken: kenkenToday, sat: satToday },
+        today:           { kenken: kenkenToday, sat: satToday, sat_math: satMathToday },
         remaining,
+        assessment_type: classRow.assessment_type || 'sat',
     });
 });
 

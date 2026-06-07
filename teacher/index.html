@@ -141,6 +141,7 @@
         <div class="nav-links">
             <a href="../KenKen/">Play KenKen</a>
             <a href="../SAT-Questions/">Practice SAT</a>
+            <a href="../SAT-Math/">SAT Math</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
             <a href="./index.html" class="active nav-teacher">Teacher</a>
@@ -215,6 +216,7 @@
             <button class="tab-btn"        id="tab-btn-classes"            onclick="switchTab('classes')">Classes</button>
             <button class="tab-btn"        id="tab-btn-rubric"             onclick="switchTab('rubric')">Daily Rubric</button>
             <button class="tab-btn"        id="tab-btn-microcredentials"   onclick="switchTab('microcredentials')">Microcredentials</button>
+            <button class="tab-btn"        id="tab-btn-reports"            onclick="switchTab('reports')">Reports</button>
         </div>
 
         <!-- ── All Data tab ──────────────────────────────────────────────────── -->
@@ -260,6 +262,25 @@
                     </div>
                     <div class="bar-legend" id="bar-legend"></div>
                     <div class="chart-card"><canvas id="bar-chart"></canvas></div>
+
+                    <div class="section-title">SAT Math Accuracy Over Time <span class="section-count" id="math-line-meta"></span></div>
+                    <p class="lookup-note">Accuracy % per domain per day.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="math-line-from" />
+                        <label>to</label><input type="date" id="math-line-to" />
+                        <button class="btn btn-outline btn-sm" onclick="buildSATLineChart('math-line-chart', mathRows, 'math-line-from', 'math-line-to', MATH_DOMAIN_DISPLAY)">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="math-line-chart"></canvas></div>
+
+                    <div class="section-title">SAT Math Accuracy by Domain &amp; Skill</div>
+                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="math-bar-from" />
+                        <label>to</label><input type="date" id="math-bar-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentMathBarChart()">Apply</button>
+                    </div>
+                    <div class="bar-legend" id="math-bar-legend"></div>
+                    <div class="chart-card"><canvas id="math-bar-chart"></canvas></div>
 
                     <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
                         <div class="section-title" style="color:#dc2626">Danger Zone</div>
@@ -319,6 +340,22 @@
                             <p style="color:#94a3b8;font-size:0.875rem">Select a microcredential from the list to view the progress grid.</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Reports tab ──────────────────────────────────────────────────── -->
+        <div id="tab-reports" style="display:none">
+            <div class="portal-wrap">
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap">
+                    <select id="reports-subject-select" onchange="loadReportsTab()"
+                        style="padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;background:#fff;color:#0f172a;outline:none;cursor:pointer">
+                        <option value="math">SAT Math</option>
+                        <option value="english">SAT English</option>
+                    </select>
+                </div>
+                <div id="reports-content">
+                    <p style="color:#94a3b8;font-size:0.875rem">Loading&hellip;</p>
                 </div>
             </div>
         </div>
@@ -431,10 +468,13 @@
                     <div class="settings-field" style="margin-bottom:1.25rem">
                         <label class="settings-label">Required Activity</label>
                         <div class="activity-options">
-                            <label class="activity-option"><input type="radio" name="req-activity" value="kenken" onchange="updateActivityUI()"><span>KenKen</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="sat"    onchange="updateActivityUI()"><span>SAT Practice</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="both"   onchange="updateActivityUI()"><span>Both</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="either" onchange="updateActivityUI()"><span>Either</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="kenken"   onchange="updateActivityUI()"><span>KenKen</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="sat"      onchange="updateActivityUI()"><span>SAT English</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="sat-math" onchange="updateActivityUI()"><span>SAT Math</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="both"     onchange="updateActivityUI()"><span>KenKen + SAT</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="sat-both" onchange="updateActivityUI()"><span>Both SATs</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="all"      onchange="updateActivityUI()"><span>All Three</span></label>
+                            <label class="activity-option"><input type="radio" name="req-activity" value="either"   onchange="updateActivityUI()"><span>Either</span></label>
                         </div>
                     </div>
                     <div class="settings-grid">
@@ -443,8 +483,12 @@
                             <input type="number" id="ar-kenken-count" min="1" step="1" placeholder="1" />
                         </div>
                         <div class="settings-field" id="ar-sat-field">
-                            <label class="settings-label">SAT Submissions / Day</label>
+                            <label class="settings-label">SAT English Submissions / Day</label>
                             <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-math-field">
+                            <label class="settings-label">SAT Math Submissions / Day</label>
+                            <input type="number" id="ar-sat-math-count" min="1" step="1" placeholder="1" />
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
@@ -596,9 +640,10 @@
         function renderAll() {
             const el = document.getElementById('data-content');
             el.innerHTML =
-                renderSection('Users',         rawData.users,  ['user_key','email','first_seen']) +
-                renderSection('KenKen Scores', rawData.kenken, ['id','user_key','email','score','size','submitted_at']) +
-                renderSection('SAT Scores',    rawData.sat,    ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
+                renderSection('Users',           rawData.users,              ['user_key','email','first_seen']) +
+                renderSection('KenKen Scores',   rawData.kenken,             ['id','user_key','email','score','size','submitted_at']) +
+                renderSection('SAT Scores',      rawData.sat,                ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']) +
+                renderSection('SAT Math Scores', rawData.sat_math || [],     ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
             el.querySelectorAll('th[data-col]').forEach(th => th.addEventListener('click', () => sortTable(th)));
         }
 
@@ -629,7 +674,7 @@
             table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
             th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
             const asc = !wasAsc;
-            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : 'sat';
+            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : tableId === 'sat-math-scores' ? 'sat_math' : 'sat';
             const cols    = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
             const sorted  = [...rawData[dataKey]].sort((a, b) => {
                 const av = a[col], bv = b[col];
@@ -646,10 +691,11 @@
             lookup:           'SAT & KenKen performance breakdown by student',
             classes:          'Manage classes and view cumulative performance',
             microcredentials: 'Track student progress through credential checkpoints',
+            reports:          'Review and resolve reported questions',
         };
 
         function switchTab(tab) {
-            ['data','lookup','classes','rubric','microcredentials'].forEach(t => {
+            ['data','lookup','classes','rubric','microcredentials','reports'].forEach(t => {
                 document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
                 document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
             });
@@ -657,6 +703,7 @@
             if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
             if (tab === 'rubric')           { loadRubricClassSelect(); }
             if (tab === 'microcredentials') { loadMcClassSelect(); }
+            if (tab === 'reports')          { loadReportsTab(); }
         }
 
         // ── Domain constants ──────────────────────────────────────────────────
@@ -667,6 +714,7 @@
             'Standard English Conventions',
         ];
         const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
+        const MATH_DOMAIN_DISPLAY = ['Algebra', 'Advanced Math', 'Problem-Solving and Data Analysis', 'Geometry and Trigonometry'];
 
         function hexToRgba(hex, alpha) {
             const r = parseInt(hex.slice(1,3), 16);
@@ -730,7 +778,8 @@
             });
         }
 
-        function buildSATLineChart(canvasId, rows, fromId, toId) {
+        function buildSATLineChart(canvasId, rows, fromId, toId, domains) {
+            const DOMAINS = domains || DOMAIN_DISPLAY;
             destroyChart(canvasId);
             if (fromId || toId) {
                 const from = document.getElementById(fromId)?.value || '';
@@ -750,7 +799,7 @@
                 byDateDomain[d][di].total   += 1;
             });
             const dates = Object.keys(byDateDomain).sort();
-            const datasets = DOMAIN_DISPLAY.map((name, idx) => ({
+            const datasets = DOMAINS.map((name, idx) => ({
                 label: name,
                 data: dates.map(d => {
                     const e = byDateDomain[d]?.[idx];
@@ -779,7 +828,8 @@
             });
         }
 
-        function buildSATBarChart(canvasId, rows, fromId, toId, legendId) {
+        function buildSATBarChart(canvasId, rows, fromId, toId, legendId, domains) {
+            const DOMAINS = domains || DOMAIN_DISPLAY;
             destroyChart(canvasId);
             const from = document.getElementById(fromId)?.value || '';
             const to   = document.getElementById(toId)?.value   || '';
@@ -803,7 +853,7 @@
             const datasets  = [];
             const legendItems = [];
 
-            DOMAIN_DISPLAY.forEach((_, di) => {
+            DOMAINS.forEach((_, di) => {
                 const skills = Object.keys(domainSkillMap[di] || {});
                 const total  = domainTotals[di] || 1;
                 skills.forEach((sk, si) => {
@@ -812,7 +862,7 @@
                     const bg    = hexToRgba(DOMAIN_COLORS[di], alpha);
                     datasets.push({
                         label: sk,
-                        data: DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
+                        data: DOMAINS.map((_, dj) => dj === di ? value : null),
                         backgroundColor: bg,
                         borderColor: hexToRgba(DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
                         borderWidth: 1, borderRadius: 2,
@@ -830,7 +880,7 @@
             const ctx = document.getElementById(canvasId).getContext('2d');
             chartInst[canvasId] = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: DOMAIN_DISPLAY, datasets },
+                data: { labels: DOMAINS, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
@@ -848,6 +898,7 @@
         // ── Student Lookup ────────────────────────────────────────────────────
         let lookupRows = [];
         let kenkenRows = [];
+        let mathRows   = [];
 
         function doLookup() {
             const key   = document.getElementById('lookup-input').value.trim();
@@ -858,8 +909,9 @@
 
             lookupRows = rawData.sat.filter(r => r.user_key === key);
             kenkenRows = rawData.kenken.filter(r => r.user_key === key);
+            mathRows   = (rawData.sat_math || []).filter(r => r.user_key === key);
 
-            if (lookupRows.length === 0 && kenkenRows.length === 0) {
+            if (lookupRows.length === 0 && kenkenRows.length === 0 && mathRows.length === 0) {
                 resEl.style.display = 'none';
                 msgEl.textContent = `No data found for user key "${key}".`;
                 msgEl.style.display = '';
@@ -882,14 +934,25 @@
                 document.getElementById('bar-to').value   = sDates[sDates.length - 1];
                 document.getElementById('line-meta').textContent = `(${lookupRows.length} answers)`;
             }
+            if (mathRows.length > 0) {
+                const mDates = mathRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('math-line-from').value = mDates[0];
+                document.getElementById('math-line-to').value   = mDates[mDates.length - 1];
+                document.getElementById('math-bar-from').value  = mDates[0];
+                document.getElementById('math-bar-to').value    = mDates[mDates.length - 1];
+                document.getElementById('math-line-meta').textContent = `(${mathRows.length} answers)`;
+            }
 
             renderStudentKenKenChart();
             buildSATLineChart('line-chart', lookupRows, 'line-from', 'line-to');
             renderStudentBarChart();
+            buildSATLineChart('math-line-chart', mathRows, 'math-line-from', 'math-line-to', MATH_DOMAIN_DISPLAY);
+            renderStudentMathBarChart();
         }
 
         function renderStudentKenKenChart() { buildKenKenChart('kenken-chart', kenkenRows, 'kenken-from', 'kenken-to'); }
-        function renderStudentBarChart()    { buildSATBarChart('bar-chart', lookupRows, 'bar-from', 'bar-to', 'bar-legend'); }
+        function renderStudentBarChart()     { buildSATBarChart('bar-chart', lookupRows, 'bar-from', 'bar-to', 'bar-legend'); }
+        function renderStudentMathBarChart() { buildSATBarChart('math-bar-chart', mathRows, 'math-bar-from', 'math-bar-to', 'math-bar-legend', MATH_DOMAIN_DISPLAY); }
 
         async function clearUserData() {
             const key = document.getElementById('lookup-input').value.trim();
@@ -1149,8 +1212,9 @@
 
         function updateActivityUI() {
             const act = document.querySelector('input[name="req-activity"]:checked')?.value || 'either';
-            document.getElementById('ar-kenken-field').style.display = ['kenken','both','either'].includes(act) ? '' : 'none';
-            document.getElementById('ar-sat-field').style.display    = ['sat','both','either'].includes(act)    ? '' : 'none';
+            document.getElementById('ar-kenken-field').style.display   = ['kenken','both','either','all'].includes(act)          ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display      = ['sat','both','either','sat-both','all'].includes(act)  ? '' : 'none';
+            document.getElementById('ar-sat-math-field').style.display = ['sat-math','sat-both','all'].includes(act)             ? '' : 'none';
         }
 
         async function loadAssignmentSettings() {
@@ -1159,20 +1223,22 @@
             assignmentSettingsData = data;
             const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
             if (radio) radio.checked = true;
-            document.getElementById('ar-kenken-count').value = data.required_kenken_count;
-            document.getElementById('ar-sat-count').value    = data.required_sat_count;
+            document.getElementById('ar-kenken-count').value    = data.required_kenken_count;
+            document.getElementById('ar-sat-count').value       = data.required_sat_count;
+            document.getElementById('ar-sat-math-count').value  = data.required_sat_math_count ?? 1;
             updateActivityUI();
         }
 
         async function saveAssignmentSettings() {
-            const required_activity     = document.querySelector('input[name="req-activity"]:checked')?.value;
-            const required_kenken_count = parseInt(document.getElementById('ar-kenken-count').value) || 1;
-            const required_sat_count    = parseInt(document.getElementById('ar-sat-count').value)    || 1;
+            const required_activity       = document.querySelector('input[name="req-activity"]:checked')?.value;
+            const required_kenken_count   = parseInt(document.getElementById('ar-kenken-count').value)    || 1;
+            const required_sat_count      = parseInt(document.getElementById('ar-sat-count').value)       || 1;
+            const required_sat_math_count = parseInt(document.getElementById('ar-sat-math-count').value)  || 1;
             if (!required_activity) return;
             await teacherFetch('/api/teacher/assignment-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count }),
+                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count, required_sat_math_count }),
             });
             const msg = document.getElementById('ar-saved-msg');
             msg.style.display = '';
@@ -1213,7 +1279,7 @@
             el.innerHTML = list.map(c => `
                 <div class="class-card">
                     <div class="class-card-name">${esc(c.name)}</div>
-                    <div class="class-card-meta">${c.student_count} student${c.student_count !== 1 ? 's' : ''} &middot; ${c.linked_count} linked</div>
+                    <div class="class-card-meta">${c.student_count} student${c.student_count !== 1 ? 's' : ''} &middot; ${c.linked_count} linked &middot; ${{ sat: 'SAT', 'psat-nmsqt': 'PSAT/NMSQT', psat89: 'PSAT 8/9' }[c.assessment_type] || 'SAT'}</div>
                     <div class="class-card-actions">
                         <button class="btn btn-outline btn-sm" onclick="viewClass(${c.id})">View</button>
                         <button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="deleteClass(${c.id}, this)">Delete</button>
@@ -1263,7 +1329,7 @@
 
         function showClassesList() {
             // Destroy any class charts
-            ['class-kenken-chart','class-line-chart','class-bar-chart'].forEach(destroyChart);
+            ['class-kenken-chart','class-line-chart','class-bar-chart','class-math-line-chart','class-math-bar-chart'].forEach(destroyChart);
             currentClassId = null;
             classStudents  = [];
             document.getElementById('class-detail-view').style.display = 'none';
@@ -1329,6 +1395,25 @@
                 </div>
                 <div class="bar-legend" id="class-bar-legend"></div>
                 <div class="chart-card"><canvas id="class-bar-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Math Accuracy Over Time</div>
+                <p class="lookup-note">Accuracy % per domain per day across all linked students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-math-line-from" />
+                    <label>to</label><input type="date" id="class-math-line-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassMathLineChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-math-line-chart"></canvas></div>
+
+                <div class="section-title">Class SAT Math Accuracy by Domain &amp; Skill</div>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-math-bar-from" />
+                    <label>to</label><input type="date" id="class-math-bar-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassMathBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="class-math-bar-legend"></div>
+                <div class="chart-card"><canvas id="class-math-bar-chart"></canvas></div>
             ` : '';
 
             const exportHTML = cls.students.length > 0 ? `
@@ -1385,6 +1470,17 @@
                     </div>
                 </div>
 
+                <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:1.5rem;flex-wrap:wrap">
+                    <span style="font-size:0.875rem;font-weight:500;color:#374151">Assessment</span>
+                    <select onchange="saveClassAssessmentType(${cls.id}, this.value)"
+                        style="padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;background:#fff;color:#0f172a;outline:none;cursor:pointer">
+                        <option value="sat"        ${(cls.assessment_type || 'sat') === 'sat'        ? 'selected' : ''}>SAT</option>
+                        <option value="psat-nmsqt" ${(cls.assessment_type || 'sat') === 'psat-nmsqt' ? 'selected' : ''}>PSAT/NMSQT &amp; PSAT 10</option>
+                        <option value="psat89"     ${(cls.assessment_type || 'sat') === 'psat89'     ? 'selected' : ''}>PSAT 8/9</option>
+                    </select>
+                    <span id="class-at-saved" style="display:none;font-size:0.8125rem;color:#10b981;font-weight:500">Saved</span>
+                </div>
+
                 <div class="section-title">Roster <span class="section-count">(${cls.students.length} students)</span></div>
                 ${cls.students.length > 0 ? `
                 <div class="roster-wrap">
@@ -1411,9 +1507,10 @@
         }
 
         function renderClassCharts() {
-            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
-            const kkRows   = rawData.kenken.filter(r => userKeys.has(r.user_key));
-            const satRows  = rawData.sat.filter(r => userKeys.has(r.user_key));
+            const userKeys  = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            const kkRows    = rawData.kenken.filter(r => userKeys.has(r.user_key));
+            const satRows   = rawData.sat.filter(r => userKeys.has(r.user_key));
+            const mathRows  = (rawData.sat_math || []).filter(r => userKeys.has(r.user_key));
 
             if (kkRows.length > 0) {
                 const kDates = kkRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
@@ -1424,13 +1521,22 @@
                 const sDates = satRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
                 document.getElementById('class-line-from').value = sDates[0];
                 document.getElementById('class-line-to').value   = sDates[sDates.length - 1];
-                document.getElementById('class-bar-from').value = sDates[0];
-                document.getElementById('class-bar-to').value   = sDates[sDates.length - 1];
+                document.getElementById('class-bar-from').value  = sDates[0];
+                document.getElementById('class-bar-to').value    = sDates[sDates.length - 1];
+            }
+            if (mathRows.length > 0) {
+                const mDates = mathRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('class-math-line-from').value = mDates[0];
+                document.getElementById('class-math-line-to').value   = mDates[mDates.length - 1];
+                document.getElementById('class-math-bar-from').value  = mDates[0];
+                document.getElementById('class-math-bar-to').value    = mDates[mDates.length - 1];
             }
 
             renderClassKenKenChart();
             buildSATLineChart('class-line-chart', satRows, 'class-line-from', 'class-line-to');
             renderClassBarChart();
+            buildSATLineChart('class-math-line-chart', mathRows, 'class-math-line-from', 'class-math-line-to', MATH_DOMAIN_DISPLAY);
+            renderClassMathBarChart();
         }
 
         function renderClassKenKenChart() {
@@ -1441,6 +1547,16 @@
         function renderClassBarChart() {
             const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
             buildSATBarChart('class-bar-chart', rawData.sat.filter(r => userKeys.has(r.user_key)), 'class-bar-from', 'class-bar-to', 'class-bar-legend');
+        }
+
+        function renderClassMathLineChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildSATLineChart('class-math-line-chart', (rawData.sat_math || []).filter(r => userKeys.has(r.user_key)), 'class-math-line-from', 'class-math-line-to', MATH_DOMAIN_DISPLAY);
+        }
+
+        function renderClassMathBarChart() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            buildSATBarChart('class-math-bar-chart', (rawData.sat_math || []).filter(r => userKeys.has(r.user_key)), 'class-math-bar-from', 'class-math-bar-to', 'class-math-bar-legend', MATH_DOMAIN_DISPLAY);
         }
 
         // ── Student linking ───────────────────────────────────────────────────
@@ -1578,20 +1694,35 @@
                 const d = new Date(r.submitted_at).toISOString().substring(0, 10);
                 return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
             }).length;
+            const satMathQ = (rawData.sat_math || []).filter(r => {
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
+                return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
+            }).length;
 
-            const act = as.required_activity;
-            const kReq = (as.required_kenken_count ?? 1) * expectedDays;
-            const sReq = (as.required_sat_count    ?? 1) * expectedDays;
+            const act   = as.required_activity;
+            const kReq  = (as.required_kenken_count   ?? 1) * expectedDays;
+            const sReq  = (as.required_sat_count      ?? 1) * expectedDays;
+            const smReq = (as.required_sat_math_count ?? 1) * expectedDays;
 
             let rawPct, qualifying, requiredMet;
             if (act === 'kenken') {
-                qualifying = kenkenQ; rawPct = kenkenQ / kReq; requiredMet = kenkenQ >= kReq;
+                qualifying = kenkenQ;  rawPct = kenkenQ / kReq;   requiredMet = kenkenQ >= kReq;
             } else if (act === 'sat') {
-                qualifying = satQ;    rawPct = satQ / sReq;    requiredMet = satQ >= sReq;
+                qualifying = satQ;     rawPct = satQ / sReq;      requiredMet = satQ >= sReq;
+            } else if (act === 'sat-math') {
+                qualifying = satMathQ; rawPct = satMathQ / smReq; requiredMet = satMathQ >= smReq;
             } else if (act === 'both') {
                 qualifying = kenkenQ + satQ;
                 rawPct = ((kenkenQ / kReq) + (satQ / sReq)) / 2;
                 requiredMet = kenkenQ >= kReq && satQ >= sReq;
+            } else if (act === 'sat-both') {
+                qualifying = satQ + satMathQ;
+                rawPct = ((satQ / sReq) + (satMathQ / smReq)) / 2;
+                requiredMet = satQ >= sReq && satMathQ >= smReq;
+            } else if (act === 'all') {
+                qualifying = kenkenQ + satQ + satMathQ;
+                rawPct = ((kenkenQ / kReq) + (satQ / sReq) + (satMathQ / smReq)) / 3;
+                requiredMet = kenkenQ >= kReq && satQ >= sReq && satMathQ >= smReq;
             } else { // either
                 qualifying = kenkenQ + satQ;
                 rawPct = Math.max(kenkenQ / kReq, satQ / sReq);
@@ -1683,6 +1814,81 @@
             a.download = `${cls.name.replace(/\s+/g,'_')}_${assignName.replace(/\s+/g,'_')}_${dueDate}.csv`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // ── Assessment type ───────────────────────────────────────────────────
+
+        async function saveClassAssessmentType(classId, assessment_type) {
+            await teacherFetch(`/api/teacher/classes/${classId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ assessment_type }),
+            });
+            const msg = document.getElementById('class-at-saved');
+            if (msg) { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
+        }
+
+        // ── Question reports ──────────────────────────────────────────────────
+
+        async function loadReportsTab() {
+            const subject = document.getElementById('reports-subject-select')?.value || 'math';
+            const el = document.getElementById('reports-content');
+            el.innerHTML = '<p style="color:var(--muted)">Loading&hellip;</p>';
+
+            let rows;
+            try {
+                const res = await teacherFetch(`/api/teacher/reports?subject=${subject}`);
+                rows = await res.json();
+            } catch {
+                el.innerHTML = '<p style="color:#ef4444">Error loading reports.</p>';
+                return;
+            }
+
+            if (!rows.length) {
+                el.innerHTML = '<p style="color:#94a3b8;font-size:0.875rem">No reported questions.</p>';
+                return;
+            }
+
+            const THRESHOLD = 2;
+            const tableRows = rows.map(r => {
+                const suspended = r.report_count >= THRESHOLD;
+                const badge = suspended
+                    ? `<span style="background:#fef2f2;color:#dc2626;padding:0.15rem 0.5rem;border-radius:9999px;font-size:0.75rem;font-weight:600">Suspended</span>`
+                    : `<span style="background:#f1f5f9;color:#64748b;padding:0.15rem 0.5rem;border-radius:9999px;font-size:0.75rem">${r.report_count} report(s)</span>`;
+                return `<tr>
+                    <td style="font-family:monospace;font-size:0.8125rem">${esc(r.question_id)}</td>
+                    <td>${badge}</td>
+                    <td>${new Date(r.first_reported_at).toLocaleDateString()}</td>
+                    <td style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                        <button class="btn btn-outline btn-sm"
+                            onclick="resolveReport(${JSON.stringify(r.question_id)}, '${subject}', this)">Resolve (Keep)</button>
+                        <button class="btn btn-sm" style="background:#dc2626;color:#fff;border:1px solid #dc2626"
+                            onclick="suppressQuestion(${JSON.stringify(r.question_id)}, '${subject}', this)">Remove</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            el.innerHTML = `<div class="portal-table-wrap">
+                <table class="portal-table">
+                    <thead><tr>
+                        <th>Question ID</th><th>Status</th><th>First Reported</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table></div>`;
+        }
+
+        async function resolveReport(questionId, subject, btn) {
+            btn.disabled = true;
+            await teacherFetch(`/api/teacher/reports/${encodeURIComponent(questionId)}?subject=${subject}`,
+                { method: 'DELETE' });
+            loadReportsTab();
+        }
+
+        async function suppressQuestion(questionId, subject, btn) {
+            if (!confirm(`Permanently remove question "${questionId}" from the pool? This cannot be undone here.`)) return;
+            btn.disabled = true;
+            await teacherFetch(`/api/teacher/reports/${encodeURIComponent(questionId)}/suppress?subject=${subject}`,
+                { method: 'POST' });
+            loadReportsTab();
         }
 
         // ── Microcredentials ──────────────────────────────────────────────────

@@ -1,0 +1,146 @@
+const { Router } = require('express');
+const { db } = require('../db');
+const { requireAuth } = require('../auth');
+
+const router = Router();
+router.use(requireAuth);
+
+const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
+const ACCURACY_THRESHOLD = 0.70;
+const MIN_ATTEMPTS = 5;
+
+const DOMAIN_NAMES = [
+    'Algebra',
+    'Advanced Math',
+    'Problem-Solving and Data Analysis',
+    'Geometry and Trigonometry',
+];
+
+// POST /api/sat-math/score  { correct, domainIdx, skill, difficulty }
+router.post('/score', (req, res) => {
+    const { correct, domainIdx, skill = '', difficulty } = req.body;
+    if (correct == null || domainIdx == null || !difficulty) {
+        return res.status(400).json({ error: 'correct, domainIdx, and difficulty required' });
+    }
+
+    db.prepare(
+        `INSERT INTO sat_math_scores(user_key, correct, domain_idx, skill, difficulty, submitted_at)
+         VALUES(?, ?, ?, ?, ?, ?)`
+    ).run(req.userKey, correct ? 1 : 0, Number(domainIdx), skill, difficulty, Date.now());
+
+    res.json({ ok: true });
+});
+
+// GET /api/sat-math/next  → { domainIdx, skill, difficulty }
+router.get('/next', (req, res) => {
+    const rows = db.prepare(`
+        SELECT domain_idx, skill, difficulty,
+               COUNT(*) AS attempts,
+               SUM(correct) AS correct_count
+        FROM sat_math_scores
+        WHERE user_key = ?
+        GROUP BY domain_idx, skill, difficulty
+    `).all(req.userKey);
+
+    if (rows.length === 0) {
+        return res.json({ domainIdx: Math.floor(Math.random() * 4), skill: '', difficulty: 'Easy' });
+    }
+
+    const seenDomains = new Set(rows.map(r => r.domain_idx));
+    const unseenDomains = [0, 1, 2, 3].filter(d => !seenDomains.has(d));
+    if (unseenDomains.length > 0) {
+        const domainIdx = unseenDomains[Math.floor(Math.random() * unseenDomains.length)];
+        return res.json({ domainIdx, skill: '', difficulty: 'Easy' });
+    }
+
+    const accuracyMap = {};
+    for (const row of rows) {
+        const key = `${row.domain_idx}|${row.skill}|${row.difficulty}`;
+        accuracyMap[key] = {
+            attempts: row.attempts,
+            accuracy: row.correct_count / row.attempts,
+        };
+    }
+
+    const seen = new Set(rows.map(r => `${r.domain_idx}|${r.skill}`));
+    const candidates = [];
+
+    for (const combo of seen) {
+        const [domainIdx, skill] = combo.split('|');
+        let targetDifficulty = 'Easy';
+
+        for (let i = 0; i < DIFFICULTIES.length - 1; i++) {
+            const tierKey = `${domainIdx}|${skill}|${DIFFICULTIES[i]}`;
+            const tier = accuracyMap[tierKey];
+            if (tier && tier.attempts >= MIN_ATTEMPTS && tier.accuracy > ACCURACY_THRESHOLD) {
+                targetDifficulty = DIFFICULTIES[i + 1];
+            } else {
+                break;
+            }
+        }
+
+        candidates.push({ domainIdx: Number(domainIdx), skill, difficulty: targetDifficulty });
+    }
+
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    res.json(pick);
+});
+
+// GET /api/sat-math/session?since=<ms>
+router.get('/session', (req, res) => {
+    const since = Number(req.query.since) || (() => {
+        const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime();
+    })();
+
+    const rows = db.prepare(`
+        SELECT domain_idx, skill, difficulty, correct
+        FROM sat_math_scores
+        WHERE user_key = ? AND submitted_at >= ?
+        ORDER BY submitted_at
+    `).all(req.userKey, since);
+
+    const domainMap = {};
+    for (const row of rows) {
+        const di = row.domain_idx;
+        if (!domainMap[di]) domainMap[di] = {};
+        const sk = row.skill || '';
+        if (!domainMap[di][sk]) domainMap[di][sk] = {};
+        const diff = row.difficulty;
+        if (!domainMap[di][sk][diff]) domainMap[di][sk][diff] = { total: 0, correct: 0 };
+        domainMap[di][sk][diff].total++;
+        if (row.correct) domainMap[di][sk][diff].correct++;
+    }
+
+    const domains = Object.entries(domainMap)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([idx, skillMap]) => ({
+            idx: Number(idx),
+            name: DOMAIN_NAMES[Number(idx)] || `Domain ${idx}`,
+            skills: Object.entries(skillMap).map(([skill, diffMap]) => {
+                let total = 0, correct = 0;
+                for (const d of Object.values(diffMap)) { total += d.total; correct += d.correct; }
+                return { skill, total, correct, byDifficulty: diffMap };
+            }),
+        }));
+
+    res.json({ domains });
+});
+
+// POST /api/sat-math/report  { questionId, domainIdx }
+router.post('/report', (req, res) => {
+    const { questionId } = req.body;
+    if (!questionId) return res.status(400).json({ error: 'questionId required' });
+
+    db.prepare(`
+        INSERT OR IGNORE INTO question_reports(question_id, subject, user_key, reported_at)
+        VALUES(?, 'math', ?, ?)
+    `).run(questionId, req.userKey, Date.now());
+
+    const { count } = db.prepare(
+        `SELECT COUNT(DISTINCT user_key) AS count FROM question_reports WHERE question_id = ? AND subject = 'math'`
+    ).get(questionId);
+
+    res.json({ ok: true, reportCount: count });
+});
+
+module.exports = router;

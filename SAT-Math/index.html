@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>SAT Math Practice — Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+            onload="renderMathSetup()"></script>
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/">Play KenKen</a>
+            <a href="../SAT-Questions/">Practice SAT</a>
+            <a href="./" class="active">SAT Math</a>
+            <a href="../Skill-Maps/">Skill Maps</a>
+            <a href="../readme/">ReadMe</a>
+            <span id="nav-auth-slot"></span>
+        </div>
+    </nav>
+    <script src="../js/nav.js"></script>
+
+    <div id="landing" class="landing">
+        <div class="landing-card">
+            <h1>SAT Math Practice</h1>
+            <p>Sign in with your school Google account to receive questions matched to your level, or practice locally without an account.</p>
+            <div class="landing-actions">
+                <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+                <button class="btn btn-outline" id="local_button" onclick="playLocally()">Play Locally</button>
+            </div>
+            <p class="landing-status" id="landing_status">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <div id="game-ui" style="display:none">
+        <div class="game-header">
+            <span class="game-title">SAT Math Practice</span>
+            <div class="auth-controls">
+                <span id="daily-pill" class="daily-pill" style="display:none"><span class="dp-count"></span></span>
+                <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+            </div>
+        </div>
+
+        <div id="sat-start-screen" class="start-screen">
+            <div class="start-card">
+                <h2>SAT Math Practice</h2>
+                <p>Targeted math questions covering Algebra, Advanced Math, Problem-Solving &amp; Data Analysis, and Geometry. Each session adapts based on your performance.</p>
+                <button class="btn btn-primary btn-lg" onclick="launchSATMath()">Start Practicing</button>
+            </div>
+        </div>
+
+        <div id="sat-quiz-area" style="display:none">
+            <div class="quiz-area">
+                <button id="create_button" style="display:none" onclick="nextQuestion()"></button>
+
+                <h2 id="Question"></h2>
+
+                <img id="question-image" class="question-image" style="display:none" alt="Question figure">
+
+                <div id="questionDiv" style="display:none">
+                    <label class="answer-option" for="A">
+                        <input type="radio" name="answer" id="A">
+                        <span class="answer-label-letter">A</span>
+                        <span id="A Button"></span>
+                    </label>
+                    <label class="answer-option" for="B">
+                        <input type="radio" name="answer" id="B">
+                        <span class="answer-label-letter">B</span>
+                        <span id="B Button"></span>
+                    </label>
+                    <label class="answer-option" for="C">
+                        <input type="radio" name="answer" id="C">
+                        <span class="answer-label-letter">C</span>
+                        <span id="C Button"></span>
+                    </label>
+                    <label class="answer-option" for="D">
+                        <input type="radio" name="answer" id="D">
+                        <span class="answer-label-letter">D</span>
+                        <span id="D Button"></span>
+                    </label>
+                </div>
+
+                <div id="submissionButtons" class="action-bar" style="visibility:hidden">
+                    <button class="btn btn-primary" id="submit" onclick="submit()">Submit</button>
+                </div>
+
+                <p id="submitMessage"></p>
+            </div>
+        </div>
+
+        <!-- Rationale overlay -->
+        <div id="rationale-overlay" class="rationale-overlay" style="display:none">
+            <div class="rationale-card">
+                <div id="rationale-badge" class="rationale-result-badge"></div>
+                <div id="Rationale" class="rationale-text"></div>
+                <div class="rationale-actions">
+                    <button class="btn btn-primary" id="nextquestion" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-outline" id="complete_session" onclick="completeSession()">Complete Session</button>
+                    <button class="btn-ghost-small" id="report" onclick="reportQuestion()" style="margin-left:auto">Report</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="session-view" style="display:none"></div>
+    </div>
+
+    <script>
+    function renderMathSetup() { window._katexReady = true; }
+
+    function renderMathInPage() {
+        if (!window._katexReady || !window.renderMathInElement) return;
+        var ids = ['Question', 'A Button', 'B Button', 'C Button', 'D Button'];
+        ids.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                renderMathInElement(el, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$',  right: '$',  display: false },
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    }
+
+    function launchSATMath() {
+        document.getElementById('sat-start-screen').style.display = 'none';
+        document.getElementById('sat-quiz-area').style.display = '';
+        nextQuestion();
+    }
+    </script>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/dailyprogress.js"></script>
+    <script src="../js/SATmathsubmit.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script src="../js/SATmathmain.js"></script>
+</body>
+</html>

@@ -1,0 +1,1373 @@
+Flagged questions (274) — images needed
+============================================================
+
+ID: 85939da5
+Page: 1
+Flag: visual-keyword,missing-metadata
+Q: Texting | Talks on cell | Does not talk on behavior | phone daily | cell phone daily | Total  Light 110 146 256 Medium 1...
+
+ID: 954943a4
+Page: 5
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: Jennifer bought a box of Crunchy Grain cereal. The nutrition facts on the box state that a serving size of the cereal is...
+
+ID: b1b5300b
+Page: 8
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Prices of 14 Different Cars Type of car Priced at no more | Priced greater Total yP than $25,000 | than $25,000 Nonhybri...
+
+ID: d28c29e1
+Page: 9
+Flag: missing-metadata,embedded-image
+Q: The International Space Station orbits Earth at an average speed of 4.76 miles per second. What is the space station’s a...
+
+ID: 1adb39f0
+Page: 10
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: The scatterplot shows the relationship between two variables, x and y. A line of best fit for the data is also shown. Wh...
+
+ID: 3f5398a6
+Page: 12
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: For a person m miles from a flash of lightning, the length of the time interval from the moment the person sees the ligh...
+
+ID: b4912cc5
+Page: 13
+Flag: missing-metadata,embedded-image
+Q: The population density of Iceland, in people per square kilometer of land area, increased from 2.5 in 1990 to 3.3 in 201...
+
+ID: f890dc20
+Page: 14
+Flag: missing-metadata,embedded-image
+Q: 2,2,2,3,4,4, 11 What is the median of the seven data values shown?
+
+ID: 65c49824
+Page: 16
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 608cf8e2
+Page: 19
+Flag: visual-keyword,missing-metadata
+Q: 30 > 25 q 20 Oo =] B. 15 & 10 54 0-4  0 10 20 30 40 50 60 70 Number of points  The histogram summarizes data set A, whic...
+
+ID: 82aaa0a1
+Page: 23
+Flag: missing-metadata,embedded-image
+Q: 5 4 20¢ . 18+ 16+ é l4te 12+ . 10+ 8+ ° , 6 e ee . 44 ut 0 + + foe x  H1235 68 € Of the following, which is the best mod...
+
+ID: 83272c51
+Page: 25
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Temperature of a Cup of Coffee during an Experiment  220 200 — 180 = 16044 2 140 5 120 ave € 100 te 3 r) a. 80 thee tald...
+
+ID: 4¢c774b00
+Page: 27
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Ages of 20 Students Enrolled in a College Class Age |Frequency  18 6 19 20 21 22 23 30  The table above shows the distri...
+
+ID: 1353b86e
+Page: 29
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Colors of Marbles in a Bag Color | Number Red 8 Blue 10 Green 22 Total 40  The table shows the number of different color...
+
+ID: 29fa7970
+Page: 30
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The bar graph summarizes the charge, in kilowatt-hours (kWh), a battery received each day for 15 days.  umber of days N ...
+
+ID: d89c1513
+Page: 31
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Customer Purchases at a Gas Station Beverage purchased | Beverage not purchased] Total  Gasoline purchased  Gasoline not...
+
+ID: 52f9a246
+Page: 32
+Flag: visual-keyword,missing-metadata
+Q: 4, 4, 4, 4, 8, 8, 8, 13,13  Which frequency table correctly represents the data listed?
+
+ID: 000259aa
+Page: 33
+Flag: missing-metadata,embedded-image
+Q: A group of monarch butterflies migrated from Chicago, Illinois, to Michoacan, Mexico, flying a total of 2,100 miles. It ...
+
+ID: e1ad3d41
+Page: 35
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: | Eye color Coat color - Deep blue} Light brown | Total Cream-tortoiseshell 16 16 32 | Chocolate | 12 | 4 16 Total 28 20...
+
+ID: ac5b6558
+Page: 40
+Flag: missing-metadata,embedded-image
+Q: Temperature and Elevation 45 _ 44 . & 43 . 2 2 ° $ @ 4 2 40+ & 39 ~ 38 ° a N N N N N N © SPF aX & FF Elevation (feet) Th...
+
+ID: 46545dd6
+Page: 41
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Number of High School Students Who Completed Summer Internships  High Year  school | 2008 | 2009 | 2010 | 2011 | 2012  F...
+
+ID: 16cea46c
+Page: 44
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Voice type |Number of singers Countertenor 4 Tenor 6 Baritone 10 Bass 5  A total of 25 men registered for singing lesson...
+
+ID: bd90f87e
+Page: 46
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: A table of the US minimum wage for 6 different years is shown below.  US minimum  Year (dollars per hour) 1960 1.00 1970...
+
+ID: 15d87cOf
+Page: 47
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The bar graph shows the distribution of the number of students in each of four extracurricular activities at a high scho...
+
+ID: Oea56bb2
+Page: 50
+Flag: missing-metadata,embedded-image
+Q: Subscriptions Year P sold | 2012 | 5,600  2013 5,880  The manager of an online news service received the report above on...
+
+ID: 90eed2e5
+Page: 51
+Flag: missing-metadata,embedded-image
+Q: A city has 50 city council members. A reporter polled a random sample of 20 city council members and found that 6 of tho...
+
+ID: 8e528129
+Page: 52
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 8736334b
+Page: 54
+Flag: missing-metadata,embedded-image
+Q: Data set A: 72,73,73,/6,/6 Data set B: 61,64,74,85,%  Data set A and data set B each contain 5 numbers. If the mean of d...
+
+ID: 0231050d
+Page: 55
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 4a2264b3
+Page: 57
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: The line graph shows the percent of cars for sale at a used car lot on a given day by model year. 15% x x n =) L& 10% n ...
+
+ID: b680e76d
+Page: 59
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: A survey taken by 1,000 students at a school asked whether they played school sports. The table below summarizes all 1,0...
+
+ID: d4413871
+Page: 65
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 0301c5dc
+Page: 66
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: The table below shows the number of state parks in a certain state that contain camping facilities and bicycle paths.  H...
+
+ID: c88e0663
+Page: 68
+Flag: missing-metadata,embedded-image
+Q: For a school fund-raiser, 10 students sold a total of 90 boxes of cookies. Which of the following can be calculated from...
+
+ID: 3f2ee20a
+Page: 70
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The results of two independent surveys are shown in the table below. Men's Height Group | Sample size | Mean (centimeter...
+
+ID: fe6a49d6
+Page: 72
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The bar graph shows the distribution of the number of walnuts per container for 20 containers at a grocery store.  8 7 6...
+
+ID: 632cf8f9
+Page: 73
+Flag: visual-keyword,missing-metadata
+Q: The graph of the function f is shown, where y = f(z).  Which of the following best describes the function f?
+
+ID: d0efc1dd
+Page: 75
+Flag: missing-metadata,embedded-image
+Q: 15, 14, 18, 17, x  The mean and the median of the five numbers above are equal. Which of the following is NOT a possible...
+
+ID: 80f1f3a9
+Page: 76
+Flag: visual-keyword,missing-metadata
+Q: 80 70 - 60 -¢ 50 3. 40 2 « 30 jan 20 10 - 0  blue green red yellow Color  A data set consists of 173 colors. The bar gra...
+
+ID: 3f236a64
+Page: 79
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: In the table above, the ratio of y to x for each ordered pair is constant. What is the value of k ?
+
+ID: 8705ecba
+Page: 80
+Flag: missing-metadata,embedded-image
+Q: The cost of a certain shirt is $20 before a 5% sales tax is added. What is the total cost, including sales tax, to purch...
+
+ID: f8f79e11
+Page: 83
+Flag: missing-metadata,embedded-image
+Q: A park ranger asked a random sample of visitors how far they hiked during their visit. Based on the responses, the estim...
+
+ID: c178d4da
+Page: 87
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Data setA Data set B Value frequency frequency  Data set A and data set B each consist of 27 values. The table shows the...
+
+ID: 9a144a01
+Page: 90
+Flag: missing-metadata,embedded-image
+Q: Which of the following is true about the values of 2* and 2¥ +2 for X > 0?
+
+ID: 47624288
+Page: 94
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: The table gives the distribution of votes for a new school mascot and grade level for 80 students. Grade level Mascot Si...
+
+ID: 6310adbc
+Page: 95
+Flag: merged-choices,missing-metadata,embedded-image
+Q: The ratio of t to uis 1 to 2, and f = 10. What is the value of u?
+
+ID: 63573fea
+Page: 97
+Flag: missing-metadata,embedded-image
+Q: During the first month of sales, a company sold 1,300,000 units of a certain type of smartphone. During the same month, ...
+
+ID: 60caadfd
+Page: 101
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Each rock in a collection of 70 rocks was classified as either igneous, metamorphic, or sedimentary, as shown in the fre...
+
+ID: c3d65f93
+Page: 102
+Flag: visual-keyword,missing-metadata
+Q: Five Eretmochelys imbricata, a type of sea turtle, each have a nest. The table shows an original data set of the number ...
+
+ID: d6af3572
+Page: 105
+Flag: missing-metadata,embedded-image
+Q: Minimum Wage  -Xx  0 10 20 30 40 50 60 70 80 Years since 1940  The scatterplot above shows the federal-mandated minimum ...
+
+ID: 74dee52b
+Page: 109
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: » 300 8 2 250 7 = 25 3 373 150+ 53 “ 2 100+ ZZ 507 — -  a ——— 2000 2002 =—.2004- = 2006 += 2008  Graduating class year T...
+
+ID: fea831fc
+Page: 112
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 9d88a3e3
+Page: 115
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Theresa's Running Speed and Time TS \ 0 5 10 15 20 25 30  Time (minutes) Theresa ran on a treadmill for thirty minutes, ...
+
+ID: 07f2829b
+Page: 119
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: e5b5fbdd
+Page: 120
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: Of the 8 planets in our solar system, 4 are considered rocky. If a student randomly selects 1 of those 8 planets as a to...
+
+ID: 2905ded0
+Page: 125
+Flag: visual-keyword,missing-metadata
+Q: Live east of the | Live west of the river river Less than 40 years old 17 11 At least 40 years y 18 89 107 old Total 35 ...
+
+ID: 181cc4d6
+Page: 129
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: Rectangle A has length 15 and width w. Rectangle B has length 20 and the same length-to-width ratio as rectangle A. What...
+
+ID: 241f1db7
+Page: 130
+Flag: visual-keyword,missing-metadata
+Q: Weight Frequency (pounds) 13 12 14 8 15 5 16 7 17 9 18 10 19 13 20 7 The frequency table summarizes a data set of the we...
+
+ID: 578e26ae
+Page: 132
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Data Set A e e e e e e e e e e e e e e e t t t  22 23 24 25 26  Data set A has 15 values and is represented by the dot p...
+
+ID: 7fd284ac
+Page: 134
+Flag: merged-choices,missing-metadata,embedded-image
+Q: Income and Percent of Total Expenses Spent on Programs for Ten Charities in 2011  70 : - - + 1  8 HF HLH HLM KL HM Mm O ...
+
+ID: ecbdbe84
+Page: 139
+Flag: visual-keyword,missing-metadata
+Q: The table shown summarizes the number of employees at each of the 17 restaurants in a town. Number of Number of employee...
+
+ID: e7d9649f
+Page: 142
+Flag: missing-metadata,embedded-image
+Q: A random sample of 50 people from a town with a population of 14,878 were asked to name their favorite flavor of ice cre...
+
+ID: 2df8f293
+Page: 143
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: ec7b0eb8
+Page: 145
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Texting | Talks on cell | Does not talk on behavior | phone daily | cell phone daily | Total Light 110 146 256 Medium 13...
+
+ID: 3638f413
+Page: 147
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 445dd032
+Page: 152
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: Tanya earns $13.50 per hour at her part-time job. When she works z hours, she earns 13.507 dollars. Which of the followi...
+
+ID: 1e8ccffd
+Page: 154
+Flag: missing-metadata,embedded-image
+Q: The mean score of 8 players in a basketball game was 14.5 points. If the highest individual score is removed, the mean s...
+
+ID: 1e1027a7
+Page: 157
+Flag: merged-choices,missing-metadata,embedded-image
+Q: Ice Cream Sales  1,000 900 800 700+ 600 se co oo  400  300+ 10 12 14 16 18 20 22 24 26  Temperature (°C) The scatterplot...
+
+ID: 939c46d1
+Page: 160
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: b#—— k-——_+1 Cy Volume = 7#k* k 48 + k aoe, oa  The glass pictured above can hold a maximum volume of 473 cubic centimet...
+
+ID: 13f67ddce
+Page: 162
+Flag: visual-keyword,missing-metadata
+Q: 100 7 ~ 90 = 80 5 70 c n 60 Re) > 50 = 40 We] 3 30 © 20 a 10 0 >) C) >) eX) & & & wv at se Ks < vw “  Day of the week  T...
+
+ID: ea95087d
+Page: 163
+Flag: visual-keyword,missing-metadata
+Q: Average number of Type of store yp employees Warehouse store 365 Department store 213 Supermarket 130  For a certain reg...
+
+ID: fe46af57
+Page: 164
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: A bag containing 10,000 beads of assorted colors is purchased from a craft store. To estimate the percent of red beads i...
+
+ID: e7d48c8a
+Page: 165
+Flag: visual-keyword,missing-metadata
+Q: e e e e e e e e e e e e e —+—+—-+—++}- 12 3 4 5  Number of bursts  The dot plot represents a data set of the number of b...
+
+ID: 7b65bb28
+Page: 167
+Flag: visual-keyword,missing-metadata
+Q: Station 1} Station 2 | Station 3| Station 4| Station 5 $3.699 | $3.609 | $3.729 | $3.679 | $3.729  In the table above, M...
+
+ID: 8a71
+Page: 168
+Flag: merged-choices,missing-metadata,embedded-image
+Q: Which of the following represents the result of increasing the quantity x by 9%, where X > Q?
+
+ID: 8637294f
+Page: 171
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: 8e2e424e
+Page: 172
+Flag: missing-metadata,embedded-image
+Q: The number k is 36% greater than 50. If k is the product of 50 and r, what is the value of r ?
+
+ID: 24ad9dcb
+Page: 173
+Flag: missing-metadata,embedded-image
+Q: The weight of an object on Venus is approximately To of its weight on Earth. The weight of an object on Jupiter is appro...
+
+ID: be00d896
+Page: 174
+Flag: missing-metadata,embedded-image
+Q: For which of the following data sets is the mean greater than the median?
+
+ID: 3d985614
+Page: 175
+Flag: image-only-question,merged-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 67c0200a
+Page: 185
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: c9dd92b1
+Page: 188
+Flag: missing-metadata,embedded-image
+Q: Density of Grape Juice 1,400 + 7 ‘ 1,350 + ' ‘ } ~ 1,300 | = 1,200 jt 1,150 ~e- | : W | 1,100 +® 1,050 1,000 as |  20% 3...
+
+ID: fa7a0164
+Page: 190
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: The table below shows the high and low temperatures in Houston, Texas, during a five-day period. Temperatures in Houston...
+
+ID: 708590d7
+Page: 192
+Flag: merged-choices,missing-metadata,embedded-image
+Q: Data set A:1,2,3,4,5,6,7 Data set B:1,1,2,2,3,3,4  Which of the following statements correctly compares the means of dat...
+
+ID: a6b2fcce
+Page: 195
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Number of 3-D Movies Released by Year 50  40 7.  30  20  Number of 3-D movies released  10  X BF Hh HF HF VP vo > Year A...
+
+ID: 06a152cd
+Page: 198
+Flag: missing-metadata,embedded-image
+Q: To make a bakery’s signature chocolate muffins, a baker needs 2.5 ounces of chocolate for each muffin. How many pounds o...
+
+ID: 7d68096f
+Page: 199
+Flag: visual-keyword,missing-metadata
+Q: A trivia tournament organizer wanted to study the relationship between the number of points a team scores in a trivia ro...
+
+ID: 8917ce38
+Page: 201
+Flag: missing-metadata,embedded-image
+Q: Which of the following speeds is equivalent to 90 kilometers per hour? (1 kilometer = 1,000 meters)
+
+ID: f4b3672a
+Page: 202
+Flag: missing-metadata,embedded-image
+Q: A certain forest is 253 acres. To estimate the number of trees in the forest, a ranger randomly selects 5 different 1-ac...
+
+ID: 374b18f9
+Page: 204
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: po —  EEEESEESESEEES SSS SSS SSS SSNS  Acres of useful timberland The number of acres of useful timberland in 13 countie...
+
+ID: 585de39a
+Page: 205
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 7e6c745f
+Page: 208
+Flag: visual-keyword,missing-metadata
+Q: Food Protein | Cost  1 large egg |6 grams| $0.36  1 cup of milk|8 grams | $0.24  The table above shows the amount of pro...
+
+ID: 12dbe3de
+Page: 211
+Flag: missing-metadata,embedded-image
+Q: A store received a shipment of 1,000 MP3 players, 4 of which were defective. If an MP3 player is randomly selected from ...
+
+ID: 0108ac2d
+Page: 214
+Flag: missing-metadata,embedded-image
+Q: At a large high school, 300 students were selected at random and were asked in a survey about a menu change in the schoo...
+
+ID: 28c6bd8c
+Page: 216
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Where Do People Get Most of Their Medical Information?  Soiree Percent of those surveyed Doctor 63% Internet 13% Magazin...
+
+ID: 912¢cd125
+Page: 217
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: For a science project, Anka recorded whether it rained each weekday and weekend day for 12 weeks. Her results are summar...
+
+ID: 6a715bed
+Page: 227
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: c54b92a2
+Page: 231
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: A study was conducted on the production rates for a company that produces tractor wheels. The table below shows the numb...
+
+ID: 3c5b19ef
+Page: 233
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: Railroad Museum Visitors 80,000  60,000  40,000  = 20,0004  o o++4  5 10 15 Years since 1968  The scatterplot above show...
+
+ID: 96a45430
+Page: 235
+Flag: missing-metadata,embedded-image
+Q: A number n is increased 6%. If the result is 318, what is the value of n?
+
+ID: d0430601
+Page: 249
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 9110c120
+Page: 250
+Flag: missing-metadata,embedded-image
+Q: Data set A:5,5,5,5,5,5,5,5,5 Data set B:5,5,5,5,5,5,5,5,5, 100  Which of the following statements about the means and me...
+
+ID: 9296553d
+Page: 252
+Flag: image-only-question,merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: d1db8def
+Page: 253
+Flag: visual-keyword,missing-metadata
+Q: Response Frequency Once a week or 3 more Two or three times 16 a month About once a 26 month A few times a year 73 Almos...
+
+ID: b2f6f17d
+Page: 254
+Flag: missing-metadata,embedded-image
+Q: A customer's monthly water bill was $75.74. Due to a rate increase, her monthly bill is now $79.86. To the nearest tenth...
+
+ID: 4626102e
+Page: 255
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Data Set A e e e e e e e e e e e e e e e t t t  +—t 22 23 24 25 26  The dot plot represents the 15 values in data set A....
+
+ID: d6121490
+Page: 256
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Braking Distance versus Speed  2p 3 cE  20 «4068 Speed (miles per hour) The graph above shows the relationship between t...
+
+ID: ab7740a8
+Page: 260
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: In which of the following tables is the relationship between the values of x and their corresponding y-values nonlinear?
+
+ID: 2a08d878
+Page: 261
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: There are n nonfiction books and 12 fiction books on a bookshelf. If one of these books is selected at random, what is t...
+
+ID: 38a9ac45
+Page: 263
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: If 1,200 customers register for new accounts at a social media website every day, what fraction of the first 60,000 new ...
+
+ID: 6e3ab4bf
+Page: 267
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: 20 18 2 oO 16 LZ = 14 8 12 5 10 3 8 E 6 Ss 4 ; |_| 0  Gift In April, there were 43 volunteers in a cleanup project. Each...
+
+ID: 881ef5f5
+Page: 271
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 2e511919
+Page: 273
+Flag: visual-keyword,missing-metadata
+Q: The line graph shows the estimated number of chipmunks in a state park on April 1 of each year from 1989 to 1999. 5 200 ...
+
+ID: 7ed0d098
+Page: 274
+Flag: missing-metadata,embedded-image
+Q: Lani spent 15% of her 8-hour workday in meetings. How many minutes of her workday did she spend in meetings?
+
+ID: c141366d
+Page: 276
+Flag: visual-keyword,missing-metadata
+Q: The graph of function f is shown, where y = f(z).  Which of the following describes function f?
+
+ID: 20845d36
+Page: 278
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: a478f9f5
+Page: 280
+Flag: visual-keyword,missing-metadata
+Q: Each of 157 gemstones can be classified as one of three classifications, as shown in the frequency table.  Classificatio...
+
+ID: dae79de4
+Page: 281
+Flag: visual-keyword,missing-metadata
+Q: 2 or more 1 visit visits Total Less than 30 AO years old At least 40 105 years old Total 35 100 135 The table summarizes...
+
+ID: 4bb25495
+Page: 282
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Five Smallest Countries in 2016 Land area Country . (square kilometers) Monaco 2.0 Nauru 21 San Marino 61 Tuvalu 26 Vati...
+
+ID: b6569d0e
+Page: 285
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: United States Presidents from 1789 to 2015  Ages | Number 40-44 2 45-49 7 50-54 13 55-59 11 60-64 7 65-69 3  The table a...
+
+ID: 5dc386fb
+Page: 288
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: The table below shows the distribution of US states according to whether they have a state-level sales tax and a state-l...
+
+ID: 1180401d
+Page: 293
+Flag: missing-metadata,embedded-image
+Q: The total area of a coastal city is 92.1 square miles, of which 11.3 square miles is water. If the city had a population...
+
+ID: 57481175
+Page: 294
+Flag: visual-keyword,missing-metadata
+Q: The bar graph shows the number of each type of monkey in a sanctuary.  12 11 10 Q 9 ov = 8 E 7 Ss 6 G 5 E 4 =) Zz 3 Jf |...
+
+ID: f6cbb04a
+Page: 297
+Flag: missing-metadata,embedded-image
+Q: d=5ot The equation above can be used to calculate the distance d, in miles, traveled by a car moving at a speed of 55 mi...
+
+ID: 57f45509
+Page: 303
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The box plot summarizes 15 data values. What is the median of this data set?
+
+ID: 2d31caae
+Page: 310
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Call Ratings  1 Star |2 Stars |3 Stars} 4 Stars} Total 72 8 145 22 34 70 45 16 125 EmployeeD}| 22 84 12 160 Total 50 157...
+
+ID: 8156d446
+Page: 314
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: e821a26d
+Page: 316
+Flag: merged-choices,missing-metadata,embedded-image
+Q: The scatterplot below shows the amount of electric energy generated, in millions of megawatt-hours, by nuclear sources o...
+
+ID: 9eb896c5
+Page: 318
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: pS 30 - 25+——+ + f 20 . 7 e 15 +t 10 . ; ° 0 = x 0 2 #4 6 8 10  Which of the following could be the equation for a line ...
+
+ID: 194ae3b1
+Page: 319
+Flag: missing-metadata,embedded-image
+Q: There were approximately 113,000 occupational therapy jobs in the United States in 2012. The Bureau of Labor Statistics ...
+
+ID: 99550621
+Page: 325
+Flag: missing-metadata,embedded-image
+Q: Makayla is planning an event in a 5,400-square-foot room. If there should be at least 8 square feet per person, what is ...
+
+ID: 93779b53
+Page: 327
+Flag: visual-keyword,missing-metadata
+Q: 50 45 Nn 2 40 3 35 B 30 S 25 tH oO 2 20 g 15 Zz, 10 5 0  1 2 3 4 5 Activity  A group of students voted on five after-sch...
+
+ID: 9d935bd8
+Page: 328
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Percent of Residents Who Earned a Bachelor's Degree or Higher  State | Percent of residents  State A 21.9%  State B 27.9...
+
+ID: a067c926
+Page: 330
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The bar graph shows the distribution of the number of students from one school who were born in one of four months.  70 ...
+
+ID: 5c24c861
+Page: 333
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: A study was done to determine a new car's stopping distance when it was traveling at different speeds. The study was don...
+
+ID: 9ba3e283
+Page: 337
+Flag: missing-metadata,embedded-image
+Q: In State X, Mr. Camp's eighth-grade class consisting of 26 students was surveyed and 34.6 percent of the students report...
+
+ID: a9647302
+Page: 340
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Results of Five Quality Control Trials.  ml  Trial  For quality control, a company that manufactures lightbulbs conducte...
+
+ID: 1¢c2f50a6
+Page: 343
+Flag: missing-metadata,embedded-image
+Q: During a sale, the original prices of all the items in a clothing store have been reduced by 20%. What is the sale price...
+
+ID: 8193e8cd
+Page: 345
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 661dfddd
+Page: 347
+Flag: missing-metadata,embedded-image
+Q: Temperature and Elevation 45 _ 44 . & 43 . g 42 ° @ 4 2 40+ & 39 ~ 38 af $ NJ NJ Sy) Sy) SJ SPF aX & FF Elevation (feet)...
+
+ID: 89f20d9e
+Page: 349
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: The table summarizes the distribution of age and assigned group for 90 participants in a study.  years | years | years |...
+
+ID: a03b7e02
+Page: 350
+Flag: visual-keyword,missing-metadata
+Q: The table shows selected values from function f.  Which of the following is the best description of function f?
+
+ID: 7b1a3200
+Page: 353
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: To study the characteristics of sea stars in a group of tide pools, researchers measured the diameter of the sea stars w...
+
+ID: 79137c1b
+Page: 354
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: Size and Sale Price y of Houses in Town H ¥ 400 3 350 1 +s Spee S 300 4 "Le pe a oe 2 [te 3 2 oh? 2 200 tse, S isot + 1 ...
+
+ID: 1dcea480
+Page: 357
+Flag: missing-metadata,embedded-image
+Q: A bag contains a total of 60 marbles. A marble is to be chosen at random from the bag. If the probability that a blue ma...
+
+ID: 89f8d08a
+Page: 364
+Flag: missing-metadata,embedded-image
+Q: A store manager reviewed the receipts from 80 customers who were selected at random from all the customers who made purc...
+
+ID: 54d93874
+Page: 365
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 6a305cd0
+Page: 366
+Flag: missing-metadata,embedded-image
+Q: In a study, the data from a random sample of a population had a mean of 37, with an associated margin of error of 3. Whi...
+
+ID: 869a32f1
+Page: 369
+Flag: missing-metadata,embedded-image
+Q: The high temperature, in degrees Fahrenheit (°F), in a certain city was recorded for each of 5 days. The data are shown ...
+
+ID: 916ffe9b
+Page: 370
+Flag: visual-keyword,missing-metadata
+Q: Poll Results Angel Cruz 483 Terry Smith 320  The table shows the results of a poll. A total of 803 voters selected at ra...
+
+ID: a3384df0
+Page: 372
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Penguin Exhibit  Type of penguin] Male |Female| Total Chinstrap 41 59 100 Emperor 8 27 35 Gentoo 49 54 103 Macaroni 42 4...
+
+ID: 6670e407
+Page: 373
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Number of High School Students Who Completed Summer Internships  High school | 2008 | 2009 | 2010 | 2011 | 2012 Foothill...
+
+ID: 808f7d6c
+Page: 377
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: if f = 4u, which of the following is equivalent to 7f?
+
+ID: af142f8d
+Page: 378
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Amount invested | Balance increase  Account A $500 6% annual interest  Account B $1,000 $25 per year  Two investments we...
+
+ID: 6e4a60dd
+Page: 381
+Flag: missing-metadata,embedded-image
+Q: Rita's total bill at a restaurant was $25.00, including tax. If she left a tip of 20% of the total bill, what was the am...
+
+ID: 9e¢e22c16
+Page: 384
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 41b71b4e
+Page: 385
+Flag: missing-metadata,embedded-image
+Q: What number is 20% greater than 60 ?
+
+ID: 46b2e169
+Page: 387
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: 8213b1b3
+Page: 388
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: ecf8d15f
+Page: 389
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: A total of 50 children attended a summer camp and were offered 4 types of sandwiches. The table shows the number of chil...
+
+ID: f8696cd8
+Page: 390
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: Human Resources | Accounting  Bachelor's degree 4 3  Master's degree 2 6  The table above shows the number of people who...
+
+ID: 20b69297
+Page: 396
+Flag: missing-metadata,embedded-image
+Q: Anita created a batch of green paint by mixing 2 ounces of blue paint with 3 ounces of yellow paint. She must mix a seco...
+
+ID: 94237701
+Page: 397
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 9d95e7ad
+Page: 399
+Flag: missing-metadata,embedded-image
+Q: Total Protein and Total Fat for Eight Sandwiches  te  10 20 30 40 50  Total protein (grams) The scatterplot above shows ...
+
+ID: 25faa756
+Page: 409
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: cf0ae57a
+Page: 416
+Flag: missing-metadata,embedded-image
+Q: Distance and Density of Planetoids in the Inner Solar System  a  ) ah  Density (g/cm? = aaa  0 04 08 12 16 2 24 2.8 3.2 ...
+
+ID: f88f27e5
+Page: 425
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 5207e508
+Page: 426
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: t . m 170 ~ n WwW  Note: Figure not drawn to scale. In the figure, line m is parallel to line m. What is the value of w?
+
+ID: f67e4efc
+Page: 427
+Flag: missing-metadata,embedded-image
+Q: A right circular cylinder has a volume of 45 JZ. If the height of the cylinder is 5, what is the radius of the cylinder?
+
+ID: 9342ca50
+Page: 433
+Flag: visual-keyword,missing-metadata
+Q: Note: Figure not drawn to scale.  In the figure shown, BC is parallel to AD and x = 22. Line ¢ passes through points A a...
+
+ID: 5afbdc8e
+Page: 434
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: What is the length of one side of a square that has the same area as a circle with radius 2 ?
+
+ID: 659cb706
+Page: 437
+Flag: visual-keyword,missing-metadata
+Q: x.  27  Z 35 Y  Note: Figure not drawn to scale.  Triangle XY Z shown is a right triangle. Which of the following has th...
+
+ID: c8d60e48
+Page: 438
+Flag: missing-metadata,embedded-image
+Q: A B c  In the given triangle, AB = AC and “ABC has a measure of 67 ~. What is the value of x ?
+
+ID: 947a3cde
+Page: 439
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: babd7461
+Page: 443
+Flag: visual-keyword,missing-metadata
+Q: S K J LR T  Note: Figure not drawn to scale.  In the figure shown, triangle JK L is similar to triangle RST, where J cor...
+
+ID: aédbad6b
+Page: 445
+Flag: visual-keyword,merged-choices,missing-metadata,embedded-image
+Q: m Note: Figure not drawn to scale. In the figure above, lines ¢° and m are parallel, ¥ = 20, and 7 = 60. What is the val...
+
+ID: 81b664bce
+Page: 446
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Cc. D B E A P  In the figure above, AF, BE, and CD are parallel. Points B and E lie on AC and FD, respectively. If AB =9...
+
+ID: 902dc959
+Page: 448
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: B 29 20 A c 21  In the figure above, what is the value of tan(4}?
+
+ID: ec5d4823
+Page: 455
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: a07ed090
+Page: 459
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The figure shown is a right circular cylinder with a radius of r and height of h. A second right circular cylinder (not ...
+
+ID: 51f26ce8
+Page: 463
+Flag: visual-keyword,missing-metadata
+Q: Note: Figure not drawn to scale.  AQPRis similar to AST R. The lengths represented by ST, QP, PR, and QR in the figure a...
+
+ID: c24e1bda
+Page: 464
+Flag: visual-keyword,missing-metadata
+Q: t m 134 ~ n WwW  Note: Figure not drawn to scale. In the figure, line m is parallel to line m. What is the value of w?
+
+ID: c8345903
+Page: 468
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: c D fe)  B  The circle above has center O, the length of arc ADC is 5m, and ¥ = 100. What is the length of arc ABC ?
+
+ID: 2bddbc1b
+Page: 470
+Flag: visual-keyword,missing-metadata
+Q: B  42  A A] Cc  Note: Figure not drawn to scale.  What is the value of cos A in the triangle shown?
+
+ID: bd87bc09
+Page: 472
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 87a9a2d4
+Page: 475
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: B  171 35  Note: Figure not drawn to scale.  In the right triangle shown, what is the value of sin A?
+
+ID: e6f2ace7
+Page: 476
+Flag: visual-keyword,missing-metadata
+Q: 7  Note: Figure not drawn to scale.  The lengths of the legs of a right triangle are shown. Which of the following is cl...
+
+ID: bOc5ece5
+Page: 477
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: 19  b  Note: Figure not drawn to scale.  Which equation shows the relationship between the side lengths of the given tri...
+
+ID: 52f7b898
+Page: 483
+Flag: visual-keyword,merged-choices,incomplete-choices,missing-metadata
+Q: A  54  | Cc B  Note: Figure not drawn to scale.  Right triangle ABC is shown. What is the value of tan A?
+
+ID: 151eda3c
+Page: 485
+Flag: merged-choices,missing-metadata,embedded-image
+Q: A manufacturing company produces two sizes of cylindrical containers that each have a height of 50 centimeters. The radi...
+
+ID: e50afdd3
+Page: 487
+Flag: visual-keyword,missing-metadata
+Q: (a + 4)? + (y—19)? = 121 The graph of the given equation is a circle in the xy-plane. The point (a, b) lies on the circl...
+
+ID: 2266984b
+Page: 489
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: x? +20x+y?+16y =—20  The equation above defines a circle in the xy-plane. What are the coordinates of the center of the ...
+
+ID: 1429dcdf
+Page: 492
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: 69b0d79d
+Page: 493
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: A 5  C  Point O is the center of the circle above, and the measure of “ OAB is 30°. If the length of OC is 18, what is t...
+
+ID: 4c95c7d4
+Page: 500
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: A graphic designer is creating a logo for a company. The logo is shown in the figure above. The logo is in the shape of ...
+
+ID: 933fee1la
+Page: 504
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: E B aa c po& ao;  Triangles ABC and DEF are shown above. Which of the following is equal to the ratio ?
+
+ID: 64c1f044
+Page: 506
+Flag: visual-keyword,merged-choices,incomplete-choices,missing-metadata
+Q: a 26  Note: Figure not drawn to scale.  In the triangle shown, what is the value of tan 2°?
+
+ID: 2f7c92ad
+Page: 507
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Cc B D A E  Note: Figure not drawn to scale.  In the figure shown, triangle CAE is similar to triangle CBD. The measure ...
+
+ID: 9d078710
+Page: 513
+Flag: visual-keyword,missing-metadata
+Q: C w . D J x 40° k y z  Note: Figure not drawn to scale.  In the figure shown, line @ intersects lines j and k. Which add...
+
+ID: 94f7c9e2
+Page: 516
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Q  s 18  Note: Figure not drawn to scale.  In triangle QRS shown, QR < RS. Which expression represents the length of QS?
+
+ID: e0874bc2
+Page: 517
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: The table gives the perimeters of similar triangles TUV and XY Z, where TU corresponds to XY. The length of TU is 18.  P...
+
+ID: 740bf79f
+Page: 521
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: 3 4 M F  Q In the figure above, what is the length of iQ ?
+
+ID: fe5ef8d3
+Page: 525
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: The table gives the perimeters of similar triangles TUV and XY Z, where TU corresponds to XY. The length of TU is 6. Per...
+
+ID: a4c05a1b
+Page: 526
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: m r RY x° ye  Note: Figure not drawn to scale.  In the figure shown, lines r and s are parallel, and line m intersects b...
+
+ID: ab176ad6
+Page: 528
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 0d3f51de
+Page: 533
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: t m n x 33  Note: Figure not drawn to scale.  In the figure, line m is parallel to line n, and line ¢ intersects both li...
+
+ID: b0dc920d
+Page: 538
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: A manufacturer determined that right cylindrical containers with a height that is 4 inches longer than the radius offer ...
+
+ID: 689abc2a
+Page: 540
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Rectangle P has an area of 72 square inches. If a rectangle with an area of 20 square inches is removed from rectangle P...
+
+ID: 55bb437a
+Page: 543
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 8e7689e0
+Page: 546
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 69f4bbdc
+Page: 547
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: a  Note: Figure not drawn to scale.  In the right triangle shown, what is the value of a?
+
+ID: 3563d76d
+Page: 548
+Flag: missing-metadata,embedded-image
+Q: At a certain time and day, the Washington Monument in Washington, DC, casts a shadow that is 300 feet long. At the same ...
+
+ID: dfce420b2
+Page: 550
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Note: Figure not drawn to scale.  In the figure above, AD intersects BE atc. if x = 100, what is the value of y?
+
+ID: de550be0
+Page: 551
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: 21  a Note: Figure not drawn to scale.  For the triangle shown, which expression represents the value of a?
+
+ID: 901e3285
+Page: 554
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: In triangle ABC, the measure of angle A is 50°. If triangle ABC is isosceles, which of the following is NOT a possible m...
+
+ID: bd7f6e30
+Page: 555
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Ss.  x  In the figure above, R | = T LJ. What is the value of x ?
+
+ID: 2adbf1b1
+Page: 556
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: t x m y & n  Note: Figure not drawn to scale.  In the figure, lines m and n are parallel. If 2 = 6k + 13 and y = 8k — 29...
+
+ID: 7268586c
+Page: 561
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: 24° x°  Note: Figure not drawn to scale.  In the triangle shown, PQ = QR. What is the value of x?
+
+ID: 0837c3b9
+Page: 564
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: Triangle ABC and triangle DEF are similar triangles, where AB and DE are corresponding sides. If 9& = 2AB and the perime...
+
+ID: 9e44284b
+Page: 565
+Flag: visual-keyword,merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: In the xy-plane, the graph of 2x? — 6x +2y? +2y =45 is a circle. What is the radius of the circle?
+
+ID: 014edcb7
+Page: 567
+Flag: visual-keyword,missing-metadata
+Q: S R Q P  Note: Figure not drawn to scale.  In triangle POR, QR is extended to point S. The measure of 7PQR is 132°, and ...
+
+ID: a6097ec2
+Page: 571
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: 73  a 63  Note: Figure not drawn to scale.  In the right triangle shown, what is the value of sin 7°?
+
+ID: eeb4143c
+Page: 572
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: ee540927
+Page: 580
+Flag: visual-keyword,missing-metadata
+Q: r+ 58+y? =0 In the xy-plane, the graph of the given equation is a circle. What are the coordinates (z, y) of the center ...
+
+ID: dc71597b
+Page: 581
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 410bdbe6
+Page: 582
+Flag: missing-metadata,embedded-image
+Q: 31°  2b° a  In the triangle above, @ = 45. What is the value of b ?
+
+ID: a456f28c
+Page: 587
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: 1 2  Note: Figure not drawn to scale.  In the figure, two lines intersect at a point. Angle 1 and angle 2 are vertical a...
+
+ID: 087cdcfd
+Page: 589
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Note: Figure not drawn to scale.  In the figure, three lines intersect at point P. If ¥ = 65 and y = 175, what is the va...
+
+ID: 6933b3d9
+Page: 592
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: afa3c48b
+Page: 593
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: v m n x” 6°  Note: Figure not drawn to scale.  In the figure shown, line m is parallel to line n. What is the value of x...
+
+ID: 992f4e93
+Page: 595
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Note: Figure not drawn to scale. In the figure above, lines ¢° and k are parallel. What is the value of a ?
+
+ID: 23c5fcce
+Page: 597
+Flag: missing-metadata,embedded-image
+Q: The circle above with center O has a circumference of 36. What is the length of minor arc AC?
+
+ID: 1¢c3d613c
+Page: 600
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: e9c5bfb2
+Page: 603
+Flag: visual-keyword,missing-metadata
+Q: B Cc R S 12 in 5 in A D Q 10 in T  Note: Figure not drawn to scale.  Rectangles ABCD and QRST shown are similar, where A...
+
+ID: 1318dfea
+Page: 608
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: W Y  Note: Figure not drawn to scale.  In the figure shown, WZ and XY intersect at point Q, YQ = 21, WQ = 70, WX = 60, a...
+
+ID: 5733ce30
+Page: 609
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: B 110° A C D  In the given figure, AC extends to point D. If the measure of “ BAC is equal to the measure of .“ BCA, wha...
+
+ID: 29e9b28c
+Page: 614
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: x Jy Z  Note: Figure not drawn to scale.  The triangle shown has a perimeter of 22 units. If ¢ = 9 units and y = 7 units...
+
+ID: 856372ca
+Page: 617
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: In the xy-plane, a circle with radius 5 has center (-8,6). Which of the following is an equation of the circle?
+
+ID: bf8d843e
+Page: 624
+Flag: merged-choices,missing-metadata,embedded-image
+Q: B 12 al A D c  in A ABC above, what is the length of AD?
+
+ID: 43236565
+Page: 627
+Flag: visual-keyword,missing-metadata
+Q: k m x n 145°  Note: Figure not drawn to scale.  In the figure, line m is parallel to line n, and line k intersects both ...
+
+ID: 981275d2
+Page: 628
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 89661424
+Page: 629
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: d03e29f1
+Page: 631
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: (x — 6)? + (y—3)? =81 The graph of the given equation in the xy-plane is a circle. What is the length of the radius of t...
+
+ID: 36661021
+Page: 633
+Flag: visual-keyword,missing-metadata
+Q: Cc  6  Note: Figure not drawn to scale.  In the right triangle shown, which of the following is closest to the value of ...
+
+ID: 95ba2d09
+Page: 636
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: t R Q x  T (-1, 0) P (1,0)  In the xy-plane above, points P, Q, R, and T lie on the circle with center 0. The degree mea...
+
+ID: adae6543
+Page: 637
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: M R  P  Note: Figure not drawn to scale.  In the figure, LQ intersects MP at point R, and LM is parallel to PQ. The leng...
+
+ID: 6dd463ca
+Page: 639
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: € B D A E  Note: Figure not drawn to scale. In the figure above, segments AE and BD are parallel. If angle BDC measures ...
+
+ID: 0815a5af
+Page: 640
+Flag: visual-keyword,missing-metadata
+Q: S R  P Q Note: Figure not drawn to scale.  The circle shown has center O, circumference 1447, and diameters PR and QS. T...
+
+ID: 93de3f84
+Page: 642
+Flag: missing-metadata,embedded-image
+Q: The volume of right circular cylinder A is 22 cubic centimeters. What is the volume, in cubic centimeters, of a right ci...
+
+ID: c9f8d1e9
+Page: 645
+Flag: visual-keyword,merged-choices,missing-metadata
+Q: Cc a  b  Note: Figure not drawn to scale.  For the right triangle shown, a = 4 and b = 5. Which expression represents th...
+
+ID: fb58c0db
+Page: 651
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: c6dff223
+Page: 653
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: 64d1f49f
+Page: 656
+Flag: visual-keyword,missing-metadata
+Q: Note: Figure not drawn to scale.  In the figure, two lines intersect at a point. If w = 136, what is the value of z?
+
+ID: 92eb236a
+Page: 659
+Flag: incomplete-choices,missing-metadata,embedded-image
+Q: In a right triangle, the tangent of one of the two acute angles is . What is the tangent of the other acute angle?
+
+ID: 13d9a1c3
+Page: 661
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: a67b9f88
+Page: 668
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: f7e626b2
+Page: 671
+Flag: merged-choices,missing-metadata,embedded-image
+Q: The dimensions of a right rectangular prism are 4 inches by 5 inches by 6 inches. What is the surface area, in square in...
+
+ID: 2be01bd9
+Page: 673
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: 3828f53d
+Page: 674
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: Jj k ¢  a i 1302  Note: Figure not drawn to scale. In the figure above, lines m and n are parallel. What is the value of...
+
+ID: dba6a25a
+Page: 677
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: acd30391
+Page: 679
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: A circle in the xy-plane has equation (x +3) + (y-1)" = 25. Which of the following points does NOT lie in the interior o...
+
+ID: 8027db3f
+Page: 681
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: d683a9cc
+Page: 685
+Flag: visual-keyword,incomplete-choices,missing-metadata,embedded-image
+Q: 3cm 2cm 6cm  The figure shows the lengths, in centimeters (cm), of the edges of a right rectangular prism. The volume V ...
+
+ID: 1bf809b5
+Page: 686
+Flag: image-only-question,incomplete-choices,missing-metadata
+Q: 
+
+ID: a2e76b60
+Page: 688
+Flag: merged-choices,incomplete-choices,missing-metadata,embedded-image
+Q: A cylindrical can containing pieces of fruit is filled to the top with syrup before being sealed. The base of the can ha...
+
+ID: 145337be
+Page: 690
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: 45°  24  45° H Xx Note: Figure not drawn to scale.  In the triangle shown, what is the value of 7?
+
+ID: 36200a38
+Page: 691
+Flag: visual-keyword,missing-metadata,embedded-image
+Q: x  In the figure above, two sides of a triangle are extended. What is the value of x ?
+
+ID: 6a3fbec3
+Page: 695
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 37dde49f
+Page: 696
+Flag: missing-metadata,embedded-image
+Q: b#—— k-——_+1 Volume = Tak* k 48 + k aoe, oa  The glass pictured above can hold a maximum volume of 473 cubic centimeters...
+
+ID: 6585d841
+Page: 703
+Flag: visual-keyword,merged-choices,incomplete-choices,missing-metadata
+Q: x +140 + y? = 6y + 109 In the xy-plane, the graph of the given equation is a circle. What is the length of the circle's ...
+
+ID: 3b44439b
+Page: 704
+Flag: visual-keyword,incomplete-choices,missing-metadata
+Q: t P x 142° q  Note: Figure not drawn to scale.  In the figure, line p is parallel to line g, and line t intersects both ...
+
+ID: 25da87f8
+Page: 707
+Flag: image-only-question,incomplete-choices,missing-metadata,embedded-image
+Q: 
+
+ID: 310c87fe
+Page: 708
+Flag: missing-metadata,embedded-image
+Q: A cube has a surface area of 54 square meters. What is the volume, in cubic meters, of the cube?
+
+ID: cf53cb56
+Page: 709
+Flag: missing-metadata,embedded-image
+Q: In the xy-plane shown, square ABCD has its diagonals on the x- and y-axes. What is the area, in square units, of the squ...
+

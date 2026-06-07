@@ -183,6 +183,7 @@ def parse_block(block: str) -> dict | None:
         "Rationale": rationale,
         "Difficulty": meta.get("Difficulty", ""),
         "Test": meta.get("Test", ""),
+        "Assessment": meta.get("Assessment", ""),
         "Domain": meta.get("Domain", ""),
         "Skill": meta.get("Skill", ""),
     }
@@ -194,12 +195,18 @@ def parse_block(block: str) -> dict | None:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python extract_questions.py <input.pdf> [output.json]", file=sys.stderr)
-        sys.exit(1)
+    import argparse as _argparse
+    parser = _argparse.ArgumentParser(description='Extract SAT reading/writing questions from a PDF.')
+    parser.add_argument('pdf_path', help='Source PDF file')
+    parser.add_argument('output_path', nargs='?', default=None, help='Output JSON file')
+    parser.add_argument('--assessment', default=None,
+                        choices=['SAT', 'PSAT/NMSQT and PSAT 10', 'PSAT 8/9'],
+                        help='Override the Assessment field (use when PDF metadata is missing/wrong)')
+    args = parser.parse_args()
 
-    pdf_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    pdf_path            = args.pdf_path
+    output_path         = args.output_path
+    assessment_override = args.assessment
 
     print(f"Extracting text from {pdf_path} ...", file=sys.stderr)
     full_text = extract_text(pdf_path)
@@ -217,6 +224,8 @@ def main():
             print(f"  [SKIP] Block {i+1} could not be parsed", file=sys.stderr)
             skipped += 1
             continue
+        if assessment_override:
+            record['Assessment'] = assessment_override
         if "_flag" in record:
             flagged += 1
             print(f"  [FLAG] {record['ID']} — {record['_flag']}", file=sys.stderr)

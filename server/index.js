@@ -8,9 +8,11 @@ app.use(express.json());
 
 app.use('/api/auth',    require('./routes/auth'));
 app.use('/api/kenken',  require('./routes/kenken'));
-app.use('/api/sat',     require('./routes/sat'));
-app.use('/api/teacher', require('./routes/teacher'));
-app.use('/api/student', require('./routes/student'));
+app.use('/api/sat',      require('./routes/sat'));
+app.use('/api/sat-math', require('./routes/sat-math'));
+app.use('/api/teacher',   require('./routes/teacher'));
+app.use('/api/student',   require('./routes/student'));
+app.use('/api/questions', require('./routes/questions'));
 
 app.use(express.static(path.join(__dirname, '..')));
 

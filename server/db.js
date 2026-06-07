@@ -49,6 +49,16 @@ db.exec(`
         submitted_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sat_math_scores (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_key     TEXT    NOT NULL REFERENCES users(user_key),
+        correct      INTEGER NOT NULL,
+        domain_idx   INTEGER NOT NULL,
+        skill        TEXT    NOT NULL DEFAULT '',
+        difficulty   TEXT    NOT NULL,
+        submitted_at INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS sessions (
         token      TEXT    PRIMARY KEY,
         user_key   TEXT    NOT NULL REFERENCES users(user_key),
@@ -56,9 +66,10 @@ db.exec(`
         last_seen  INTEGER NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_kenken_user   ON kenken_scores(user_key);
-    CREATE INDEX IF NOT EXISTS idx_sat_user      ON sat_scores(user_key);
-    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_key);
+    CREATE INDEX IF NOT EXISTS idx_kenken_user    ON kenken_scores(user_key);
+    CREATE INDEX IF NOT EXISTS idx_sat_user       ON sat_scores(user_key);
+    CREATE INDEX IF NOT EXISTS idx_sat_math_user  ON sat_math_scores(user_key);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user  ON sessions(user_key);
 
     CREATE TABLE IF NOT EXISTS teacher_profile (
         teacher_key TEXT PRIMARY KEY,
@@ -185,6 +196,25 @@ db.exec(`
     );
 
     CREATE INDEX IF NOT EXISTS idx_daily_rubric_class_date ON daily_rubric(class_id, date);
+
+    -- Question reports (one per student per question; 2+ unique reporters = suspended)
+    CREATE TABLE IF NOT EXISTS question_reports (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        question_id TEXT    NOT NULL,
+        subject     TEXT    NOT NULL CHECK(subject IN ('math','english')),
+        user_key    TEXT    NOT NULL,
+        reported_at INTEGER NOT NULL,
+        UNIQUE(question_id, user_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_qreports_qid ON question_reports(question_id, subject);
+
+    -- Permanently suppressed questions (teacher-driven removal from pool)
+    CREATE TABLE IF NOT EXISTS suppressed_questions (
+        question_id   TEXT    NOT NULL,
+        subject       TEXT    NOT NULL CHECK(subject IN ('math','english')),
+        suppressed_at INTEGER NOT NULL,
+        PRIMARY KEY(question_id, subject)
+    );
 `);
 
 db.exec(`CREATE TABLE IF NOT EXISTS teacher_sessions (
@@ -204,6 +234,8 @@ try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_include_subtasks 
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN rubric_max_score REAL NOT NULL DEFAULT 15').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE mc_class_assignments ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE mc_checkpoints ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE assignment_settings ADD COLUMN required_sat_math_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+try { db.prepare("ALTER TABLE classes ADD COLUMN assessment_type TEXT NOT NULL DEFAULT 'sat'").run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

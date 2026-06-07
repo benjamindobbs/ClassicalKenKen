@@ -1,0 +1,348 @@
+var questionTypes    = null;
+var assessmentType   = 'sat';
+var loadingPromise   = null;
+var currentDomainIdx = 0;
+var currentSkill     = '';
+var currentDifficulty = 'Easy';
+var json = [];
+var roll = 0;
+
+document.getElementById('Rationale').innerHTML = '';
+document.getElementById('nextquestion').disabled = true;
+document.getElementById('submit').disabled = true;
+
+var selectedAnswer = '';
+const radios = document.querySelectorAll('input[name="answer"]');
+radios.forEach(radio => {
+    radio.addEventListener('click', function () {
+        document.getElementById('submit').disabled = false;
+        selectedAnswer = radio.id;
+    });
+});
+
+const MATH_DOMAINS = ['Algebra', 'Advanced Math', 'Problem-Solving and Data Analysis', 'Geometry and Trigonometry'];
+
+const MATH_QUESTION_FILES = {
+    'sat':        '../SAT-Questions/SAT-Math-Questions.json',
+    'psat-nmsqt': '../SAT-Questions/PSAT-Math-Questions.json',
+    'psat89':     '../SAT-Questions/PSAT89-Math-Questions.json',
+};
+
+async function _doLoadMathQuestions() {
+    // Determine assessment type from server for logged-in users
+    if (!localMode) {
+        try {
+            const prog = await authFetch('/api/student/daily-progress').then(r => r.json());
+            if (prog && prog.assessment_type) assessmentType = prog.assessment_type;
+        } catch {}
+    }
+
+    const url = MATH_QUESTION_FILES[assessmentType] || MATH_QUESTION_FILES['sat'];
+    const all = await fetch(url).then(r => r.json());
+
+    // Fetch suspended question IDs for logged-in users
+    var suspended = new Set();
+    if (!localMode) {
+        try {
+            const ids = await authFetch('/api/questions/suspended?subject=math').then(r => r.json());
+            suspended = new Set(ids);
+        } catch {}
+    }
+
+    const SKIP_FLAGS = new Set(['incomplete-choices', 'missing-metadata', 'image-only-question']);
+    const valid = all.filter(q => {
+        if (suspended.has(q.ID)) return false;
+        if (!MATH_DOMAINS.includes(q.Domain)) return false;
+        if (!q.Skill || !q.Skill.trim()) return false;
+        if (!q.A || !q.B || !q.C || !q.D) return false;
+        if (q._flag && q._flag.split(',').some(f => SKIP_FLAGS.has(f.trim()))) return false;
+        return true;
+    });
+    questionTypes = MATH_DOMAINS.map(d => valid.filter(q => q.Domain === d));
+}
+
+async function ensureQuestionsLoaded() {
+    if (questionTypes) return;
+    if (!loadingPromise) loadingPromise = _doLoadMathQuestions();
+    return loadingPromise;
+}
+
+function pickQuestion(pool, skill, difficulty) {
+    if (!pool || pool.length === 0) return null;
+    if (skill) {
+        let filtered = pool.filter(q => q.Skill === skill && q.Difficulty === difficulty);
+        if (filtered.length > 0) return filtered[Math.floor(Math.random() * filtered.length)];
+        filtered = pool.filter(q => q.Skill === skill);
+        if (filtered.length > 0) return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+    let filtered = pool.filter(q => q.Difficulty === difficulty);
+    if (filtered.length > 0) return filtered[Math.floor(Math.random() * filtered.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function buildQuestion(question) {
+    roll = json.indexOf(question);
+    document.getElementById('questionDiv').style.display = 'block';
+    document.getElementById('submissionButtons').style.visibility = 'visible';
+    ['A', 'B', 'C', 'D'].forEach(id => {
+        document.getElementById(id).closest('.answer-option').style.background = '';
+    });
+    const rationaleEl = document.getElementById('Rationale');
+    rationaleEl.innerHTML = '';
+    rationaleEl.style.background = '';
+    rationaleEl.style.borderColor = '';
+    document.getElementById('nextquestion').disabled = true;
+
+    // If an image exists it contains the full question area — show it instead of
+    // the OCR text, which may have math-notation errors. Pure-text questions
+    // (no image) continue to use the OCR text directly.
+    const questionEl = document.getElementById('Question');
+    const imgEl = document.getElementById('question-image');
+    if (question.image) {
+        questionEl.style.display = 'none';
+        questionEl.innerHTML = '';
+        if (imgEl) {
+            imgEl.src = '../SAT-Questions/' + question.image;
+            imgEl.style.display = '';
+        }
+    } else {
+        questionEl.style.display = '';
+        questionEl.innerHTML = question.Question;
+        if (imgEl) {
+            imgEl.style.display = 'none';
+            imgEl.src = '';
+        }
+    }
+
+    document.getElementById('A Button').innerHTML = question.A;
+    document.getElementById('B Button').innerHTML = question.B;
+    document.getElementById('C Button').innerHTML = question.C;
+    document.getElementById('D Button').innerHTML = question.D;
+
+    renderMathInPage();
+}
+
+function submit() {
+    document.getElementById('A').disabled = true;
+    document.getElementById('B').disabled = true;
+    document.getElementById('C').disabled = true;
+    document.getElementById('D').disabled = true;
+    document.getElementById('submit').disabled = true;
+
+    const question = json[roll];
+    const correctAnswer = (question.Answer || '').trim().toUpperCase();
+    const correct = selectedAnswer === correctAnswer;
+
+    writeScore(
+        correct ? 1 : 0,
+        currentDomainIdx,
+        question.Skill || '',
+        question.Difficulty || currentDifficulty
+    );
+
+    if (!correct) {
+        const selEl = document.getElementById(selectedAnswer);
+        const ansEl = document.getElementById(correctAnswer);
+        if (selEl) selEl.closest('.answer-option').style.background = '#fecaca';
+        if (ansEl) ansEl.closest('.answer-option').style.background = '#dcfce7';
+    }
+
+    document.getElementById('Rationale').innerHTML = question.Rationale;
+    document.getElementById('nextquestion').disabled = false;
+    showRationaleOverlay(correct, selectedAnswer, correctAnswer);
+}
+
+async function nextQuestion() {
+    closeRationaleOverlay();
+    await ensureQuestionsLoaded();
+    document.getElementById('create_button').style.display = 'none';
+    document.getElementById('Rationale').innerHTML = '';
+
+    const pulledData = await getQuestionData();
+    currentDomainIdx = Number(pulledData.domainIdx);
+    currentSkill = pulledData.skill || '';
+    currentDifficulty = pulledData.difficulty || 'Easy';
+
+    let pool = questionTypes[currentDomainIdx];
+    let question = pickQuestion(pool, currentSkill, currentDifficulty);
+
+    // Fallback: if this domain pool is empty, try any domain that has questions
+    if (!question) {
+        const fallbackPool = questionTypes.find(p => p && p.length > 0);
+        if (fallbackPool) {
+            pool = fallbackPool;
+            question = pickQuestion(pool, '', currentDifficulty);
+        }
+    }
+
+    if (!question) {
+        document.getElementById('questionDiv').style.display = 'block';
+        document.getElementById('Question').innerHTML = 'No questions available. Please check back later.';
+        ['A Button', 'B Button', 'C Button', 'D Button'].forEach(id => {
+            document.getElementById(id).innerHTML = '';
+        });
+        document.getElementById('submissionButtons').style.visibility = 'hidden';
+        return;
+    }
+
+    json = pool;
+
+    buildQuestion(question);
+
+    ['A', 'B', 'C', 'D'].forEach(id => {
+        document.getElementById(id).disabled = false;
+        document.getElementById(id).checked = false;
+    });
+    selectedAnswer = '';
+    document.getElementById('submit').disabled = true;
+}
+
+// ── Session summary ──────────────────────────────────────────────────────────
+const DOMAIN_DISPLAY = [
+    'Algebra',
+    'Advanced Math',
+    'Problem-Solving and Data Analysis',
+    'Geometry and Trigonometry',
+];
+const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
+
+async function completeSession() {
+    closeRationaleOverlay();
+    document.querySelector('.quiz-area').style.display = 'none';
+    const view = document.getElementById('session-view');
+    view.style.display = 'block';
+    view.innerHTML = '<div class="session-loading">Loading session data…</div>';
+
+    if (localMode) {
+        view.innerHTML = '<div class="session-loading">Sign in to view your session summary.</div>';
+        return;
+    }
+    try {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const res = await authFetch('/api/sat-math/session?since=' + startOfDay.getTime());
+        const data = await res.json();
+        renderSession(data);
+    } catch (err) {
+        view.innerHTML = '<div class="session-loading" style="color:#ef4444">Error loading session data.</div>';
+    }
+}
+
+function backToPractice() {
+    document.getElementById('session-view').style.display = 'none';
+    document.querySelector('.quiz-area').style.display = '';
+}
+
+function renderSession(data) {
+    const view = document.getElementById('session-view');
+    const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    let totalCorrect = 0, totalAttempts = 0;
+    data.domains.forEach(d => d.skills.forEach(s => { totalCorrect += s.correct; totalAttempts += s.total; }));
+
+    let html = '<div class="session-header">';
+    html += '<div class="session-header-top">';
+    html += '<div><p class="session-date">' + dateStr + '</p>';
+    html += '<h2 class="session-title">Session Summary</h2></div>';
+    if (totalAttempts > 0) {
+        const pct = Math.round(totalCorrect / totalAttempts * 100);
+        html += '<div class="session-total-block">';
+        html += '<span class="session-total-num">' + totalCorrect + ' / ' + totalAttempts + '</span>';
+        html += '<span class="session-total-label">' + pct + '% overall</span>';
+        html += '</div>';
+    }
+    html += '</div>';
+    html += '<button class="btn btn-outline session-back-btn" onclick="backToPractice()">&#8592; Back to Practice</button>';
+    html += '</div>';
+
+    if (data.domains.length === 0) {
+        html += '<div class="session-empty">No questions answered today. Start practicing to see your session summary here.</div>';
+        view.innerHTML = html;
+        return;
+    }
+
+    html += '<div class="session-domains-grid">';
+    data.domains.forEach(function(domain) {
+        const color = DOMAIN_COLORS[domain.idx] || '#64748b';
+        let dc = 0, dt = 0;
+        domain.skills.forEach(s => { dc += s.correct; dt += s.total; });
+
+        html += '<div class="session-domain-card">';
+        html += '<div class="session-domain-header" style="border-left:3px solid ' + color + '">';
+        html += '<span class="session-domain-name" style="color:' + color + '">' + domain.name + '</span>';
+        html += '<span class="session-domain-tally">' + dc + ' / ' + dt + '</span>';
+        html += '</div>';
+
+        html += '<div class="session-skills">';
+        domain.skills.forEach(function(skill) {
+            html += '<div class="session-skill">';
+            html += '<div class="session-skill-row">';
+            html += '<span class="session-skill-name">' + (skill.skill || 'General') + '</span>';
+            html += '<span class="session-skill-count">' + skill.correct + ' / ' + skill.total + '</span>';
+            html += '</div>';
+
+            html += '<div class="session-pills">';
+            ['Easy', 'Medium', 'Hard'].forEach(function(diff) {
+                const d = skill.byDifficulty[diff];
+                if (!d || d.total === 0) return;
+                const pct = d.correct / d.total;
+                const cls = pct >= 0.8 ? 'pill-good' : pct >= 0.5 ? 'pill-ok' : 'pill-bad';
+                html += '<span class="session-pill ' + cls + '">' + diff + ' ' + d.correct + '/' + d.total + '</span>';
+            });
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '</div>';
+    });
+    html += '</div>';
+
+    view.innerHTML = html;
+}
+
+async function reportQuestion() {
+    if (localMode) { nextQuestion(); return; }
+    const question = json[roll];
+    try {
+        await authFetch('/api/sat-math/report', {
+            method: 'POST',
+            body: JSON.stringify({
+                questionId: question.ID,
+                domainIdx: currentDomainIdx,
+            }),
+        });
+        document.getElementById('submitMessage').innerHTML = 'Question reported';
+    } catch (err) {
+        console.error(err);
+        document.getElementById('submitMessage').innerHTML = 'Error reporting question';
+    }
+    nextQuestion();
+}
+
+function showRationaleOverlay(correct, selected, answer) {
+    const badge = document.getElementById('rationale-badge');
+    const rationaleEl = document.getElementById('Rationale');
+    if (correct) {
+        badge.textContent = '✓ Correct!';
+        badge.className = 'rationale-result-badge rationale-result-badge--correct';
+        rationaleEl.style.background = '#f0fdf4';
+        rationaleEl.style.borderColor = '#bbf7d0';
+    } else {
+        badge.innerHTML = '✗ Incorrect — correct answer was <strong>' + answer + '</strong>';
+        badge.className = 'rationale-result-badge rationale-result-badge--incorrect';
+        rationaleEl.style.background = '#fefce8';
+        rationaleEl.style.borderColor = '#fde68a';
+    }
+    document.getElementById('rationale-overlay').style.display = '';
+
+    const pop = document.createElement('div');
+    pop.className = 'result-pop result-pop--' + (correct ? 'correct' : 'incorrect');
+    pop.textContent = correct ? '✓' : '✗';
+    document.body.appendChild(pop);
+    setTimeout(function () { pop.remove(); }, 1000);
+}
+
+function closeRationaleOverlay() {
+    const el = document.getElementById('rationale-overlay');
+    if (el) el.style.display = 'none';
+}
