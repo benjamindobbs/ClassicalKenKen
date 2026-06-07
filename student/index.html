@@ -15,7 +15,7 @@
         .daily-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 0 0 1rem; }
         .progress-rows { display: flex; flex-direction: column; gap: 0.75rem; }
         .progress-row { display: flex; align-items: center; gap: 1rem; }
-        .progress-label { font-size: 0.8125rem; font-weight: 600; color: #334155; width: 80px; flex-shrink: 0; }
+        .progress-label { font-size: 0.8125rem; font-weight: 600; color: #334155; width: 96px; flex-shrink: 0; }
         .progress-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 9999px; height: 10px; overflow: hidden; }
         .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
         .progress-bar-fill.done   { background: #16a34a; }
@@ -80,7 +80,7 @@
         <a class="nav-brand" href="../index.html">Classical Technology</a>
         <div class="nav-links">
             <a href="../KenKen/">Play KenKen</a>
-            <a href="../SAT-Questions/">Practice SAT</a>
+            <a href="../SAT-Questions/">SAT English</a>
             <a href="../SAT-Math/">SAT Math</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
@@ -129,7 +129,7 @@
                 </div>
                 <div class="chart-card"><canvas id="kk-chart"></canvas></div>
 
-                <div class="section-heading">SAT Accuracy Over Time</div>
+                <div class="section-heading">SAT English Accuracy Over Time</div>
                 <p class="chart-subtitle">Accuracy % per domain per day</p>
                 <div class="date-row">
                     <label>From</label><input type="date" id="sat-line-from" />
@@ -138,7 +138,7 @@
                 </div>
                 <div class="chart-card"><canvas id="sat-line-chart"></canvas></div>
 
-                <div class="section-heading">SAT Accuracy by Domain &amp; Skill</div>
+                <div class="section-heading">SAT English Accuracy by Domain &amp; Skill</div>
                 <p class="chart-subtitle">Bar height = domain accuracy %; each segment is one skill</p>
                 <div class="date-row">
                     <label>From</label><input type="date" id="bar-from" />
@@ -147,6 +147,25 @@
                 </div>
                 <div class="bar-legend" id="bar-legend"></div>
                 <div class="chart-card"><canvas id="sat-bar-chart"></canvas></div>
+
+                <div class="section-heading">SAT Math Accuracy Over Time</div>
+                <p class="chart-subtitle">Accuracy % per domain per day</p>
+                <div class="date-row">
+                    <label>From</label><input type="date" id="math-line-from" />
+                    <label>to</label><input type="date" id="math-line-to" />
+                    <button class="btn btn-outline btn-xs" onclick="renderMathLineChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="math-line-chart"></canvas></div>
+
+                <div class="section-heading">SAT Math Accuracy by Domain &amp; Skill</div>
+                <p class="chart-subtitle">Bar height = domain accuracy %; each segment is one skill</p>
+                <div class="date-row">
+                    <label>From</label><input type="date" id="math-bar-from" />
+                    <label>to</label><input type="date" id="math-bar-to" />
+                    <button class="btn btn-outline btn-xs" onclick="renderMathBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="math-bar-legend"></div>
+                <div class="chart-card"><canvas id="math-bar-chart"></canvas></div>
             </div>
 
             <!-- Microcredentials -->
@@ -181,8 +200,17 @@
         ];
         const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316'];
 
+        const MATH_DOMAIN_DISPLAY = [
+            'Algebra',
+            'Advanced Math',
+            'Problem-Solving and Data Analysis',
+            'Geometry and Trigonometry',
+        ];
+        const MATH_DOMAIN_COLORS = ['#ef4444', '#8b5cf6', '#14b8a6', '#f59e0b'];
+
         let kenkenData = [];
         let satData    = [];
+        let mathData   = [];
         const chartInst = {};
 
         function hexToRgba(hex, alpha) {
@@ -213,25 +241,33 @@
             const data = await res.json();
             if (!data.settings) return;
 
-            const act       = data.settings.required_activity;
-            const today     = data.today;
+            const act      = data.settings.required_activity;
+            const today    = data.today;
             const remaining = data.remaining;
-            const reqKk     = data.settings.required_kenken_count;
-            const reqSat    = data.settings.required_sat_count;
+            const reqKk    = data.settings.required_kenken_count;
+            const reqSat   = data.settings.required_sat_count;
+            const reqMath  = data.settings.required_sat_math_count;
 
-            const showKk  = act === 'kenken' || act === 'both' || act === 'either';
-            const showSat = act === 'sat'    || act === 'both' || act === 'either';
+            const showKk   = ['kenken','both','either','kenken-math','all'].includes(act);
+            const showSat  = ['sat','both','either','sat-both','all'].includes(act);
+            const showMath = ['sat-math','sat-both','kenken-math','all'].includes(act);
 
-            const kkDone  = Math.min(today.kenken, reqKk);
-            const satDone = Math.min(today.sat,    reqSat);
-            const kkPct   = reqKk  ? Math.round(kkDone  / reqKk  * 100) : 0;
-            const satPct  = reqSat ? Math.round(satDone / reqSat * 100) : 0;
+            const kkDone   = Math.min(today.kenken,   reqKk);
+            const satDone  = Math.min(today.sat,      reqSat);
+            const mathDone = Math.min(today.sat_math || 0, reqMath);
+            const kkPct    = reqKk   ? Math.round(kkDone   / reqKk   * 100) : 0;
+            const satPct   = reqSat  ? Math.round(satDone  / reqSat  * 100) : 0;
+            const mathPct  = reqMath ? Math.round(mathDone / reqMath * 100) : 0;
 
             let allDone = false;
-            if (act === 'both')   allDone = remaining.kenken === 0 && remaining.sat === 0;
-            if (act === 'kenken') allDone = remaining.kenken === 0;
-            if (act === 'sat')    allDone = remaining.sat    === 0;
-            if (act === 'either') allDone = remaining.kenken === 0 || remaining.sat === 0;
+            if (act === 'kenken')      allDone = remaining.kenken === 0;
+            if (act === 'sat')         allDone = remaining.sat    === 0;
+            if (act === 'sat-math')    allDone = remaining.sat_math === 0;
+            if (act === 'both')        allDone = remaining.kenken === 0 && remaining.sat === 0;
+            if (act === 'sat-both')    allDone = remaining.sat    === 0 && remaining.sat_math === 0;
+            if (act === 'kenken-math') allDone = remaining.kenken === 0 && remaining.sat_math === 0;
+            if (act === 'all')         allDone = remaining.kenken === 0 && remaining.sat === 0 && remaining.sat_math === 0;
+            if (act === 'either')      allDone = remaining.kenken === 0 || remaining.sat === 0;
 
             const rows = [];
             if (showKk) rows.push(`
@@ -244,15 +280,23 @@
                 </div>`);
             if (showSat) rows.push(`
                 <div class="progress-row">
-                    <span class="progress-label">SAT</span>
+                    <span class="progress-label">SAT English</span>
                     <div class="progress-bar-wrap">
                         <div class="progress-bar-fill ${satPct >= 100 ? 'done' : 'active'}" style="width:${satPct}%"></div>
                     </div>
                     <span class="progress-count">${satDone} / ${reqSat}</span>
                 </div>`);
+            if (showMath) rows.push(`
+                <div class="progress-row">
+                    <span class="progress-label">SAT Math</span>
+                    <div class="progress-bar-wrap">
+                        <div class="progress-bar-fill ${mathPct >= 100 ? 'done' : 'active'}" style="width:${mathPct}%"></div>
+                    </div>
+                    <span class="progress-count">${mathDone} / ${reqMath}</span>
+                </div>`);
 
             const eitherNote = act === 'either'
-                ? '<p class="either-note">Complete either KenKen or SAT to fulfill today&rsquo;s requirement.</p>' : '';
+                ? '<p class="either-note">Complete either KenKen or SAT English to fulfill today&rsquo;s requirement.</p>' : '';
 
             const completeMsg = allDone
                 ? '<div class="daily-complete">&#10003; Today\'s assignment is complete!</div>' : '';
@@ -267,10 +311,11 @@
             const res  = await authFetch('/api/student/scores');
             if (!res.ok) return;
             const data = await res.json();
-            kenkenData = data.kenken || [];
-            satData    = data.sat    || [];
+            kenkenData = data.kenken    || [];
+            satData    = data.sat       || [];
+            mathData   = data.sat_math  || [];
 
-            if (!kenkenData.length && !satData.length) return;
+            if (!kenkenData.length && !satData.length && !mathData.length) return;
             document.getElementById('charts-section').style.display = '';
 
             if (kenkenData.length) {
@@ -285,10 +330,21 @@
                 document.getElementById('bar-from').value = dates[0];
                 document.getElementById('bar-to').value   = dates[dates.length - 1];
             }
+            if (mathData.length) {
+                const dates = mathData.map(r => new Date(r.submitted_at).toISOString().slice(0,10)).sort();
+                document.getElementById('math-line-from').value = dates[0];
+                document.getElementById('math-line-to').value   = dates[dates.length - 1];
+                document.getElementById('math-bar-from').value  = dates[0];
+                document.getElementById('math-bar-to').value    = dates[dates.length - 1];
+            }
 
             renderKenKenChart();
             renderSatLineChart();
             renderBarChart();
+            if (mathData.length) {
+                renderMathLineChart();
+                renderMathBarChart();
+            }
         }
 
         function renderKenKenChart() {
@@ -402,6 +458,92 @@
             chartInst['sat-bar-chart'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels: DOMAIN_DISPLAY, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } } },
+                    scales: { x: { stacked: true }, y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } } },
+                },
+            });
+        }
+
+        function renderMathLineChart() {
+            destroyChart('math-line-chart');
+            const from = document.getElementById('math-line-from').value;
+            const to   = document.getElementById('math-line-to').value;
+            const rows = mathData.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+            const byDateDomain = {};
+            rows.forEach(r => {
+                const d  = new Date(r.submitted_at).toISOString().slice(0,10);
+                const di = Number(r.domain_idx);
+                if (!byDateDomain[d]) byDateDomain[d] = {};
+                if (!byDateDomain[d][di]) byDateDomain[d][di] = { correct: 0, total: 0 };
+                byDateDomain[d][di].correct += Number(r.correct);
+                byDateDomain[d][di].total   += 1;
+            });
+            const dates = Object.keys(byDateDomain).sort();
+            const ctx = document.getElementById('math-line-chart').getContext('2d');
+            chartInst['math-line-chart'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: MATH_DOMAIN_DISPLAY.map((name, idx) => ({
+                        label: name,
+                        data: dates.map(d => { const e = byDateDomain[d]?.[idx]; return e ? Math.round(e.correct / e.total * 100) : null; }),
+                        borderColor: MATH_DOMAIN_COLORS[idx], backgroundColor: hexToRgba(MATH_DOMAIN_COLORS[idx], 0.08),
+                        pointBackgroundColor: MATH_DOMAIN_COLORS[idx],
+                        spanGaps: true, tension: 0.3, borderWidth: 2, pointRadius: 4, fill: false,
+                    })),
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 11 } } },
+                        tooltip: { callbacks: { label: i => `${i.dataset.label}: ${i.raw}%` } } },
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Date' } } },
+                },
+            });
+        }
+
+        function renderMathBarChart() {
+            destroyChart('math-bar-chart');
+            const from = document.getElementById('math-bar-from').value;
+            const to   = document.getElementById('math-bar-to').value;
+            const rows = mathData.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+            const domainSkillMap = {}, domainTotals = {};
+            rows.forEach(r => {
+                const di = Number(r.domain_idx), sk = r.skill || 'Unknown';
+                if (!domainSkillMap[di]) domainSkillMap[di] = {};
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                domainSkillMap[di][sk].correct += Number(r.correct);
+                domainTotals[di] = (domainTotals[di] || 0) + 1;
+            });
+            const alphas = [1.0, 0.65, 0.42, 0.28], datasets = [], legendItems = [];
+            MATH_DOMAIN_DISPLAY.forEach((_, di) => {
+                const skills = Object.keys(domainSkillMap[di] || {});
+                const total  = domainTotals[di] || 1;
+                skills.forEach((sk, si) => {
+                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const alpha = alphas[si] ?? 0.2;
+                    const bg    = hexToRgba(MATH_DOMAIN_COLORS[di], alpha);
+                    datasets.push({ label: sk, data: MATH_DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
+                        backgroundColor: bg, borderColor: hexToRgba(MATH_DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
+                        borderWidth: 1, borderRadius: 2 });
+                    legendItems.push({ label: sk, color: bg });
+                });
+            });
+            document.getElementById('math-bar-legend').innerHTML = legendItems.map(it =>
+                `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
+            ).join('');
+            const ctx = document.getElementById('math-bar-chart').getContext('2d');
+            chartInst['math-bar-chart'] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: MATH_DOMAIN_DISPLAY, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } } },

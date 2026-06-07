@@ -90,7 +90,10 @@ router.get('/scores', (req, res) => {
     const sat = db.prepare(
         'SELECT correct, domain_idx, skill, submitted_at FROM sat_scores WHERE user_key = ? ORDER BY submitted_at'
     ).all(req.userKey);
-    res.json({ kenken, sat });
+    const satMath = db.prepare(
+        'SELECT correct, domain_idx, skill, submitted_at FROM sat_math_scores WHERE user_key = ? ORDER BY submitted_at'
+    ).all(req.userKey);
+    res.json({ kenken, sat, sat_math: satMath });
 });
 
 // GET /api/student/microcredentials — MC progress for the signed-in student across all classes
