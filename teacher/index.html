@@ -466,29 +466,34 @@
                 <div class="section-title">Assignment Requirements</div>
                 <div class="settings-card">
                     <div class="settings-field" style="margin-bottom:1.25rem">
-                        <label class="settings-label">Required Activity</label>
+                        <label class="settings-label" style="margin-bottom:0.5rem">Required Activities</label>
                         <div class="activity-options">
-                            <label class="activity-option"><input type="radio" name="req-activity" value="kenken"   onchange="updateActivityUI()"><span>KenKen</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="sat"      onchange="updateActivityUI()"><span>SAT English</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="sat-math" onchange="updateActivityUI()"><span>SAT Math</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="both"     onchange="updateActivityUI()"><span>KenKen + SAT</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="sat-both" onchange="updateActivityUI()"><span>Both SATs</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="all"      onchange="updateActivityUI()"><span>All Three</span></label>
-                            <label class="activity-option"><input type="radio" name="req-activity" value="either"   onchange="updateActivityUI()"><span>Either</span></label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-kenken" onchange="updateActivityUI()">
+                                <span>KenKen</span>
+                            </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-sat-math" onchange="updateActivityUI()">
+                                <span>SAT Math</span>
+                            </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-sat-english" onchange="updateActivityUI()">
+                                <span>SAT English</span>
+                            </label>
                         </div>
                     </div>
                     <div class="settings-grid">
-                        <div class="settings-field" id="ar-kenken-field">
-                            <label class="settings-label">KenKen Submissions / Day</label>
+                        <div class="settings-field" id="ar-kenken-field" style="display:none">
+                            <label class="settings-label">KenKen Correct / Day</label>
                             <input type="number" id="ar-kenken-count" min="1" step="1" placeholder="1" />
                         </div>
-                        <div class="settings-field" id="ar-sat-field">
-                            <label class="settings-label">SAT English Submissions / Day</label>
-                            <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
-                        </div>
-                        <div class="settings-field" id="ar-sat-math-field">
-                            <label class="settings-label">SAT Math Submissions / Day</label>
+                        <div class="settings-field" id="ar-sat-math-field" style="display:none">
+                            <label class="settings-label">SAT Math Correct / Day</label>
                             <input type="number" id="ar-sat-math-count" min="1" step="1" placeholder="1" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-field" style="display:none">
+                            <label class="settings-label">SAT English Correct / Day</label>
+                            <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
@@ -1211,30 +1216,44 @@
         }
 
         function updateActivityUI() {
-            const act = document.querySelector('input[name="req-activity"]:checked')?.value || 'either';
-            document.getElementById('ar-kenken-field').style.display   = ['kenken','both','either','all'].includes(act)          ? '' : 'none';
-            document.getElementById('ar-sat-field').style.display      = ['sat','both','either','sat-both','all'].includes(act)  ? '' : 'none';
-            document.getElementById('ar-sat-math-field').style.display = ['sat-math','sat-both','all'].includes(act)             ? '' : 'none';
+            const k = document.getElementById('req-kenken').checked;
+            const m = document.getElementById('req-sat-math').checked;
+            const e = document.getElementById('req-sat-english').checked;
+            document.getElementById('ar-kenken-field').style.display   = k ? '' : 'none';
+            document.getElementById('ar-sat-math-field').style.display = m ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display      = e ? '' : 'none';
         }
 
         async function loadAssignmentSettings() {
             const res  = await teacherFetch('/api/teacher/assignment-settings');
             const data = await res.json();
             assignmentSettingsData = data;
-            const radio = document.querySelector(`input[name="req-activity"][value="${data.required_activity}"]`);
-            if (radio) radio.checked = true;
-            document.getElementById('ar-kenken-count').value    = data.required_kenken_count;
-            document.getElementById('ar-sat-count').value       = data.required_sat_count;
-            document.getElementById('ar-sat-math-count').value  = data.required_sat_math_count ?? 1;
+            const act = data.required_activity || 'either';
+            document.getElementById('req-kenken').checked      = ['kenken','both','kenken-math','all','either'].includes(act);
+            document.getElementById('req-sat-math').checked    = ['sat-math','sat-both','kenken-math','all'].includes(act);
+            document.getElementById('req-sat-english').checked = ['sat','both','sat-both','all','either'].includes(act);
+            document.getElementById('ar-kenken-count').value   = data.required_kenken_count;
+            document.getElementById('ar-sat-count').value      = data.required_sat_count;
+            document.getElementById('ar-sat-math-count').value = data.required_sat_math_count ?? 1;
             updateActivityUI();
         }
 
         async function saveAssignmentSettings() {
-            const required_activity       = document.querySelector('input[name="req-activity"]:checked')?.value;
-            const required_kenken_count   = parseInt(document.getElementById('ar-kenken-count').value)    || 1;
-            const required_sat_count      = parseInt(document.getElementById('ar-sat-count').value)       || 1;
-            const required_sat_math_count = parseInt(document.getElementById('ar-sat-math-count').value)  || 1;
-            if (!required_activity) return;
+            const k = document.getElementById('req-kenken').checked;
+            const m = document.getElementById('req-sat-math').checked;
+            const e = document.getElementById('req-sat-english').checked;
+            let required_activity;
+            if (k && m && e)  required_activity = 'all';
+            else if (k && e)  required_activity = 'both';
+            else if (e && m)  required_activity = 'sat-both';
+            else if (k && m)  required_activity = 'kenken-math';
+            else if (k)       required_activity = 'kenken';
+            else if (m)       required_activity = 'sat-math';
+            else if (e)       required_activity = 'sat';
+            else              required_activity = 'either';
+            const required_kenken_count   = parseInt(document.getElementById('ar-kenken-count').value)   || 1;
+            const required_sat_count      = parseInt(document.getElementById('ar-sat-count').value)      || 1;
+            const required_sat_math_count = parseInt(document.getElementById('ar-sat-math-count').value) || 1;
             await teacherFetch('/api/teacher/assignment-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

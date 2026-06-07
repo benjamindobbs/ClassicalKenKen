@@ -35,9 +35,15 @@
             </a>
             <a class="app-card" href="./SAT-Questions/">
                 <span class="app-card-label">Test Prep</span>
-                <h2>SAT Practice</h2>
-                <p>Targeted English reading and writing questions matched to your current level</p>
+                <h2>SAT English</h2>
+                <p>Targeted reading and writing questions matched to your current level</p>
                 <div id="sat-badge" class="daily-badge" style="display:none"></div>
+            </a>
+            <a class="app-card" href="./SAT-Math/">
+                <span class="app-card-label">Test Prep</span>
+                <h2>SAT Math</h2>
+                <p>Adaptive algebra, advanced math, data analysis, and geometry questions matched to your level</p>
+                <div id="sat-math-badge" class="daily-badge" style="display:none"></div>
             </a>
             <a class="app-card" href="./student/">
                 <span class="app-card-label">Student Dashboard</span>
@@ -70,10 +76,12 @@
                 if (!settings) return;
 
                 const act = settings.required_activity;
-                if (['kenken', 'both', 'either'].includes(act))
+                if (['kenken', 'both', 'either', 'kenken-math', 'all'].includes(act))
                     setBadge('kenken-badge', today.kenken, settings.required_kenken_count);
-                if (['sat', 'both', 'either'].includes(act))
+                if (['sat', 'both', 'either', 'sat-both', 'all'].includes(act))
                     setBadge('sat-badge', today.sat, settings.required_sat_count);
+                if (['sat-math', 'sat-both', 'kenken-math', 'all'].includes(act))
+                    setBadge('sat-math-badge', today.sat_math, settings.required_sat_math_count);
             } catch (_) {}
         })();
 

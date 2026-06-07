@@ -62,6 +62,9 @@ router.get('/daily-progress', (req, res) => {
     } else if (act === 'sat-both') {
         remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
         remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
+    } else if (act === 'kenken-math') {
+        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
+        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
     } else if (act === 'all') {
         remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
         remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);

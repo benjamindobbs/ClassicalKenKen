@@ -21,7 +21,7 @@ radios.forEach(radio => {
 });
 
 const ENGLISH_QUESTION_FILES = {
-    'sat':        '../SAT-Questions/2026-SAT-Questions.json',
+    'sat':        '../SAT-Questions/SAT-English-Questions.json',
     'psat-nmsqt': '../SAT-Questions/PSAT-English-Questions.json',
     'psat89':     '../SAT-Questions/PSAT89-English-Questions.json',
 };
