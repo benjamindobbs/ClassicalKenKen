@@ -231,11 +231,16 @@
                 </div>
                 <div class="chart-card"><canvas id="all-kenken-chart"></canvas></div>
 
-                <div class="section-title">SAT Accuracy Over Time</div>
+                <div class="section-title">SAT English Accuracy Over Time</div>
                 <p class="lookup-note">Accuracy % per domain per day across all students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-sat-line-from" />
+                    <label>to</label><input type="date" id="all-sat-line-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllSATLineChart()">Apply</button>
+                </div>
                 <div class="chart-card"><canvas id="all-sat-line-chart"></canvas></div>
 
-                <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
+                <div class="section-title">SAT English Accuracy by Domain &amp; Skill</div>
                 <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
                 <div class="date-range-row">
                     <label>From</label><input type="date" id="all-bar-from" />
@@ -244,6 +249,25 @@
                 </div>
                 <div class="bar-legend" id="all-bar-legend"></div>
                 <div class="chart-card"><canvas id="all-sat-bar-chart"></canvas></div>
+
+                <div class="section-title">SAT Math Accuracy Over Time</div>
+                <p class="lookup-note">Accuracy % per domain per day across all students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-math-line-from" />
+                    <label>to</label><input type="date" id="all-math-line-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllMathLineChart()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-math-line-chart"></canvas></div>
+
+                <div class="section-title">SAT Math Accuracy by Domain &amp; Skill</div>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-math-bar-from" />
+                    <label>to</label><input type="date" id="all-math-bar-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllMathBarChart()">Apply</button>
+                </div>
+                <div class="bar-legend" id="all-math-bar-legend"></div>
+                <div class="chart-card"><canvas id="all-math-bar-chart"></canvas></div>
             </div>
         </div>
 
@@ -664,52 +688,40 @@
         }
 
         function renderAll() {
-            const el = document.getElementById('data-content');
-            el.innerHTML =
-                renderSection('Users',           rawData.users,              ['user_key','email','first_seen']) +
-                renderSection('KenKen Scores',   rawData.kenken,             ['id','user_key','email','score','size','submitted_at']) +
-                renderSection('SAT Scores',      rawData.sat,                ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']) +
-                renderSection('SAT Math Scores', rawData.sat_math || [],     ['id','user_key','email','correct','domain_idx','skill','difficulty','submitted_at']);
-            el.querySelectorAll('th[data-col]').forEach(th => th.addEventListener('click', () => sortTable(th)));
+            const satMath = rawData.sat_math || [];
+
+            if (rawData.kenken.length > 0) {
+                const kDates = rawData.kenken.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('all-kenken-from').value = kDates[0];
+                document.getElementById('all-kenken-to').value   = kDates[kDates.length - 1];
+            }
+            if (rawData.sat.length > 0) {
+                const sDates = rawData.sat.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('all-sat-line-from').value = sDates[0];
+                document.getElementById('all-sat-line-to').value   = sDates[sDates.length - 1];
+                document.getElementById('all-bar-from').value = sDates[0];
+                document.getElementById('all-bar-to').value   = sDates[sDates.length - 1];
+            }
+            if (satMath.length > 0) {
+                const mDates = satMath.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                document.getElementById('all-math-line-from').value = mDates[0];
+                document.getElementById('all-math-line-to').value   = mDates[mDates.length - 1];
+                document.getElementById('all-math-bar-from').value  = mDates[0];
+                document.getElementById('all-math-bar-to').value    = mDates[mDates.length - 1];
+            }
+
+            renderAllKenKenChart();
+            renderAllSATLineChart();
+            renderAllBarChart();
+            renderAllMathLineChart();
+            renderAllMathBarChart();
         }
 
-        function renderSection(title, rows, cols) {
-            const id    = title.replace(/\s+/g, '-').toLowerCase();
-            const heads = cols.map(c => `<th data-table="${id}" data-col="${c}">${c}</th>`).join('');
-            const body  = rows.map(r => '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>').join('');
-            return `<div class="section-title">${title}<span class="section-count">(${rows.length} rows)</span></div>
-                <div class="portal-table-wrap">
-                    <table class="portal-table" id="tbl-${id}">
-                        <thead><tr>${heads}</tr></thead>
-                        <tbody>${body}</tbody>
-                    </table>
-                </div>`;
-        }
-
-        function fmt(col, val) {
-            if (val === null || val === undefined) return '&mdash;';
-            if (col === 'submitted_at' || col === 'first_seen') return new Date(val).toLocaleString();
-            return String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        }
-
-        function sortTable(th) {
-            const tableId = th.getAttribute('data-table');
-            const col     = th.getAttribute('data-col');
-            const table   = document.getElementById('tbl-' + tableId);
-            const wasAsc  = th.classList.contains('sort-asc');
-            table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
-            th.classList.add(wasAsc ? 'sort-desc' : 'sort-asc');
-            const asc = !wasAsc;
-            const dataKey = tableId === 'users' ? 'users' : tableId === 'kenken-scores' ? 'kenken' : tableId === 'sat-math-scores' ? 'sat_math' : 'sat';
-            const cols    = [...table.querySelectorAll('th')].map(h => h.getAttribute('data-col'));
-            const sorted  = [...rawData[dataKey]].sort((a, b) => {
-                const av = a[col], bv = b[col];
-                return av === bv ? 0 : (av < bv ? -1 : 1) * (asc ? 1 : -1);
-            });
-            table.querySelector('tbody').innerHTML = sorted.map(r =>
-                '<tr>' + cols.map(c => `<td>${fmt(c, r[c])}</td>`).join('') + '</tr>'
-            ).join('');
-        }
+        function renderAllKenKenChart()  { buildKenKenChart('all-kenken-chart', rawData.kenken, 'all-kenken-from', 'all-kenken-to'); }
+        function renderAllSATLineChart() { buildSATLineChart('all-sat-line-chart', rawData.sat, 'all-sat-line-from', 'all-sat-line-to'); }
+        function renderAllBarChart()     { buildSATBarChart('all-sat-bar-chart', rawData.sat, 'all-bar-from', 'all-bar-to', 'all-bar-legend'); }
+        function renderAllMathLineChart() { buildSATLineChart('all-math-line-chart', rawData.sat_math || [], 'all-math-line-from', 'all-math-line-to', MATH_DOMAIN_DISPLAY); }
+        function renderAllMathBarChart()  { buildSATBarChart('all-math-bar-chart', rawData.sat_math || [], 'all-math-bar-from', 'all-math-bar-to', 'all-math-bar-legend', MATH_DOMAIN_DISPLAY); }
 
         // ── Tab switching ─────────────────────────────────────────────────────
         const TAB_SUBTITLES = {
