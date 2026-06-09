@@ -42,6 +42,38 @@ After reviewing the data we decided that we should continue utilizing KenKen puz
 - Spreadsheet converts the KenKen score to a point value
 - Tab sheet can be downloaded as CSV then uploaded directly to PowerSchool assignment
 
+## SAT Question Serving Logic
+
+When a student requests the next SAT question (`GET /api/sat/next` or `/api/sat-math/next`), the server determines which domain, skill, and difficulty to serve using the following steps:
+
+### 1. Determine Allowed Domains
+The student's class settings may restrict which domains are active (e.g., a teacher might only enable 2 of 4 domains). If no restriction exists, all 4 domains are allowed.
+
+### 2. Pull the Last 25 Attempts Per (Domain, Skill, Difficulty)
+A SQL window function selects the most recent 25 rows for each unique (domain, skill, difficulty) combination. This means old struggles don't permanently suppress a student's difficulty level — only recent performance counts.
+
+### 3. Build an Accuracy Map
+The raw rows are aggregated in JS into a lookup keyed by `"domainIdx|skill|difficulty"`, storing attempt count and accuracy for each combination.
+
+### 4. Build the Candidate List
+
+**Unseen domains** (no attempts ever): enter the pool with `weight: 1.0` (equivalent to 0% accuracy) at Easy difficulty.
+
+**Seen (domain, skill) combos**: the target difficulty is determined by walking up the tiers sequentially:
+- Start at Easy
+- Advance to Medium only if the student has ≥5 Easy attempts **and** accuracy > 70%
+- Advance to Hard only if they also meet that threshold at Medium
+
+The **inverse-accuracy weight** is then computed: `weight = max(0.05, 1 - accuracy)`:
+- 0% accuracy → weight 1.0 (most likely to be picked)
+- 75% accuracy → weight 0.25
+- 100% accuracy → weight 0.05 (floor — mastered areas still appear occasionally)
+
+### 5. Weighted Random Pick
+A random number in `[0, totalWeight)` is walked through the candidate list. Higher-weight candidates occupy a larger share of that range, so lower-accuracy areas are proportionally more likely to be selected.
+
+**Result**: the endpoint returns `{ domainIdx, skill, difficulty }` and the client fetches a question matching those parameters.
+
 ## Notes
 
 ### Calculating KenKen Score
