@@ -33,6 +33,26 @@ router.post('/score', (req, res) => {
 
 // GET /api/sat-math/next  → { domainIdx, skill, difficulty }
 router.get('/next', (req, res) => {
+    // Resolve per-class domain restrictions for this student
+    const classRows = db.prepare(`
+        SELECT c.sat_math_domains
+        FROM class_students cs
+        JOIN classes c ON c.id = cs.class_id
+        WHERE cs.user_key = ? AND c.sat_math_domains IS NOT NULL
+    `).all(req.userKey);
+
+    let allowedDomains = null;
+    if (classRows.length > 0) {
+        const allowed = new Set();
+        for (const { sat_math_domains } of classRows) {
+            sat_math_domains.split(',').map(Number).forEach(d => allowed.add(d));
+        }
+        allowedDomains = allowed;
+    }
+    const ALL_DOMAINS = [0, 1, 2, 3];
+    const activeDomains = allowedDomains ? ALL_DOMAINS.filter(d => allowedDomains.has(d)) : ALL_DOMAINS;
+    if (activeDomains.length === 0) return res.json({ domainIdx: ALL_DOMAINS[Math.floor(Math.random() * 4)], skill: '', difficulty: 'Easy' });
+
     const rows = db.prepare(`
         SELECT domain_idx, skill, difficulty,
                COUNT(*) AS attempts,
@@ -43,11 +63,11 @@ router.get('/next', (req, res) => {
     `).all(req.userKey);
 
     if (rows.length === 0) {
-        return res.json({ domainIdx: Math.floor(Math.random() * 4), skill: '', difficulty: 'Easy' });
+        return res.json({ domainIdx: activeDomains[Math.floor(Math.random() * activeDomains.length)], skill: '', difficulty: 'Easy' });
     }
 
     const seenDomains = new Set(rows.map(r => r.domain_idx));
-    const unseenDomains = [0, 1, 2, 3].filter(d => !seenDomains.has(d));
+    const unseenDomains = activeDomains.filter(d => !seenDomains.has(d));
     if (unseenDomains.length > 0) {
         const domainIdx = unseenDomains[Math.floor(Math.random() * unseenDomains.length)];
         return res.json({ domainIdx, skill: '', difficulty: 'Easy' });
@@ -67,6 +87,7 @@ router.get('/next', (req, res) => {
 
     for (const combo of seen) {
         const [domainIdx, skill] = combo.split('|');
+        if (!activeDomains.includes(Number(domainIdx))) continue;
         let targetDifficulty = 'Easy';
 
         for (let i = 0; i < DIFFICULTIES.length - 1; i++) {
@@ -80,6 +101,10 @@ router.get('/next', (req, res) => {
         }
 
         candidates.push({ domainIdx: Number(domainIdx), skill, difficulty: targetDifficulty });
+    }
+
+    if (candidates.length === 0) {
+        return res.json({ domainIdx: activeDomains[Math.floor(Math.random() * activeDomains.length)], skill: '', difficulty: 'Easy' });
     }
 
     const pick = candidates[Math.floor(Math.random() * candidates.length)];

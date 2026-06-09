@@ -237,6 +237,19 @@ router.patch('/classes/:id', requireTeacher, (req, res) => {
         updates.push('assessment_type = ?');
         params.push(req.body.assessment_type);
     }
+    for (const field of ['sat_english_domains', 'sat_math_domains']) {
+        if (req.body[field] !== undefined) {
+            const raw = req.body[field];
+            let stored = null;
+            if (raw !== null) {
+                const indices = Array.isArray(raw) ? raw : String(raw).split(',');
+                const valid   = indices.map(Number).filter(n => [0,1,2,3].includes(n));
+                stored = valid.length > 0 && valid.length < 4 ? valid.sort((a,b) => a-b).join(',') : null;
+            }
+            updates.push(`${field} = ?`);
+            params.push(stored);
+        }
+    }
     if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
 
     params.push(classId, req.teacherKey);

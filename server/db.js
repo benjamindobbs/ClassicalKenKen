@@ -236,6 +236,8 @@ try { db.prepare('ALTER TABLE mc_class_assignments ADD COLUMN sync_enabled INTEG
 try { db.prepare('ALTER TABLE mc_checkpoints ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE assignment_settings ADD COLUMN required_sat_math_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 try { db.prepare("ALTER TABLE classes ADD COLUMN assessment_type TEXT NOT NULL DEFAULT 'sat'").run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE classes ADD COLUMN sat_english_domains TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE classes ADD COLUMN sat_math_domains TEXT').run(); } catch { /* already exists */ }
 
 function upsertUser(userKey, email) {
     db.prepare(

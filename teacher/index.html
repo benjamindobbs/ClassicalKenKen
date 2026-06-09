@@ -1389,11 +1389,31 @@
             loadClasses();
         }
 
+        const ENG_DOMAIN_NAMES  = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', 'Standard English Conventions'];
+        const MATH_DOMAIN_NAMES = ['Algebra', 'Advanced Math', 'Problem-Solving and Data Analysis', 'Geometry and Trigonometry'];
+
+        function parseDomains(raw) {
+            if (!raw) return new Set([0, 1, 2, 3]);
+            return new Set(raw.split(',').map(Number));
+        }
+
+        function domainCheckboxes(prefix, names, enabledSet) {
+            return names.map((name, i) =>
+                `<label class="activity-option">
+                    <input type="checkbox" id="${prefix}-${i}" ${enabledSet.has(i) ? 'checked' : ''}>
+                    <span>${esc(name)}</span>
+                </label>`
+            ).join('');
+        }
+
         function renderClassDetail(cls) {
             const linkedCount = cls.students.filter(s => s.user_key).length;
             const userOptions = (rawData?.users || []).map(u =>
                 `<option value="${esc(u.user_key)}">${esc(u.email)}</option>`
             ).join('');
+
+            const engEnabled  = parseDomains(cls.sat_english_domains);
+            const mathEnabled = parseDomains(cls.sat_math_domains);
 
             const rosterRows = cls.students.map(s => {
                 const selected = s.user_key ? `value="${esc(s.user_key)}" ` : '';
@@ -1531,6 +1551,21 @@
                         <option value="psat89"     ${(cls.assessment_type || 'sat') === 'psat89'     ? 'selected' : ''}>PSAT 8/9</option>
                     </select>
                     <span id="class-at-saved" style="display:none;font-size:0.8125rem;color:#10b981;font-weight:500">Saved</span>
+                </div>
+
+                <div style="margin-bottom:1.5rem">
+                    <div style="font-size:0.8125rem;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.625rem">SAT English Domains</div>
+                    <div class="activity-options" style="flex-wrap:wrap;gap:0.5rem">
+                        ${domainCheckboxes('cls-eng-dom', ENG_DOMAIN_NAMES, engEnabled)}
+                    </div>
+                    <div style="font-size:0.8125rem;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.04em;margin:0.875rem 0 0.625rem">SAT Math Domains</div>
+                    <div class="activity-options" style="flex-wrap:wrap;gap:0.5rem">
+                        ${domainCheckboxes('cls-math-dom', MATH_DOMAIN_NAMES, mathEnabled)}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem">
+                        <button class="btn btn-outline btn-sm" onclick="saveClassDomains(${cls.id})">Save Domains</button>
+                        <span id="cls-dom-saved" style="display:none;font-size:0.8125rem;color:#10b981;font-weight:500">Saved</span>
+                    </div>
                 </div>
 
                 <div class="section-title">Roster <span class="section-count">(${cls.students.length} students)</span></div>
@@ -1876,6 +1911,22 @@
                 body: JSON.stringify({ assessment_type }),
             });
             const msg = document.getElementById('class-at-saved');
+            if (msg) { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
+        }
+
+        // ── Domain filters ────────────────────────────────────────────────────
+
+        async function saveClassDomains(classId) {
+            const engIndices  = [0,1,2,3].filter(i => document.getElementById(`cls-eng-dom-${i}`)?.checked);
+            const mathIndices = [0,1,2,3].filter(i => document.getElementById(`cls-math-dom-${i}`)?.checked);
+            await teacherFetch(`/api/teacher/classes/${classId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    sat_english_domains: engIndices,
+                    sat_math_domains:    mathIndices,
+                }),
+            });
+            const msg = document.getElementById('cls-dom-saved');
             if (msg) { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
         }
 
