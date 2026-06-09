@@ -46,50 +46,55 @@ router.get('/next', (req, res) => {
     const activeDomains = allowedDomains ? ALL_DOMAINS.filter(d => allowedDomains.has(d)) : ALL_DOMAINS;
     if (activeDomains.length === 0) return res.json({ domainIdx: ALL_DOMAINS[Math.floor(Math.random() * 4)], skill: '', difficulty: 'Easy' });
 
-    // Get all attempts grouped by (domain_idx, skill, difficulty)
-    const rows = db.prepare(`
-        SELECT domain_idx, skill, difficulty,
-               COUNT(*) AS attempts,
-               SUM(correct) AS correct_count
-        FROM sat_scores
-        WHERE user_key = ?
-        GROUP BY domain_idx, skill, difficulty
+    // Last 25 attempts per (domain_idx, skill, difficulty) — recency window prevents old struggles
+    // from permanently suppressing a student's difficulty level
+    const rawRows = db.prepare(`
+        SELECT domain_idx, skill, difficulty, correct
+        FROM (
+            SELECT domain_idx, skill, difficulty, correct,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY domain_idx, skill, difficulty
+                       ORDER BY submitted_at DESC
+                   ) AS rn
+            FROM sat_scores
+            WHERE user_key = ?
+        )
+        WHERE rn <= 25
     `).all(req.userKey);
 
-    if (rows.length === 0) {
-        return res.json({ domainIdx: activeDomains[Math.floor(Math.random() * activeDomains.length)], skill: '', difficulty: 'Easy' });
-    }
-
-    // Surface any allowed domain the student hasn't attempted yet before repeating seen ones
-    const seenDomains = new Set(rows.map(r => r.domain_idx));
-    const unseenDomains = activeDomains.filter(d => !seenDomains.has(d));
-    if (unseenDomains.length > 0) {
-        const domainIdx = unseenDomains[Math.floor(Math.random() * unseenDomains.length)];
-        return res.json({ domainIdx, skill: '', difficulty: 'Easy' });
-    }
-
-    // Build accuracy map: key = `${domainIdx}|${skill}|${difficulty}` → { attempts, accuracy }
+    // Aggregate windowed rows into accuracy map
     const accuracyMap = {};
-    for (const row of rows) {
+    for (const row of rawRows) {
         const key = `${row.domain_idx}|${row.skill}|${row.difficulty}`;
-        accuracyMap[key] = {
-            attempts: row.attempts,
-            accuracy: row.correct_count / row.attempts,
-        };
+        if (!accuracyMap[key]) accuracyMap[key] = { attempts: 0, correct: 0 };
+        accuracyMap[key].attempts++;
+        accuracyMap[key].correct += row.correct;
+    }
+    for (const e of Object.values(accuracyMap)) {
+        e.accuracy = e.correct / e.attempts;
     }
 
-    // Determine the appropriate difficulty tier for each allowed (domainIdx, skill) pair seen
-    const seen = new Set(rows.map(r => `${r.domain_idx}|${r.skill}`));
+    const seenCombos = new Set(rawRows.map(r => `${r.domain_idx}|${r.skill}`));
+    const seenDomains = new Set(rawRows.map(r => r.domain_idx));
     const candidates = [];
 
-    for (const combo of seen) {
-        const [domainIdx, skill] = combo.split('|');
-        if (!activeDomains.includes(Number(domainIdx))) continue;
-        let targetDifficulty = 'Easy';
+    // Unseen allowed domains enter pool as 0% accuracy (weight 1.0)
+    for (const d of activeDomains) {
+        if (!seenDomains.has(d)) {
+            candidates.push({ domainIdx: d, skill: '', difficulty: 'Easy', weight: 1.0 });
+        }
+    }
 
+    // Seen (domain, skill) combos — advance difficulty tier, then weight by inverse accuracy
+    for (const combo of seenCombos) {
+        const pipeIdx = combo.indexOf('|');
+        const domainIdx = Number(combo.slice(0, pipeIdx));
+        const skill = combo.slice(pipeIdx + 1);
+        if (!activeDomains.includes(domainIdx)) continue;
+
+        let targetDifficulty = 'Easy';
         for (let i = 0; i < DIFFICULTIES.length - 1; i++) {
-            const tierKey = `${domainIdx}|${skill}|${DIFFICULTIES[i]}`;
-            const tier = accuracyMap[tierKey];
+            const tier = accuracyMap[`${domainIdx}|${skill}|${DIFFICULTIES[i]}`];
             if (tier && tier.attempts >= MIN_ATTEMPTS && tier.accuracy > ACCURACY_THRESHOLD) {
                 targetDifficulty = DIFFICULTIES[i + 1];
             } else {
@@ -97,15 +102,27 @@ router.get('/next', (req, res) => {
             }
         }
 
-        candidates.push({ domainIdx: Number(domainIdx), skill, difficulty: targetDifficulty });
+        const stats = accuracyMap[`${domainIdx}|${skill}|${targetDifficulty}`];
+        const accuracy = stats ? stats.accuracy : 0;
+        // Floor at 0.05 so fully mastered areas still appear occasionally
+        const weight = Math.max(0.05, 1 - accuracy);
+
+        candidates.push({ domainIdx, skill, difficulty: targetDifficulty, weight });
     }
 
     if (candidates.length === 0) {
         return res.json({ domainIdx: activeDomains[Math.floor(Math.random() * activeDomains.length)], skill: '', difficulty: 'Easy' });
     }
 
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    res.json(pick);
+    // Weighted random pick — lower accuracy = higher probability of selection
+    const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
+    let rand = Math.random() * totalWeight;
+    let pick = candidates[candidates.length - 1];
+    for (const c of candidates) {
+        rand -= c.weight;
+        if (rand <= 0) { pick = c; break; }
+    }
+    res.json({ domainIdx: pick.domainIdx, skill: pick.skill, difficulty: pick.difficulty });
 });
 
 // GET /api/sat/session?since=<ms>  — today's answers grouped by domain → skill → difficulty
