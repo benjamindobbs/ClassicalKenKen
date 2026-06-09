@@ -979,7 +979,13 @@ router.get('/rubric/totals', requireTeacher, (req, res) => {
         GROUP BY student_id
     `).all(classId, start, end);
 
-    res.json({ class_id: classId, start, end, students: rows });
+    const { total_days } = db.prepare(`
+        SELECT COUNT(DISTINCT date) AS total_days
+        FROM daily_rubric
+        WHERE class_id = ? AND date >= ? AND date <= ?
+    `).get(classId, start, end);
+
+    res.json({ class_id: classId, start, end, total_days, students: rows });
 });
 
 // ── All data ──────────────────────────────────────────────────────────────────
