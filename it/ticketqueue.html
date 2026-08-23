@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classical IT — Ticket Queue</title>
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="landing" class="it-landing">
+    <div class="it-landing-card">
+        <h1>Classical IT</h1>
+        <p>Sign in with your school Google account to continue.</p>
+        <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+    </div>
+</div>
+
+<div id="game-ui" style="display:none">
+    <div class="sidebar">
+        <a href="./">Home</a>
+        <a href="createticket.html">Create Ticket</a>
+        <a href="ticketqueue.html" class="active">Ticket Queue</a>
+        <a href="devicestatus.html">Student Device Status</a>
+        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
+    </div>
+
+    <div class="content">
+        <div class="content-topbar">
+            <span id="user-email"></span>
+            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+        </div>
+
+        <h1>My Ticket Queue</h1>
+        <table class="data-table">
+            <thead>
+                <tr><th>Date</th><th>Category</th><th>Priority</th><th>Status</th><th>Note</th></tr>
+            </thead>
+            <tbody id="ticket-rows"></tbody>
+        </table>
+        <button class="btn btn-primary" id="show-all-btn" onclick="showAllTickets()">Show All</button>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    function renderTickets(tickets) {
+        document.getElementById('ticket-rows').innerHTML = tickets.map(t => `
+            <tr>
+                <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                <td>${t.category}</td>
+                <td>${t.priority}</td>
+                <td><span class="status-pill status-${t.status.toLowerCase().replace(/\s+/g, '-')}">${t.status}</span></td>
+                <td>${t.note || ''}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5">No tickets yet.</td></tr>';
+    }
+
+    async function loadTickets(all) {
+        const data = await authFetch(`/api/it/tickets/mine${all ? '?all=1' : ''}`).then(r => r.json());
+        renderTickets(data.tickets);
+    }
+
+    function showAllTickets() {
+        document.getElementById('show-all-btn').style.display = 'none';
+        loadTickets(true);
+    }
+
+    async function onSignedIn() {
+        document.getElementById('signout_button').style.display = '';
+        const me = await authFetch('/api/it/me').then(r => r.json());
+        document.getElementById('user-email').textContent = me.email || '';
+        if (me.isStaff) document.getElementById('nav-inventory-link').style.display = '';
+        if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';
+        loadTickets(false);
+    }
+</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

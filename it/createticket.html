@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classical IT — Create Ticket</title>
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="landing" class="it-landing">
+    <div class="it-landing-card">
+        <h1>Classical IT</h1>
+        <p>Sign in with your school Google account to continue.</p>
+        <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+    </div>
+</div>
+
+<div id="game-ui" style="display:none">
+    <div class="sidebar">
+        <a href="./">Home</a>
+        <a href="createticket.html" class="active">Create Ticket</a>
+        <a href="ticketqueue.html">Ticket Queue</a>
+        <a href="devicestatus.html">Student Device Status</a>
+        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
+    </div>
+
+    <div class="content">
+        <div class="content-topbar">
+            <span id="user-email"></span>
+            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+        </div>
+
+        <h1>Report a Missing or Found Device</h1>
+        <p>Only covers student-assigned devices. Enter the student's ID to confirm a match before submitting.</p>
+        <div class="form-row">
+            <label for="mf-student-id">Student ID</label>
+            <input type="text" id="mf-student-id" oninput="lookupMissingFound()">
+        </div>
+        <p class="it-landing-status" id="mf-name-confirm"></p>
+        <div class="form-row">
+            <label><input type="radio" name="mf-action" value="lost" checked> Lost</label>
+            <label><input type="radio" name="mf-action" value="found"> Found</label>
+        </div>
+        <button class="btn btn-primary" id="mf-submit" disabled onclick="submitMissingFound()">Submit</button>
+        <p id="mf-status"></p>
+
+        <hr>
+
+        <h1>Submit a Ticket</h1>
+        <form onsubmit="return submitTicket(event)">
+            <div class="form-row">
+                <label for="t-name">Your Name</label>
+                <input type="text" id="t-name" required>
+            </div>
+            <div class="form-row">
+                <label for="t-email">Email</label>
+                <input type="text" id="t-email" disabled>
+            </div>
+            <div class="form-row" id="t-room-row" style="display:none">
+                <label for="t-room">Room Number</label>
+                <input type="text" id="t-room">
+            </div>
+            <div class="form-row">
+                <label for="t-priority">Priority</label>
+                <select id="t-priority">
+                    <option>Low</option>
+                    <option selected>Medium</option>
+                    <option>High</option>
+                    <option>Urgent</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="t-category">Category</label>
+                <select id="t-category">
+                    <option>Hardware</option>
+                    <option>Software</option>
+                    <option>Accounts</option>
+                    <option value="Whitelist/Blacklist Request">Whitelist/Blacklist Request</option>
+                    <option>DobbsCore</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="t-note">Notes</label>
+                <textarea id="t-note" rows="4"></textarea>
+            </div>
+
+            <div class="form-row">
+                <label>Device Owner</label>
+                <label><input type="radio" name="t-owner" value="myself" checked onchange="ownerChanged()"> Myself</label>
+                <label><input type="radio" name="t-owner" value="other" onchange="ownerChanged()"> Someone else</label>
+            </div>
+            <div class="form-row" id="t-owner-other-row" style="display:none">
+                <label for="t-owner-type">Owner Type</label>
+                <select id="t-owner-type" onchange="lookupOwner()">
+                    <option value="student">Student</option>
+                    <option value="staff">Staff</option>
+                </select>
+                <label for="t-owner-id">Owner ID</label>
+                <input type="text" id="t-owner-id" oninput="lookupOwner()">
+                <p class="it-landing-status" id="t-owner-confirm"></p>
+            </div>
+            <div class="form-row" id="t-device-row" style="display:none">
+                <label for="t-device-select">Device</label>
+                <select id="t-device-select"></select>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Submit Ticket</button>
+        </form>
+        <p id="t-status"></p>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    // ── Missing/found quick tool ─────────────────────────────────────────
+
+    let mfMatch = null;
+    let mfLookupTimer = null;
+
+    function lookupMissingFound() {
+        clearTimeout(mfLookupTimer);
+        const id        = document.getElementById('mf-student-id').value.trim();
+        const confirmEl = document.getElementById('mf-name-confirm');
+        const submitBtn = document.getElementById('mf-submit');
+        mfMatch = null;
+        submitBtn.disabled = true;
+        if (!id) { confirmEl.textContent = ''; return; }
+        mfLookupTimer = setTimeout(async () => {
+            const data = await authFetch(`/api/it/roster/lookup?type=student&id=${encodeURIComponent(id)}`).then(r => r.json());
+            if (data.found) {
+                confirmEl.textContent = `Match: ${data.name}`;
+                mfMatch = id;
+                submitBtn.disabled = false;
+            } else {
+                confirmEl.textContent = 'No matching student found.';
+            }
+        }, 300);
+    }
+
+    async function submitMissingFound() {
+        if (!mfMatch) return;
+        const action = document.querySelector('input[name="mf-action"]:checked').value;
+        const res    = await authFetch('/api/it/tickets/missing-device', { method: 'POST', body: JSON.stringify({ student_id: mfMatch, action }) });
+        const data   = await res.json();
+        const status = document.getElementById('mf-status');
+        status.textContent = res.ok ? `Ticket submitted. Device serial: ${data.serial_number}.` : `Error: ${data.error}`;
+        if (res.ok) {
+            document.getElementById('mf-student-id').value = '';
+            document.getElementById('mf-name-confirm').textContent = '';
+            document.getElementById('mf-submit').disabled = true;
+        }
+    }
+
+    // ── Ticket form ──────────────────────────────────────────────────────
+
+    let ownerAssets = [];
+
+    async function ownerChanged() {
+        const other = document.querySelector('input[name="t-owner"]:checked').value === 'other';
+        document.getElementById('t-owner-other-row').style.display = other ? '' : 'none';
+        if (other) {
+            document.getElementById('t-owner-id').value = '';
+            document.getElementById('t-owner-confirm').textContent = '';
+            setDeviceOptions([]);
+        } else {
+            const data = await authFetch('/api/it/assets/mine').then(r => r.json());
+            setDeviceOptions(data.assets);
+        }
+    }
+
+    let ownerLookupTimer = null;
+    function lookupOwner() {
+        clearTimeout(ownerLookupTimer);
+        const type      = document.getElementById('t-owner-type').value;
+        const id        = document.getElementById('t-owner-id').value.trim();
+        const confirmEl = document.getElementById('t-owner-confirm');
+        setDeviceOptions([]);
+        if (!id) { confirmEl.textContent = ''; return; }
+        ownerLookupTimer = setTimeout(async () => {
+            const data = await authFetch(`/api/it/roster/lookup?type=${type}&id=${encodeURIComponent(id)}`).then(r => r.json());
+            if (data.found) {
+                confirmEl.textContent = `Match: ${data.name}`;
+                const assetsData = await authFetch(`/api/it/assets/by-owner?type=${type}&id=${encodeURIComponent(id)}`).then(r => r.json());
+                setDeviceOptions(assetsData.assets);
+            } else {
+                confirmEl.textContent = 'No match found.';
+            }
+        }, 300);
+    }
+
+    function setDeviceOptions(assets) {
+        ownerAssets = assets;
+        const row = document.getElementById('t-device-row');
+        const sel = document.getElementById('t-device-select');
+        if (assets.length <= 1) { row.style.display = 'none'; return; }
+        row.style.display = '';
+        sel.innerHTML = assets.map(a => `<option value="${a.id}">${a.serial_number}${a.asset_number ? ' / ' + a.asset_number : ''}</option>`).join('');
+    }
+
+    function resolvedLinkedAssetId() {
+        if (ownerAssets.length === 1) return ownerAssets[0].id;
+        if (ownerAssets.length > 1) return Number(document.getElementById('t-device-select').value);
+        return null;
+    }
+
+    async function submitTicket(event) {
+        event.preventDefault();
+        const isOther = document.querySelector('input[name="t-owner"]:checked').value === 'other';
+        if (isOther && !document.getElementById('t-owner-confirm').textContent.startsWith('Match')) {
+            document.getElementById('t-status').textContent = 'Please confirm the device owner before submitting.';
+            return false;
+        }
+        const body = {
+            requester_name: document.getElementById('t-name').value.trim(),
+            room_number: document.getElementById('t-room').value.trim(),
+            priority: document.getElementById('t-priority').value,
+            category: document.getElementById('t-category').value,
+            note: document.getElementById('t-note').value.trim(),
+            linked_asset_id: resolvedLinkedAssetId(),
+        };
+        const res    = await authFetch('/api/it/tickets', { method: 'POST', body: JSON.stringify(body) });
+        const data   = await res.json();
+        const status = document.getElementById('t-status');
+        if (res.ok) {
+            status.textContent = 'Ticket submitted.';
+            event.target.reset();
+            document.getElementById('t-email').value = document.getElementById('user-email').textContent;
+            setDeviceOptions([]);
+            ownerChanged();
+        } else {
+            status.textContent = `Error: ${data.error}`;
+        }
+        return false;
+    }
+
+    async function onSignedIn() {
+        document.getElementById('signout_button').style.display = '';
+        const me = await authFetch('/api/it/me').then(r => r.json());
+        document.getElementById('user-email').textContent = me.email || '';
+        document.getElementById('t-email').value = me.email || '';
+        if (me.isStaff) {
+            document.getElementById('t-room-row').style.display = '';
+            document.getElementById('t-room').required = true;
+            document.getElementById('nav-inventory-link').style.display = '';
+        }
+        if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';
+        ownerChanged();
+    }
+</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classical IT — Device Status</title>
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="landing" class="it-landing">
+    <div class="it-landing-card">
+        <h1>Classical IT</h1>
+        <p>Sign in with your school Google account to continue.</p>
+        <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+    </div>
+</div>
+
+<div id="game-ui" style="display:none">
+    <div class="sidebar">
+        <a href="./">Home</a>
+        <a href="createticket.html">Create Ticket</a>
+        <a href="ticketqueue.html">Ticket Queue</a>
+        <a href="devicestatus.html" class="active">Student Device Status</a>
+        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
+    </div>
+
+    <div class="content">
+        <div class="content-topbar">
+            <span id="user-email"></span>
+            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+        </div>
+
+        <div id="not-staff" style="display:none">
+            <h1>Student Device Status</h1>
+            <p>This page is only available to staff accounts.</p>
+        </div>
+
+        <div id="status-content" style="display:none">
+            <h1>Student Device Status</h1>
+            <p>Devices with a status other than "working".</p>
+            <input type="text" class="search-input" id="search" placeholder="Search by name, serial, or advisor" oninput="renderTable()">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Name</th><th>Advisor</th><th>Serial</th><th>Status</th><th>Repair Status</th><th></th></tr>
+                </thead>
+                <tbody id="rows"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="ticket-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeTicketModal()">
+    <div class="modal-card">
+        <div id="ticket-modal-body">Loading&hellip;</div>
+        <button class="btn btn-primary" onclick="closeTicketModal()">Close</button>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    let devices = [];
+
+    function ownerLabel(a) {
+        if (a.assigned_type === 'cart') return a.assigned_cart_name;
+        if (a.person_first_name) return `${a.person_first_name} ${a.person_last_name}`;
+        return '(unassigned)';
+    }
+
+    function statusPill(status) {
+        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${status}</span>`;
+    }
+
+    function renderTable() {
+        const q     = document.getElementById('search').value.trim().toLowerCase();
+        const rows  = document.getElementById('rows');
+        const match = a => !q || [ownerLabel(a), a.serial_number, a.advisor_name].join(' ').toLowerCase().includes(q);
+
+        rows.innerHTML = devices.filter(match).map(a => `
+            <tr>
+                <td>${ownerLabel(a)}</td>
+                <td>${a.advisor_name || ''}</td>
+                <td>${a.serial_number}</td>
+                <td>${statusPill(a.device_status)}</td>
+                <td>${a.repair_status || ''}</td>
+                <td>${a.device_status === 'in shop' && a.active_ticket_id
+                    ? `<button class="icon-btn" title="View ticket" onclick="openTicketModal(${a.active_ticket_id})">📝</button>`
+                    : ''}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="6">No devices need attention.</td></tr>';
+    }
+
+    async function openTicketModal(ticketId) {
+        const modal = document.getElementById('ticket-modal');
+        const body  = document.getElementById('ticket-modal-body');
+        modal.style.display = 'flex';
+        body.innerHTML = 'Loading&hellip;';
+        const data = await authFetch(`/api/it/tickets/${ticketId}`).then(r => r.json());
+        if (!data.ticket) { body.innerHTML = 'Ticket not found.'; return; }
+        const t = data.ticket;
+        body.innerHTML = `
+            <h2>Ticket #${t.id}</h2>
+            <p><strong>Received:</strong> ${new Date(t.created_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${t.status}</p>
+            <p><strong>Category:</strong> ${t.category} &mdash; <strong>Priority:</strong> ${t.priority}</p>
+            <p>${t.note || ''}</p>
+            <h3>History</h3>
+            ${data.events.map(e => `
+                <div class="event-log-item">
+                    <div class="event-meta">${new Date(e.created_at).toLocaleString()} &mdash; ${e.actor_email}</div>
+                    <div>${e.detail}</div>
+                </div>
+            `).join('') || '<p>No history yet.</p>'}
+        `;
+    }
+
+    function closeTicketModal() {
+        document.getElementById('ticket-modal').style.display = 'none';
+    }
+
+    async function onSignedIn() {
+        document.getElementById('signout_button').style.display = '';
+        const me = await authFetch('/api/it/me').then(r => r.json());
+        document.getElementById('user-email').textContent = me.email || '';
+        if (me.isStaff) document.getElementById('nav-inventory-link').style.display = '';
+        if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';
+        if (!me.isStaff) { document.getElementById('not-staff').style.display = ''; return; }
+
+        document.getElementById('status-content').style.display = '';
+        const data = await authFetch('/api/it/assets/needs-attention').then(r => r.json());
+        devices = data.assets;
+        renderTable();
+    }
+</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

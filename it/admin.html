@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classical IT — Admin</title>
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="landing" class="it-landing">
+    <div class="it-landing-card">
+        <h1>Classical IT</h1>
+        <p>Sign in with your school Google account to continue.</p>
+        <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+    </div>
+</div>
+
+<div id="game-ui" style="display:none">
+    <div class="sidebar">
+        <a href="./">Home</a>
+        <a href="createticket.html">Create Ticket</a>
+        <a href="ticketqueue.html">Ticket Queue</a>
+        <a href="devicestatus.html">Student Device Status</a>
+        <a href="inventory.html">Master Inventory</a>
+        <a href="admin.html" class="active">Admin</a>
+    </div>
+
+    <div class="content">
+        <div class="content-topbar">
+            <span id="user-email"></span>
+            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+        </div>
+
+        <div id="not-admin" style="display:none">
+            <h1>Admin</h1>
+            <p>Your account does not have IT admin access.</p>
+        </div>
+
+        <div id="admin-content" style="display:none">
+            <h1>Admin</h1>
+
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="roster" onclick="showAdminTab('roster')">Roster</button>
+                <button class="admin-tab" data-tab="assets" onclick="showAdminTab('assets')">Assets</button>
+                <button class="admin-tab" data-tab="tickets" onclick="showAdminTab('tickets')">Tickets</button>
+            </div>
+
+            <div id="admin-tab-roster" class="admin-tab-panel">
+                <h2>Student Roster</h2>
+                <p>CSV with a header row: <code>student_id, first_name, last_name, grade_level, advisor_name</code>. Re-uploading updates existing students by ID.</p>
+                <label class="btn btn-primary" for="student-csv" style="cursor:pointer">Import Student CSV</label>
+                <input type="file" id="student-csv" accept=".csv,.txt" style="display:none" onchange="handleStudentCsv(event)">
+                <p id="student-csv-status"></p>
+
+                <h2>Staff Roster</h2>
+                <p>CSV with a header row: <code>staff_number, first_name, last_name, email</code> (email is optional, but required for a staff member's own "Myself" device lookup on the ticket form).</p>
+                <label class="btn btn-primary" for="staff-csv" style="cursor:pointer">Import Staff CSV</label>
+                <input type="file" id="staff-csv" accept=".csv,.txt" style="display:none" onchange="handleStaffCsv(event)">
+                <p id="staff-csv-status"></p>
+            </div>
+
+            <div id="admin-tab-assets" class="admin-tab-panel" style="display:none">
+                <h2>Create Asset</h2>
+                <form onsubmit="return createAsset(event)">
+                    <div class="form-row">
+                        <label for="new-serial">Serial Number</label>
+                        <input type="text" id="new-serial" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="new-asset-number">Asset Number (optional)</label>
+                        <input type="text" id="new-asset-number">
+                    </div>
+                    <div class="form-row">
+                        <label for="new-assigned-type">Assigned To</label>
+                        <select id="new-assigned-type" onchange="toggleAssignedIdRow()">
+                            <option value="">Unassigned</option>
+                            <option value="student">Student</option>
+                            <option value="staff">Staff</option>
+                            <option value="cart">Cart</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="new-assigned-id-row" style="display:none">
+                        <label id="new-assigned-id-label" for="new-assigned-id">ID</label>
+                        <input type="text" id="new-assigned-id">
+                    </div>
+                    <div class="form-row">
+                        <label for="new-device-status">Device Status</label>
+                        <select id="new-device-status">
+                            <option value="working">working</option>
+                            <option value="missing">missing</option>
+                            <option value="locked">locked</option>
+                            <option value="in shop">in shop</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Create Asset</button>
+                </form>
+                <p id="create-asset-status"></p>
+
+                <h2>Bulk Import</h2>
+                <p>CSV with a header row: <code>serial_number, asset_number, assigned_type, assigned_id, device_status, repair_status</code>. <code>assigned_type</code> is <code>student</code>, <code>staff</code>, or <code>cart</code>; <code>assigned_id</code> is the matching student ID, staff number, or cart name. Re-uploading updates existing assets by serial number.</p>
+                <label class="btn btn-primary" for="asset-csv" style="cursor:pointer">Import Asset CSV</label>
+                <input type="file" id="asset-csv" accept=".csv,.txt" style="display:none" onchange="handleAssetCsv(event)">
+                <p id="asset-csv-status"></p>
+
+                <h2>All Assets</h2>
+                <input type="text" class="search-input" id="asset-search" placeholder="Search by name, serial, or asset #" oninput="renderAssetTable()">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Assigned To</th><th>Serial</th><th>Asset #</th><th>Device Status</th><th>Repair Status</th><th></th></tr>
+                    </thead>
+                    <tbody id="asset-rows"></tbody>
+                </table>
+            </div>
+
+            <div id="admin-tab-tickets" class="admin-tab-panel" style="display:none">
+                <h2>All Tickets</h2>
+                <input type="text" class="search-input" id="ticket-search" placeholder="Search by requester, category, or note" oninput="renderTicketTable()">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Date</th><th>Requester</th><th>Category</th><th>Priority</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody id="admin-ticket-rows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="ticket-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeTicketModal()">
+    <div class="modal-card">
+        <div id="ticket-modal-body">Loading&hellip;</div>
+        <div class="form-row">
+            <label for="ticket-note-input">Add Note</label>
+            <textarea id="ticket-note-input" rows="3"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="addTicketNote()">Add Note</button>
+        <button class="btn btn-primary" onclick="closeTicketModal()">Close</button>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    function parseCSV(text) {
+        const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+        return lines.slice(1).map(line => {
+            const cols = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+            const row = {};
+            headers.forEach((h, i) => { row[h] = cols[i] !== undefined ? cols[i] : ''; });
+            return row;
+        });
+    }
+
+    async function onSignedIn() {
+        document.getElementById('signout_button').style.display = '';
+        const me = await authFetch('/api/it/me').then(r => r.json());
+        document.getElementById('user-email').textContent = me.email || '';
+        if (!me.isAdmin) {
+            document.getElementById('not-admin').style.display = '';
+            return;
+        }
+        document.getElementById('admin-content').style.display = '';
+    }
+
+    function showAdminTab(tab) {
+        document.querySelectorAll('.admin-tab-panel').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
+        document.getElementById('admin-tab-' + tab).style.display = '';
+        document.querySelector(`.admin-tab[data-tab="${tab}"]`).classList.add('active');
+        if (tab === 'assets' && assets.length === 0) loadAssets();
+        if (tab === 'tickets' && tickets.length === 0) loadTickets();
+    }
+
+    // ── Assets ───────────────────────────────────────────────────────────
+
+    let assets = [];
+    const DEVICE_STATUSES = ['working', 'missing', 'locked', 'in shop'];
+    const REPAIR_STATUSES = ['', 'not started', 'in progress', 'complete'];
+
+    function toggleAssignedIdRow() {
+        const type  = document.getElementById('new-assigned-type').value;
+        const row   = document.getElementById('new-assigned-id-row');
+        const label = document.getElementById('new-assigned-id-label');
+        if (!type) { row.style.display = 'none'; return; }
+        row.style.display = '';
+        label.textContent = type === 'student' ? 'Student ID' : type === 'staff' ? 'Staff Number' : 'Cart Name';
+    }
+
+    async function createAsset(event) {
+        event.preventDefault();
+        const body = {
+            serial_number: document.getElementById('new-serial').value.trim(),
+            asset_number: document.getElementById('new-asset-number').value.trim() || null,
+            assigned_type: document.getElementById('new-assigned-type').value || null,
+            assigned_id: document.getElementById('new-assigned-id').value.trim() || null,
+            device_status: document.getElementById('new-device-status').value,
+        };
+        const res    = await authFetch('/api/it/assets', { method: 'POST', body: JSON.stringify(body) });
+        const data   = await res.json();
+        const status = document.getElementById('create-asset-status');
+        if (res.ok) {
+            status.textContent = 'Asset created.';
+            event.target.reset();
+            toggleAssignedIdRow();
+            loadAssets();
+        } else {
+            status.textContent = `Error: ${data.error}`;
+        }
+        return false;
+    }
+
+    async function handleAssetCsv(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const rows   = parseCSV(await file.text());
+        const status = document.getElementById('asset-csv-status');
+        if (rows.length === 0) { status.textContent = 'No valid rows found — check the header row.'; return; }
+        const res  = await authFetch('/api/it/assets/import-csv', { method: 'POST', body: JSON.stringify({ rows }) });
+        const data = await res.json();
+        status.textContent = res.ok
+            ? `Imported ${data.imported} asset${data.imported !== 1 ? 's' : ''}.`
+            : `Error: ${data.error}`;
+        event.target.value = '';
+        loadAssets();
+    }
+
+    function assetOwnerLabel(a) {
+        if (a.assigned_type === 'cart') return a.assigned_cart_name;
+        if (a.person_first_name) return `${a.person_first_name} ${a.person_last_name}`;
+        return '(unassigned)';
+    }
+
+    async function loadAssets() {
+        const data = await authFetch('/api/it/assets').then(r => r.json());
+        assets = data.assets;
+        renderAssetTable();
+    }
+
+    function renderAssetTable() {
+        const q     = document.getElementById('asset-search').value.trim().toLowerCase();
+        const match = a => !q || [assetOwnerLabel(a), a.serial_number, a.asset_number].join(' ').toLowerCase().includes(q);
+
+        document.getElementById('asset-rows').innerHTML = assets.filter(match).map(a => `
+            <tr>
+                <td>${assetOwnerLabel(a)}</td>
+                <td>${a.serial_number}</td>
+                <td>${a.asset_number || ''}</td>
+                <td>
+                    <select onchange="updateAsset(${a.id}, {device_status: this.value})">
+                        ${DEVICE_STATUSES.map(s => `<option value="${s}" ${s === a.device_status ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <select onchange="updateAsset(${a.id}, {repair_status: this.value || null})">
+                        ${REPAIR_STATUSES.map(s => `<option value="${s}" ${s === (a.repair_status || '') ? 'selected' : ''}>${s || '(none)'}</option>`).join('')}
+                    </select>
+                </td>
+                <td><button class="btn-link" onclick="deleteAsset(${a.id})">Delete</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6">No assets yet.</td></tr>';
+    }
+
+    async function updateAsset(id, patch) {
+        await authFetch(`/api/it/assets/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+        loadAssets();
+    }
+
+    async function deleteAsset(id) {
+        if (!confirm('Delete this asset?')) return;
+        await authFetch(`/api/it/assets/${id}`, { method: 'DELETE' });
+        loadAssets();
+    }
+
+    async function handleStudentCsv(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const rows   = parseCSV(await file.text());
+        const status = document.getElementById('student-csv-status');
+        if (rows.length === 0) { status.textContent = 'No valid rows found — check the header row.'; return; }
+        const res  = await authFetch('/api/it/roster/students/import-csv', { method: 'POST', body: JSON.stringify({ rows }) });
+        const data = await res.json();
+        status.textContent = res.ok
+            ? `Imported ${data.imported} student${data.imported !== 1 ? 's' : ''}.`
+            : `Error: ${data.error}`;
+        event.target.value = '';
+    }
+
+    async function handleStaffCsv(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const rows   = parseCSV(await file.text());
+        const status = document.getElementById('staff-csv-status');
+        if (rows.length === 0) { status.textContent = 'No valid rows found — check the header row.'; return; }
+        const res  = await authFetch('/api/it/roster/staff/import-csv', { method: 'POST', body: JSON.stringify({ rows }) });
+        const data = await res.json();
+        status.textContent = res.ok
+            ? `Imported ${data.imported} staff member${data.imported !== 1 ? 's' : ''}.`
+            : `Error: ${data.error}`;
+        event.target.value = '';
+    }
+
+    // ── Tickets ──────────────────────────────────────────────────────────
+
+    let tickets = [];
+    let openTicketId = null;
+    const TICKET_STATUSES = ['Open', 'In Progress', 'Completed'];
+
+    async function loadTickets() {
+        const data = await authFetch('/api/it/tickets').then(r => r.json());
+        tickets = data.tickets;
+        renderTicketTable();
+    }
+
+    function renderTicketTable() {
+        const q     = document.getElementById('ticket-search').value.trim().toLowerCase();
+        const match = t => !q || [t.requester_name, t.requester_email, t.category, t.note].join(' ').toLowerCase().includes(q);
+
+        document.getElementById('admin-ticket-rows').innerHTML = tickets.filter(match).map(t => `
+            <tr>
+                <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                <td>${t.requester_name}${t.room_number ? ' (Rm ' + t.room_number + ')' : ''}</td>
+                <td>${t.category}</td>
+                <td>${t.priority}</td>
+                <td>
+                    <select onchange="updateTicketStatus(${t.id}, this.value)">
+                        ${TICKET_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td><button class="btn-link" onclick="openTicketModal(${t.id})">Notes</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6">No tickets yet.</td></tr>';
+    }
+
+    async function updateTicketStatus(id, status) {
+        await authFetch(`/api/it/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        loadTickets();
+    }
+
+    async function openTicketModal(ticketId) {
+        openTicketId = ticketId;
+        const modal = document.getElementById('ticket-modal');
+        const body  = document.getElementById('ticket-modal-body');
+        document.getElementById('ticket-note-input').value = '';
+        modal.style.display = 'flex';
+        body.innerHTML = 'Loading&hellip;';
+        await refreshTicketModal();
+    }
+
+    async function refreshTicketModal() {
+        const body = document.getElementById('ticket-modal-body');
+        const data = await authFetch(`/api/it/tickets/${openTicketId}`).then(r => r.json());
+        if (!data.ticket) { body.innerHTML = 'Ticket not found.'; return; }
+        const t = data.ticket;
+        body.innerHTML = `
+            <h2>Ticket #${t.id}</h2>
+            <p><strong>Requester:</strong> ${t.requester_name} (${t.requester_email})${t.room_number ? ' — Room ' + t.room_number : ''}</p>
+            <p><strong>Received:</strong> ${new Date(t.created_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${t.status}</p>
+            <p><strong>Category:</strong> ${t.category} &mdash; <strong>Priority:</strong> ${t.priority}</p>
+            <p>${t.note || ''}</p>
+            <h3>History</h3>
+            ${data.events.map(e => `
+                <div class="event-log-item">
+                    <div class="event-meta">${new Date(e.created_at).toLocaleString()} &mdash; ${e.actor_email}</div>
+                    <div>${e.detail}</div>
+                </div>
+            `).join('') || '<p>No history yet.</p>'}
+        `;
+    }
+
+    async function addTicketNote() {
+        const input = document.getElementById('ticket-note-input');
+        const note  = input.value.trim();
+        if (!note) return;
+        await authFetch(`/api/it/tickets/${openTicketId}/notes`, { method: 'POST', body: JSON.stringify({ note }) });
+        input.value = '';
+        await refreshTicketModal();
+    }
+
+    function closeTicketModal() {
+        document.getElementById('ticket-modal').style.display = 'none';
+        loadTickets();
+    }
+</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

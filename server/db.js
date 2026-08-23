@@ -224,6 +224,77 @@ db.exec(`CREATE TABLE IF NOT EXISTS teacher_sessions (
     last_seen  INTEGER NOT NULL
 )`);
 
+// IT Help Desk: asset management + ticketing
+db.exec(`
+    CREATE TABLE IF NOT EXISTS it_students (
+        student_id   TEXT PRIMARY KEY,
+        first_name   TEXT NOT NULL,
+        last_name    TEXT NOT NULL,
+        grade_level  TEXT,
+        advisor_name TEXT
+    );
+
+    -- email is optional; when known it lets a staff requester's own ticket
+    -- ("Device Owner: Myself") resolve straight to their staff_number
+    CREATE TABLE IF NOT EXISTS it_staff (
+        staff_number TEXT PRIMARY KEY,
+        first_name   TEXT NOT NULL,
+        last_name    TEXT NOT NULL,
+        email        TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_it_staff_email ON it_staff(email);
+
+    -- assigned_type: 'student' | 'staff' | 'cart' | NULL (unassigned)
+    CREATE TABLE IF NOT EXISTS it_assets (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        serial_number         TEXT    NOT NULL UNIQUE,
+        asset_number          TEXT,
+        assigned_type         TEXT    CHECK(assigned_type IN ('student','staff','cart')),
+        assigned_student_id   TEXT    REFERENCES it_students(student_id),
+        assigned_staff_number TEXT    REFERENCES it_staff(staff_number),
+        assigned_cart_name    TEXT,
+        device_status         TEXT    NOT NULL DEFAULT 'working' CHECK(device_status IN ('working','missing','locked','in shop')),
+        repair_status         TEXT    CHECK(repair_status IN ('not started','in progress','complete')),
+        created_at            INTEGER NOT NULL,
+        updated_at            INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_it_assets_student ON it_assets(assigned_student_id);
+    CREATE INDEX IF NOT EXISTS idx_it_assets_staff   ON it_assets(assigned_staff_number);
+    CREATE INDEX IF NOT EXISTS idx_it_assets_status  ON it_assets(device_status);
+
+    -- category: 'Hardware' | 'Software' | 'Accounts' | 'Whitelist/Blacklist Request' | 'DobbsCore' | 'Other'
+    -- priority: 'Low' | 'Medium' | 'High' | 'Urgent'
+    -- status:   'Open' | 'In Progress' | 'Completed'
+    CREATE TABLE IF NOT EXISTS it_tickets (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        requester_user_key  TEXT    NOT NULL REFERENCES users(user_key),
+        requester_name      TEXT    NOT NULL,
+        requester_email     TEXT    NOT NULL,
+        room_number         TEXT,
+        category            TEXT    NOT NULL,
+        priority            TEXT    NOT NULL,
+        note                TEXT    NOT NULL DEFAULT '',
+        linked_asset_id     INTEGER REFERENCES it_assets(id),
+        status              TEXT    NOT NULL DEFAULT 'Open',
+        created_at          INTEGER NOT NULL,
+        updated_at          INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_it_tickets_requester ON it_tickets(requester_user_key);
+    CREATE INDEX IF NOT EXISTS idx_it_tickets_status    ON it_tickets(status);
+    CREATE INDEX IF NOT EXISTS idx_it_tickets_asset     ON it_tickets(linked_asset_id);
+
+    -- event_type: 'created' | 'status_change' | 'note' — append-only audit log
+    CREATE TABLE IF NOT EXISTS it_ticket_events (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id   INTEGER NOT NULL REFERENCES it_tickets(id) ON DELETE CASCADE,
+        event_type  TEXT    NOT NULL,
+        actor_email TEXT    NOT NULL,
+        detail      TEXT    NOT NULL DEFAULT '',
+        created_at  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_it_ticket_events_ticket ON it_ticket_events(ticket_id);
+`);
+
 // One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE class_students ADD COLUMN ps_dcid TEXT').run(); } catch { /* already exists */ }

@@ -1,0 +1,320 @@
+h1,h2{
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+h1{
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background-color: #04AA6D;
+    color: white;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#faq {
+    font-family: Arial, Helvetica, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  #faq td, #faq th {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  
+  #faq tr:nth-child(even){background-color: #f2f2f2;}
+  
+  #faq tr:hover {background-color: #ddd;}
+  
+  #faq th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: #04AA6D;
+    color: white;
+  }
+/* The side navigation menu */
+.sidebar {
+    margin: 0;
+    padding: 0;
+    width: 200px;
+    background-color: rgba(4, 170, 109, .5);
+    position: fixed;
+    height: 100%;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Sidebar links */
+  .sidebar a {
+    display: block;
+    background-color: #04AA6D;
+    color: white;
+    border-style: solid;
+    border-color: rgba(255,255,255,.5);
+    border-width: 3px;
+    padding: 16px;
+    text-decoration: none;
+    margin-left: 3px;
+    margin-right: 3px;
+  
+  }
+  
+  /* Active/current link */
+  .sidebar a.active {
+    align-self: end;
+    transform: scale(1.25);
+    width: 125%;
+    text-align: end;
+  }
+  
+  /* Links on mouse-over */
+  .sidebar a:hover:not(.active) {
+    background-color: rgba(100, 100, 100, .5);
+    color: white;
+    align-self: end;
+    transform: scale(1.25);
+    width: 125%;
+    text-align: end;
+    border: 15px rgba(200, 200, 200, .3);
+    border-radius: 2px;
+  }
+  
+  /* Page content. The value of the margin-left property should match the value of the sidebar's width property */
+  div.content {
+    margin-left: 200px;
+    padding: 1px 16px;
+    height: 1000px;
+  }
+  
+  /* On screens that are less than 700px wide, make the sidebar into a topbar */
+  @media screen and (max-width: 700px) {
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+    }
+  
+    .sidebar a {
+      float: left;
+    }
+  
+    div.content {
+      margin-left: 0;
+    }
+  }
+  
+  /* On screens that are less than 400px, display the bar vertically, instead of horizontally */
+  @media screen and (max-width: 400px) {
+    .sidebar a {
+      text-align: center;
+      float: none;
+    }
+  }
+  
+  
+  .geeks {
+    width: 300px;
+    height: 300px;
+    overflow: hidden;
+    margin: 0 auto;
+  }
+  
+  .geeks img {
+    width: 100%;
+    transition: 0.5s all ease-in-out;
+  }
+  
+  .geeks:hover img {
+    transform: scale(1.5);
+  }
+  
+  p.solid {
+    border-style: solid;
+  }
+  
+  .it-landing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .it-landing-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 32px 40px;
+    text-align: center;
+    max-width: 360px;
+  }
+
+  .it-landing-status {
+    color: #666;
+    font-size: 0.9em;
+  }
+
+  .btn {
+    display: inline-block;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .btn-primary {
+    background-color: #04AA6D;
+    color: white;
+  }
+
+  .btn-link {
+    background: none;
+    border: none;
+    color: #04AA6D;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9em;
+  }
+
+  .content-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    font-size: 0.9em;
+    color: #444;
+    padding: 4px 0;
+  }
+
+  .data-table {
+    font-family: Arial, Helvetica, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .data-table td, .data-table th {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+
+  .data-table tr:nth-child(even) { background-color: #f2f2f2; }
+  .data-table tr:hover { background-color: #ddd; }
+
+  .data-table th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background-color: #04AA6D;
+    color: white;
+  }
+
+  .search-input, input[type="text"], input[type="number"], select, textarea {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  .search-input { width: 100%; max-width: 320px; margin-bottom: 12px; }
+
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-weight: bold; margin-bottom: 4px; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.85em;
+    background-color: #f2f2f2;
+  }
+  .status-pill.status-missing, .status-pill.status-locked { background-color: #f8d7da; }
+  .status-pill.status-in-shop { background-color: #fff3cd; }
+  .status-pill.status-working { background-color: #d4edda; }
+
+  .admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #04AA6D;
+  }
+
+  .admin-tab {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1em;
+    color: #444;
+  }
+
+  .admin-tab.active {
+    color: #04AA6D;
+    font-weight: bold;
+    border-bottom: 3px solid #04AA6D;
+    margin-bottom: -2px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1em;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+
+  .modal-card {
+    background: white;
+    border-radius: 6px;
+    padding: 24px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .event-log-item {
+    border-bottom: 1px solid #eee;
+    padding: 8px 0;
+    font-size: 0.9em;
+  }
+
+  .event-log-item .event-meta {
+    color: #888;
+    font-size: 0.85em;
+  }
+
+  .parallax{
+      /* The image used */
+  background-image: url("./assets/parallax.jpg");
+
+  /* Set a specific height */
+  min-height: 500px;
+
+  /* Create the parallax scrolling effect */
+  background-attachment: fixed;
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-size: cover;
+}

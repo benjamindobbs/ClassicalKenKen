@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classical IT</title>
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="landing" class="it-landing">
+    <div class="it-landing-card">
+        <h1>Classical IT</h1>
+        <p>Sign in with your school Google account to continue.</p>
+        <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+    </div>
+</div>
+
+<!-- id="game-ui" is the shared ../js/auth.js convention for "post sign-in content", reused as-is across every page on the site -->
+<div id="game-ui" style="display:none">
+    <div class="sidebar">
+        <a href="./" class="active">Home</a>
+        <a href="createticket.html">Create Ticket</a>
+        <a href="ticketqueue.html">Ticket Queue</a>
+        <a href="devicestatus.html">Student Device Status</a>
+        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
+    </div>
+
+    <div class="content">
+        <div class="content-topbar">
+            <span id="user-email"></span>
+            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+        </div>
+
+        <h1>Welcome to CMS IT</h1>
+        <div class="parallax"></div>
+        <h2>Quick Reference</h2>
+        <table id="faq">
+            <tr>
+                <th>Problem</th>
+                <th>Action</th>
+                <th>Contact</th>
+            </tr>
+            <tr>
+                <td>Classroom Phone</td>
+                <td>Create MHIS Ticket</td>
+                <td><a href="mailto:helpdesk@hartfordschools.org"> Email Helpdesk</a> or call 860-757-9411 </td>
+            </tr>
+            <tr>
+                <td>Student Needs a <em>Loaner</em> Device</td>
+                <td>We currently do not have any daily loaners, if a student needs a replacement device submit a ticket.</td>
+                <td>Dobbs</td>
+            </tr>
+            <tr>
+                <td>Other Chromebook Issues</td>
+                <td>Submit a <a href="createticket.html">Ticket</a></td>
+                <td>Dobbs</td>
+            </tr>
+            <tr>
+                <td>Phishing Email</td>
+                <td>Report Email</td>
+                <td>Forward email to <a href="mailto:suspiciousemails@hartfordschools.org">suspiciousemails@hartfordschools.org</a> </td>
+            </tr>
+            <tr>
+                <td>EHP Kiosk Problems</td>
+                <td>Submit a Ticket <a href="createticket.html">Here</a></td>
+                <td>Dobbs</td>
+            </tr>
+            <tr>
+                <td>New Technology Install</td>
+                <td>Send a detaied email</td>
+                <td><a href="mailto:dobbb001@hartfordschools.org">Dobbs</a></td>
+            </tr>
+            <tr>
+                <td>Request New Staff Device</td>
+                <td>Submit Form</td>
+                <td>Fill out this <a href="https://forms.cloud.microsoft/r/4bCC4X5i6s">Form</a></td>
+            </tr>
+            <tr>
+                <td>Website Update Request</td>
+                <td>Request changes be made to the school website</td>
+                <td>Dobbs</td>
+            </tr>
+        </table>
+        <h2> Technical Guides &amp; Resources</h2>
+        <table id="faq">
+            <tr>
+                <th>Resource</th>
+                <th>Description</th>
+                <th>Link</th>
+            </tr>
+            <tr>
+                <td>Connect Student WiFi</td>
+                <td>Connect to hps_student</td>
+                <td>Change security to PEAP; Credentials are same as device log in</td>
+            </tr>
+            <tr>
+                <td>GoGuardian</td>
+                <td>Basic Filtering Guide</td>
+                <td><a href="https://drive.google.com/file/d/16lF1yuzPYHU54SZ7YKZ9VzgaG1zVAfRq/view?usp=sharing">PDF</a></td>
+            </tr>
+            <tr>
+                <td>Newline Display- Admin PW</td>
+                <td>Reset Newline Owner PW</td>
+                <td>On start screen hit shield in top right; Default Admin PW- 2364606633</td>
+            </tr>
+            <tr>
+                <td>SecurlyPass</td>
+                <td>Quick Start Guide</td>
+                <td><a href="https://docs.google.com/document/d/1SWxagcmwKw-47gPs4_lOrUVqmn6XcP6GomMPZwJ-bLc/edit?usp=sharing">Internal Guide</a></td>
+            </tr>
+            <tr>
+                <td>Chromebooks</td>
+                <td>How to Find a Serial</td>
+                <td><a href="https://docs.google.com/document/d/16v2fMZInX79hZX-wnvpQ5_SIw0rxJwx48mJa9cKTeeA/edit?usp=sharing">Picture Guide</a></td>
+            </tr>
+            <tr>
+                <td>Inventory</td>
+                <td>25-26 Master Inventory</td>
+                <td><a href="https://docs.google.com/spreadsheets/d/1e403p4C9_2yfZDl01K125-69zpjtlQNtbWMwRD7jURY/edit?usp=sharing">Spreadsheet</a></td>
+            </tr>
+            <tr>
+                <td>Parent Square</td>
+                <td>External Training</td>
+                <td><a href="https://parentsquare.zendesk.com/hc/en-us/categories/360001600432-Teachers">Parent Square Training</a></td>
+            </tr>
+            <tr>
+                <td>School Logos</td>
+                <td>Repository of School Art/Designs</td>
+                <td><a href="https://drive.google.com/drive/folders/1GgnXfzAu9ZlqdJ5SQ6RQQJGHA8O8jWHZ?usp=drive_link">Drive Folder</a></td>
+            </tr>
+        </table>
+        <h2> Additional Services</h2>
+        <table id="faq">
+            <tr>
+                <th>Service</th>
+                <th>Description</th>
+                <th>How to Request</th>
+            </tr>
+            <tr>
+                <td>Poster Printing</td>
+                <td>Print Large Format Jobs or Bulk Color Jobs</td>
+                <td>Email the <a href="mailto:printshop@hartfordschools.org">print shop</a> with a pdf of your design and specifics. 3-5 day turnaround</td>
+            </tr>
+            <tr>
+                <td>Data Reports</td>
+                <td>Pull &amp; Compile Data from PowerSchool, EHP, etc</td>
+                <td>Email Dobbs, expect 1-2 week turnaround</td>
+            </tr>
+            <tr>
+                <td>Construction</td>
+                <td>Utilize our Advanced Manufacturing class to request classroom furniture or other items</td>
+                <td>Email Dobbs with specifics</td>
+            </tr>
+            <tr>
+                <td>Custom Apparel</td>
+                <td>Utilize our Graphics Lab to get custom swag, whatever you need</td>
+                <td>Email Dobbs &amp; Lestini with specifics</td>
+            </tr>
+            <tr>
+                <td>Bulk Custom Certificates</td>
+                <td>Utilize my script to make awards, certificates, etc</td>
+                <td>Email Dobbs with specifics</td>
+            </tr>
+            <tr>
+                <td>Live Streaming</td>
+                <td>Host a livestream of an event in the building, anywhere, anytime</td>
+                <td>Email Dobbs with specifics</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    function onSignedIn() {
+        authFetch('/api/it/me').then(r => r.json()).then(me => {
+            document.getElementById('user-email').textContent = me.email || '';
+            if (me.isStaff) document.getElementById('nav-inventory-link').style.display = '';
+            if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';
+        }).catch(() => {});
+        document.getElementById('signout_button').style.display = '';
+    }
+</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
