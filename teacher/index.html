@@ -130,6 +130,41 @@
         .mc-modal-close:hover { color:#334155; }
         .mc-modal-section { font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:.04em; margin:0 0 0.5rem; }
         .mc-subtask-row { display:flex; align-items:center; gap:0.625rem; padding:0.4rem 0; border-bottom:1px solid #f1f5f9; cursor:pointer; user-select:none; }
+
+        /* ── Work-Based Learning ─────────────────────────────────────────── */
+        .wbl-toolbar    { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+        .wbl-toolbar select { padding:0.45rem 0.6rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.875rem; min-width:220px; }
+        .wbl-subbar     { display:flex; gap:0.25rem; border-bottom:1px solid #e2e8f0; margin-bottom:1.25rem; }
+        .wbl-subbtn     { background:none; border:none; border-bottom:2px solid transparent; padding:0.5rem 0.9rem; font-size:0.875rem; color:#64748b; cursor:pointer; }
+        .wbl-subbtn.active { color:#0f172a; font-weight:600; border-bottom-color:#2563eb; }
+        .wbl-empty      { color:#94a3b8; font-size:0.875rem; padding:1.5rem 0; }
+        .wbl-phase      { display:inline-block; font-size:0.6875rem; font-weight:700; padding:0.1rem 0.45rem; border-radius:10px; }
+        .wbl-phase-1    { background:#e2e8f0; color:#475569; }
+        .wbl-phase-2    { background:#dcfce7; color:#166534; }
+        .wbl-pill       { display:inline-block; font-size:0.6875rem; padding:0.1rem 0.45rem; border-radius:10px; background:#f1f5f9; color:#475569; }
+        .wbl-pill-warn  { background:#fef3c7; color:#92400e; }
+        .wbl-pill-bad   { background:#fee2e2; color:#991b1b; }
+        .wbl-pill-good  { background:#dcfce7; color:#166534; }
+        .wbl-status-active   { color:#166534; font-weight:600; }
+        .wbl-status-complete { color:#64748b; }
+
+        /* Three-lens participant screen — one page, three stacked panels, so the
+           QC trail stays visible while the holistic call is being made. */
+        .wbl-lens        { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:1rem; overflow:hidden; }
+        .wbl-lens-head   { background:#f8fafc; padding:0.6rem 1rem; border-bottom:1px solid #e2e8f0; font-size:0.75rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; align-items:center; }
+        .wbl-lens-body   { padding:1rem; }
+        .wbl-skill-row   { display:flex; align-items:flex-start; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid #f1f5f9; }
+        .wbl-skill-row:last-child { border-bottom:none; }
+        .wbl-skill-name  { flex:1; font-size:0.875rem; color:#0f172a; }
+        .wbl-skill-crit  { display:block; font-size:0.75rem; color:#64748b; margin-top:0.3rem; }
+        .wbl-skill-crit label { margin-right:0.9rem; white-space:nowrap; }
+        .wbl-tier-row    { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+        .wbl-tier        { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:0.4rem 0.75rem; font-size:0.8125rem; cursor:pointer; }
+        .wbl-tier.sel    { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; font-weight:600; }
+        .wbl-note        { font-size:0.8125rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:0.5rem 0.75rem; margin-top:0.75rem; }
+        .wbl-back        { background:none; border:none; color:#2563eb; font-size:0.875rem; cursor:pointer; padding:0; margin-bottom:0.75rem; }
+        .wbl-ver         { font-size:0.6875rem; color:#94a3b8; }
+        .wbl-inline-input { padding:0.35rem 0.5rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8125rem; }
         .mc-subtask-row:last-child { border-bottom:none; }
         .mc-subtask-row span { font-size:0.875rem; color:#334155; flex:1; }
         .mc-subtask-row .mc-cell { flex-shrink:0; pointer-events:none; }
@@ -216,6 +251,7 @@
             <button class="tab-btn"        id="tab-btn-classes"            onclick="switchTab('classes')">Classes</button>
             <button class="tab-btn"        id="tab-btn-rubric"             onclick="switchTab('rubric')">Daily Rubric</button>
             <button class="tab-btn"        id="tab-btn-microcredentials"   onclick="switchTab('microcredentials')">Microcredentials</button>
+            <button class="tab-btn"        id="tab-btn-wbl"                onclick="switchTab('wbl')">Work-Based Learning</button>
             <button class="tab-btn"        id="tab-btn-reports"            onclick="switchTab('reports')">Reports</button>
         </div>
 
@@ -390,6 +426,97 @@
         </div>
 
         <!-- ── Reports tab ──────────────────────────────────────────────────── -->
+        <!-- ── Work-Based Learning tab ───────────────────────────────────────── -->
+        <div id="tab-wbl" style="display:none">
+            <div class="portal-wrap">
+                <div class="wbl-toolbar">
+                    <select id="wbl-program-select" onchange="loadWblSub()"></select>
+                    <button class="btn btn-outline btn-sm" onclick="openWblProgramModal()">New Program</button>
+                    <span id="wbl-program-meta" class="lookup-note" style="margin:0"></span>
+                </div>
+
+                <div id="wbl-main">
+                    <div class="wbl-subbar">
+                        <button class="wbl-subbtn active" id="wbl-sub-btn-roster"   onclick="wblSwitchSub('roster')">Roster</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-events"   onclick="wblSwitchSub('events')">Work Events</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-rotation" onclick="wblSwitchSub('rotation')">QC Rotation</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-catalog"  onclick="wblSwitchSub('catalog')">Catalog</button>
+                    </div>
+
+                    <div id="wbl-sub-roster">
+                        <div class="classes-header">
+                            <div class="section-title" style="margin:0">Enrolled Students</div>
+                            <div style="display:flex;gap:0.5rem">
+                                <button class="btn btn-outline btn-sm" onclick="openWblEnrollModal()">Enroll Students</button>
+                                <button class="btn btn-outline btn-sm" onclick="wblRollYear()">Advance Pathway Year</button>
+                            </div>
+                        </div>
+                        <div id="wbl-roster-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-events" style="display:none">
+                        <div class="classes-header">
+                            <div class="section-title" style="margin:0">Work Events</div>
+                            <button class="btn btn-outline btn-sm" onclick="openWblEventModal()">New Work Event</button>
+                        </div>
+                        <div id="wbl-events-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-rotation" style="display:none">
+                        <div class="section-title">QC Spot Check Rotation</div>
+                        <p class="lookup-note">
+                            Students on an active job with no check this week, longest-unchecked first.
+                            Each student may be checked at most once per calendar week.
+                        </p>
+                        <div id="wbl-rotation-body"></div>
+                        <div class="section-title" style="margin-top:2rem">Below Coverage Floor</div>
+                        <p class="lookup-note">
+                            Measured against weeks the student actually had an active job &mdash; not calendar
+                            weeks, so absences and gaps between jobs are not counted as missed coverage.
+                        </p>
+                        <div id="wbl-floor-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-catalog" style="display:none">
+                        <div class="classes-header">
+                            <div class="section-title" style="margin:0">Micro-credentials</div>
+                            <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
+                        </div>
+                        <div id="wbl-credentials-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
+                            <div class="section-title" style="margin:0">Skills</div>
+                            <button class="btn btn-outline btn-sm" onclick="openWblSkillModal()">New Skill</button>
+                        </div>
+                        <p class="lookup-note">
+                            Skills are versioned rather than edited in place. Publishing freezes a version so the
+                            record of what a student was assessed against cannot change underneath them.
+                        </p>
+                        <div id="wbl-skills-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
+                            <div class="section-title" style="margin:0">QC Spot Check Criteria</div>
+                            <button class="btn btn-outline btn-sm" onclick="openWblQcModal()">New Criterion</button>
+                        </div>
+                        <div id="wbl-qc-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
+                            <div class="section-title" style="margin:0">Gradebook Weighting</div>
+                            <button class="btn btn-outline btn-sm" onclick="saveWblTierPoints()">Save</button>
+                        </div>
+                        <p class="lookup-note">
+                            What each Holistic Output Call is worth as a percentage of the assignment when
+                            grades are pushed to PowerSchool.
+                        </p>
+                        <div id="wbl-tier-body"></div>
+                    </div>
+                </div>
+
+                <!-- Three-lens participant screen -->
+                <div id="wbl-participant" style="display:none"></div>
+            </div>
+        </div>
+
         <div id="tab-reports" style="display:none">
             <div class="portal-wrap">
                 <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap">
@@ -729,11 +856,12 @@
             lookup:           'SAT & KenKen performance breakdown by student',
             classes:          'Manage classes and view cumulative performance',
             microcredentials: 'Track student progress through credential checkpoints',
+            wbl:              'Programs, work events, and three-lens assessment',
             reports:          'Review and resolve reported questions',
         };
 
         function switchTab(tab) {
-            ['data','lookup','classes','rubric','microcredentials','reports'].forEach(t => {
+            ['data','lookup','classes','rubric','microcredentials','wbl','reports'].forEach(t => {
                 document.getElementById('tab-' + t).style.display         = t === tab ? '' : 'none';
                 document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
             });
@@ -741,6 +869,7 @@
             if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
             if (tab === 'rubric')           { loadRubricClassSelect(); }
             if (tab === 'microcredentials') { loadMcClassSelect(); }
+            if (tab === 'wbl')              { loadWblPrograms(); }
             if (tab === 'reports')          { loadReportsTab(); }
         }
 
@@ -2931,6 +3060,639 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             showPortal();
         }
 
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Work-Based Learning
+        // ══════════════════════════════════════════════════════════════════════
+
+        let wblPrograms      = [];
+        let wblCatalogSkills = [];
+        let wblSub           = 'roster';
+        const wblEsc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        const wblProgramId = () => Number(document.getElementById('wbl-program-select').value) || null;
+
+        async function wblApi(method, path, body) {
+            const res = await teacherFetch('/api/wbl' + path, {
+                method,
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            let json = null;
+            try { json = await res.json(); } catch { /* no body */ }
+            if (!res.ok) {
+                const err = new Error(json?.error || res.statusText);
+                err.status = res.status; err.body = json;
+                throw err;
+            }
+            return json;
+        }
+
+        // ISO 8601 week — must match the server, since it is the key of the
+        // once-per-week QC cap.
+        function wblIsoWeek(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00Z');
+            const day = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - day);
+            const year = d.getUTCFullYear();
+            const week = Math.ceil(((d - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+            return year + '-W' + String(week).padStart(2, '0');
+        }
+        const wblToday = () => new Date().toISOString().slice(0, 10);
+
+        async function loadWblPrograms() {
+            try { wblPrograms = await wblApi('GET', '/programs'); }
+            catch { wblPrograms = []; }
+            const sel = document.getElementById('wbl-program-select');
+            const prev = sel.value;
+            sel.innerHTML = wblPrograms.length
+                ? wblPrograms.map(p => `<option value="${p.id}">${wblEsc(p.name)}</option>`).join('')
+                : '<option value="">No programs yet</option>';
+            if (prev && wblPrograms.some(p => String(p.id) === prev)) sel.value = prev;
+            loadWblSub();
+        }
+
+        function wblSwitchSub(name) {
+            wblSub = name;
+            ['roster', 'events', 'rotation', 'catalog'].forEach(s => {
+                document.getElementById('wbl-sub-' + s).style.display = s === name ? '' : 'none';
+                document.getElementById('wbl-sub-btn-' + s).classList.toggle('active', s === name);
+            });
+            loadWblSub();
+        }
+
+        function loadWblSub() {
+            document.getElementById('wbl-participant').style.display = 'none';
+            document.getElementById('wbl-main').style.display = '';
+            const p = wblPrograms.find(x => x.id === wblProgramId());
+            document.getElementById('wbl-program-meta').textContent = p
+                ? `${p.active_students} enrolled · ${p.credentials} credentials`
+                : '';
+            if (!wblProgramId()) {
+                document.getElementById('wbl-roster-body').innerHTML =
+                    '<div class="wbl-empty">Create a program to begin.</div>';
+                return;
+            }
+            if (wblSub === 'roster')   loadWblRoster();
+            if (wblSub === 'events')   loadWblEvents();
+            if (wblSub === 'rotation') loadWblRotation();
+            if (wblSub === 'catalog')  loadWblCatalog();
+        }
+
+        // ── Roster ────────────────────────────────────────────────────────────
+        async function loadWblRoster() {
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/roster`);
+            const el = document.getElementById('wbl-roster-body');
+            if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No students enrolled yet.</div>'; return; }
+            el.innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr>
+                        <th>Student</th><th>ID</th><th>Phase</th><th>Pathway Year</th>
+                        <th>Credentials</th><th>Last QC</th><th></th>
+                    </tr></thead>
+                    <tbody>${rows.map(r => `
+                        <tr>
+                            <td>${wblEsc(r.student_name || '—')}</td>
+                            <td>${wblEsc(r.student_id)}</td>
+                            <td><span class="wbl-phase wbl-phase-${r.phase}">Phase ${r.phase}</span>
+                                ${r.override_phase ? ' <span class="wbl-pill">override</span>' : ''}</td>
+                            <td>${r.pathway_year}</td>
+                            <td>${r.credentials}</td>
+                            <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
+                            <td>${r.exited_on ? '<span class="wbl-pill">exited</span>' : ''}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table></div>`;
+        }
+
+        async function wblRollYear() {
+            if (!confirm('Advance every active student in this program to the next pathway year?\n\n'
+                       + 'Credentials, phase, and history are untouched — they persist by student, not by year.')) return;
+            const r = await wblApi('POST', `/programs/${wblProgramId()}/enrollments/roll-year`);
+            alert(`Advanced ${r.advanced} student(s).`);
+            loadWblRoster();
+        }
+
+        // ── Work events ───────────────────────────────────────────────────────
+        async function loadWblEvents() {
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/work-events`);
+            const el = document.getElementById('wbl-events-body');
+            if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No work events yet.</div>'; return; }
+            el.innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Job</th><th>Ref</th><th>Opened</th><th>Status</th>
+                               <th>Participants</th><th>Calls</th><th></th></tr></thead>
+                    <tbody>${rows.map(w => `
+                        <tr>
+                            <td><a href="#" onclick="openWblEvent(${w.id});return false">${wblEsc(w.title)}</a></td>
+                            <td>${wblEsc(w.external_ref || '—')}</td>
+                            <td>${wblEsc(w.opened_on)}</td>
+                            <td class="wbl-status-${w.status}">${wblEsc(w.status)}</td>
+                            <td>${w.participants}</td>
+                            <td>${w.holistic_calls}/${w.participants}</td>
+                            <td>${w.status === 'active'
+                                ? `<button class="btn btn-outline btn-sm" onclick="wblCompleteEvent(${w.id})">Complete</button>`
+                                : ''}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table></div>
+                <div id="wbl-event-detail"></div>`;
+        }
+
+        async function openWblEvent(id) {
+            const w = await wblApi('GET', `/work-events/${id}`);
+            document.getElementById('wbl-event-detail').innerHTML = `
+                <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)} — participants</div>
+                <button class="btn btn-outline btn-sm" onclick="openWblParticipantModal(${w.id})">Add Participants</button>
+                ${w.participants.length ? `
+                <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
+                    <thead><tr><th>Student</th><th>Phase at start</th><th>Skills</th><th>QC</th><th>Holistic</th></tr></thead>
+                    <tbody>${w.participants.map(p => `
+                        <tr>
+                            <td><a href="#" onclick="openWblParticipant(${p.id});return false">${wblEsc(p.student_name || p.student_id)}</a></td>
+                            <td><span class="wbl-phase wbl-phase-${p.phase_at_start}">Phase ${p.phase_at_start}</span></td>
+                            <td>${p.assessments}</td>
+                            <td>${p.qc_checks}</td>
+                            <td>${p.holistic_tier
+                                ? `<span class="wbl-pill wbl-pill-good">${wblEsc(p.holistic_tier)}</span>`
+                                : '<span class="wbl-pill wbl-pill-warn">none</span>'}</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
+        }
+
+        // Closing a job without a Holistic Call would leave every skill demonstrated
+        // on it unable to count toward mastery, so the server refuses and we surface
+        // exactly who is missing one.
+        async function wblCompleteEvent(id, force) {
+            try {
+                await wblApi('PATCH', `/work-events/${id}${force ? '?force=true' : ''}`, { status: 'complete' });
+                loadWblEvents();
+            } catch (e) {
+                if (e.status === 409 && e.body?.error === 'missing_holistic_calls') {
+                    const who = e.body.participants.map(p => '· ' + (p.student_name || p.student_id)).join('\n');
+                    if (confirm(`These participants have no Holistic Call yet:\n\n${who}\n\n`
+                              + 'Skills demonstrated on this job cannot count toward a credential '
+                              + 'without one. Close anyway?')) {
+                        return wblCompleteEvent(id, true);
+                    }
+                    return;
+                }
+                alert('Could not complete: ' + e.message);
+            }
+        }
+
+        // ── The three-lens participant screen ─────────────────────────────────
+        let wblP = null;   // currently open participant payload
+
+        async function openWblParticipant(pid) {
+            wblP = await wblApi('GET', `/participants/${pid}`);
+            const skills = await wblApi('GET', `/programs/${wblP.participant.program_id}/skills`);
+            const qcCrit = await wblApi('GET', `/programs/${wblP.participant.program_id}/qc-criteria`);
+            wblP.catalogSkills = skills.filter(s => s.status === 'published');
+            wblP.qcCriteria    = qcCrit;
+            renderWblParticipant();
+        }
+
+        function renderWblParticipant() {
+            document.getElementById('wbl-main').style.display = 'none';
+            const host = document.getElementById('wbl-participant');
+            host.style.display = '';
+
+            const p    = wblP.participant;
+            const done = new Map(wblP.hard_skills.map(a => [a.skill_id, a]));
+            const RESULTS = ['not_demonstrated', 'developing', 'mastered'];
+            const TIERS = [
+                ['not_shippable', 'Not shippable'], ['rework', 'Rework needed'],
+                ['meets', 'Meets spec'], ['exceeds', 'Exceeds spec'],
+            ];
+            const checkedThisWeek = wblP.qc_checks.some(c => c.iso_week === wblIsoWeek(wblToday()));
+
+            host.innerHTML = `
+                <button class="wbl-back" onclick="closeWblParticipant()">&larr; Back to work events</button>
+                <div class="detail-header">
+                    <div class="detail-title">${wblEsc(p.student_name || p.student_id)} · ${wblEsc(p.event_title)}</div>
+                    <span class="wbl-phase wbl-phase-${wblP.phase_now}">Phase ${wblP.phase_now} now</span>
+                    ${p.phase_at_start !== wblP.phase_now
+                        ? `<span class="wbl-pill">was Phase ${p.phase_at_start} on this job</span>` : ''}
+                </div>
+
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Hard Skills</span><span>every work event, both phases</span></div>
+                    <div class="wbl-lens-body">
+                        ${wblP.catalogSkills.length ? wblP.catalogSkills.map(s => {
+                            const a = done.get(s.id);
+                            const met = new Set((a?.criteria || []).filter(c => c.met).map(c => c.criterion_id));
+                            return `
+                            <div class="wbl-skill-row">
+                                <div class="wbl-skill-name">
+                                    ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>
+                                    <span class="wbl-skill-crit" id="wbl-crit-${s.id}">${
+                                        s.criteria.map(c => `<label><input type="checkbox" data-crit="${c.id}"
+                                            ${met.has(c.id) ? 'checked' : ''}
+                                            onchange="saveWblSkill(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
+                                    }</span>
+                                </div>
+                                <select class="wbl-inline-input" id="wbl-res-${s.id}"
+                                        onchange="saveWblSkill(${s.id})">
+                                    <option value="">— not assessed —</option>
+                                    ${RESULTS.map(r => `<option value="${r}"${a?.result === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('')}
+                                </select>
+                            </div>`;
+                        }).join('') : '<div class="wbl-empty">No published skills in this program yet.</div>'}
+                    </div>
+                </div>
+
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head">
+                        <span>QC Spot Checks</span>
+                        <span>${wblP.qc_checks.length} recorded · capped once per week</span>
+                    </div>
+                    <div class="wbl-lens-body">
+                        ${wblP.qc_checks.length ? `
+                        <div class="portal-table-wrap"><table class="portal-table">
+                            <thead><tr><th>Week</th><th>Date</th><th>Results</th><th>Note</th></tr></thead>
+                            <tbody>${wblP.qc_checks.map(c => `
+                                <tr><td>${wblEsc(c.iso_week)}</td><td>${wblEsc(c.checked_on)}</td>
+                                    <td>${c.results.map(r => `<span class="wbl-pill wbl-pill-${r.outcome === 'pass' ? 'good' : r.outcome === 'fail' ? 'bad' : ''}">${wblEsc(r.outcome)}</span>`).join(' ')}</td>
+                                    <td>${wblEsc(c.note || '')}</td></tr>`).join('')}
+                            </tbody></table></div>` : '<div class="wbl-empty">No spot checks recorded.</div>'}
+                        ${checkedThisWeek
+                            ? '<div class="wbl-note">Already checked this week — the next check can be recorded next calendar week.</div>'
+                            : `<button class="btn btn-outline btn-sm" style="margin-top:0.75rem" onclick="openWblQcCheckModal()">Record Spot Check</button>`}
+                    </div>
+                </div>
+
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Holistic Output Call</span><span>at job completion</span></div>
+                    <div class="wbl-lens-body">
+                        <div class="wbl-tier-row">
+                            ${TIERS.map(([t, label]) => `
+                                <button class="wbl-tier${wblP.holistic?.tier === t ? ' sel' : ''}"
+                                        onclick="saveWblHolistic('${t}')">${label}</button>`).join('')}
+                        </div>
+                        <input class="wbl-inline-input" style="width:100%" id="wbl-rationale"
+                               placeholder="Rationale (optional)"
+                               value="${wblEsc(wblP.holistic?.rationale || '')}"
+                               onchange="saveWblHolistic(wblP.holistic?.tier)" />
+                        <div class="wbl-note">
+                            Informed by the spot-check history above, not averaged from it. A skill counts toward
+                            a credential only when demonstrated on a job that clears the credential's threshold.
+                        </div>
+                    </div>
+                </div>
+
+                ${wblP.transfer_claims.length ? `
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Transfer Claims</span><span>scored, Phase 2 only</span></div>
+                    <div class="wbl-lens-body">${wblP.transfer_claims.map(c => `
+                        <div class="wbl-skill-row">
+                            <div class="wbl-skill-name">
+                                <strong>${c.kind === 'application' ? 'Application of Previous Knowledge' : 'Extension of Knowledge'}</strong>
+                                <span class="wbl-skill-crit">${wblEsc(c.claim_text)}</span>
+                            </div>
+                            <div>
+                                ${c.verdict
+                                    ? `<span class="wbl-pill wbl-pill-${c.verdict === 'verified' ? 'good' : 'bad'}">${wblEsc(c.verdict)}</span>`
+                                    : `<button class="btn btn-outline btn-sm" onclick="wblFactcheck(${c.id})">Fact-check</button>`}
+                            </div>
+                        </div>`).join('')}
+                    </div>
+                </div>` : ''}
+
+                ${wblP.dispositional.length ? `
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Reflections on this job</span><span>formative &mdash; never scored</span></div>
+                    <div class="wbl-lens-body">${wblP.dispositional.map(d => `
+                        <div class="wbl-skill-row">
+                            <div class="wbl-skill-name">
+                                ${wblEsc(d.soft_skill_code.replace(/_/g, ' '))}
+                                <span class="wbl-ver">${wblEsc(d.date)}</span>
+                                ${d.voided ? ' <span class="wbl-pill wbl-pill-bad">voided</span>' : ''}
+                                <span class="wbl-skill-crit">${wblEsc(d.narrative)}</span>
+                            </div>
+                            <span class="wbl-pill">${wblEsc(d.confidence || 'student claimed')}</span>
+                        </div>`).join('')}
+                    </div>
+                </div>` : ''}`;
+
+        }
+
+        function closeWblParticipant() {
+            document.getElementById('wbl-participant').style.display = 'none';
+            document.getElementById('wbl-main').style.display = '';
+            loadWblEvents();
+        }
+
+        async function saveWblSkill(skillId) {
+            const result = document.getElementById('wbl-res-' + skillId).value;
+            if (!result) return;
+            const crits = [...document.querySelectorAll(`#wbl-crit-${skillId} input[data-crit]`)]
+                .map(i => ({ criterion_id: Number(i.dataset.crit), met: i.checked }));
+            const r = await wblApi('PUT', `/participants/${wblP.participant.id}/skills/${skillId}`,
+                                   { result, criteria: crits });
+            if (r.awarded?.length) alert(`Credential earned — ${r.awarded.length} awarded. Phase is now ${r.phase}.`);
+            openWblParticipant(wblP.participant.id);
+        }
+
+        // The holistic call is what makes prior demonstrations on this job count,
+        // so it can complete a credential with no new skill assessment at all.
+        async function saveWblHolistic(tier) {
+            if (!tier) return;
+            const rationale = document.getElementById('wbl-rationale')?.value || '';
+            const r = await wblApi('PUT', `/participants/${wblP.participant.id}/holistic`, { tier, rationale });
+            if (r.awarded?.length) {
+                alert(`Credential earned — ${r.awarded.length} awarded. Phase is now ${r.phase}.`);
+            }
+            if (r.review) {
+                alert('This call was downgraded from "' + r.review.downgraded_from + '".\n\n'
+                    + 'These credentials rest on evidence from this job and are flagged for your review '
+                    + '(nothing was revoked automatically):\n\n'
+                    + r.review.awards_to_review.map(a => '· ' + a.name).join('\n'));
+            }
+            openWblParticipant(wblP.participant.id);
+        }
+
+        async function wblFactcheck(claimId) {
+            const f = await wblApi('GET', `/transfer-claims/${claimId}/factcheck`);
+            let msg;
+            if (f.kind === 'application') {
+                msg = f.citation.on_record
+                    ? `Cited credential IS on record: "${f.citation.credential_name}" (${f.citation.program_name}).`
+                    : 'Cited credential is NOT on this student\'s record in any program.';
+            } else {
+                msg = f.novelty.novel
+                    ? 'No existing credential matches this capability — the claim looks genuinely new.'
+                    : `Already credentialed as "${f.novelty.credential_name}" (${f.novelty.program_name}).\n`
+                      + 'This may be Application of Previous Knowledge rather than Extension.';
+            }
+            const verdict = prompt(msg + '\n\nVerdict: verified / citation_not_on_record / not_novel / insufficient',
+                f.kind === 'application'
+                    ? (f.citation.on_record ? 'verified' : 'citation_not_on_record')
+                    : (f.novelty.novel ? 'verified' : 'not_novel'));
+            if (!verdict) return;
+            const score = prompt('Score (blank for none)', '');
+            await wblApi('PATCH', `/transfer-claims/${claimId}/verify`,
+                { verdict, score: score === '' ? null : Number(score) });
+            openWblParticipant(wblP.participant.id);
+        }
+
+        // ── QC rotation and floor ─────────────────────────────────────────────
+        async function loadWblRotation() {
+            const week = wblIsoWeek(wblToday());
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/rotation?week=${week}`);
+            document.getElementById('wbl-rotation-body').innerHTML = rows.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th><th>Current job</th><th>Last checked</th><th></th></tr></thead>
+                    <tbody>${rows.map(r => `
+                        <tr>
+                            <td>${wblEsc(r.student_id)}</td>
+                            <td>${wblEsc(r.work_event_title)}</td>
+                            <td>${r.last_checked_week
+                                ? wblEsc(r.last_checked_week)
+                                : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
+                            <td><button class="btn btn-outline btn-sm"
+                                        onclick="openWblParticipant(${r.participant_id})">Open</button></td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : `<div class="wbl-empty">Everyone on an active job has been checked for ${week}.</div>`;
+
+            const floor = await wblApi('GET', `/programs/${wblProgramId()}/qc-floor?week=${week}`);
+            document.getElementById('wbl-floor-body').innerHTML = floor.below_floor.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th><th>Checks</th><th>Last</th><th>Active weeks since</th></tr></thead>
+                    <tbody>${floor.below_floor.map(r => `
+                        <tr><td>${wblEsc(r.student_id)}</td><td>${r.checks}</td>
+                            <td>${wblEsc(r.last_checked_week || '—')}</td>
+                            <td><span class="wbl-pill wbl-pill-bad">${r.weeks_since_check}</span></td></tr>`).join('')}
+                    </tbody></table></div>`
+                : `<div class="wbl-empty">Nobody is below the floor of ${floor.max_weeks_unchecked} active weeks.</div>`;
+        }
+
+        // ── Catalog ───────────────────────────────────────────────────────────
+        async function loadWblCatalog() {
+            const pid = wblProgramId();
+            const [creds, skills, qc, tiers] = await Promise.all([
+                wblApi('GET', `/programs/${pid}/credentials`),
+                wblApi('GET', `/programs/${pid}/skills`),
+                wblApi('GET', `/programs/${pid}/qc-criteria`),
+                wblApi('GET', `/programs/${pid}/tier-points`),
+            ]);
+            wblCatalogSkills = skills;
+
+            document.getElementById('wbl-tier-body').innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Output Call</th><th style="width:140px">Percent of max</th></tr></thead>
+                    <tbody>${tiers.map(t => `
+                        <tr>
+                            <td>${wblEsc(t.label)}</td>
+                            <td><input class="wbl-inline-input" type="number" min="0" max="100" step="1"
+                                       style="width:90px" id="wbl-tier-${t.tier}"
+                                       value="${t.points_pct ?? ''}" /> %</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`;
+
+            document.getElementById('wbl-credentials-body').innerHTML = creds.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Credential</th><th>Requires output</th><th>Skills</th><th>Awarded</th><th></th></tr></thead>
+                    <tbody>${creds.map(c => `
+                        <tr>
+                            <td>${wblEsc(c.name)}</td>
+                            <td><span class="wbl-pill">${wblEsc(c.min_holistic_tier)}</span></td>
+                            <td>${c.skills.length
+                                ? c.skills.map(s => `${wblEsc(s.skill_name || '?')} &times;${s.required_demonstrations}`).join(', ')
+                                : '<span class="wbl-pill wbl-pill-warn">none set</span>'}</td>
+                            <td>${c.awards}</td>
+                            <td><button class="btn btn-outline btn-sm"
+                                        onclick="openWblCredSkillsModal(${c.id})">Edit Skills</button></td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No credentials yet.</div>';
+
+            document.getElementById('wbl-skills-body').innerHTML = skills.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Skill</th><th>Version</th><th>Status</th><th>Checklist</th><th></th></tr></thead>
+                    <tbody>${skills.map(s => `
+                        <tr>
+                            <td>${wblEsc(s.name || s.slug)}</td>
+                            <td>v${s.version_no ?? '—'}</td>
+                            <td><span class="wbl-pill wbl-pill-${s.status === 'published' ? 'good' : s.status === 'draft' ? 'warn' : ''}">${wblEsc(s.status || 'none')}</span></td>
+                            <td>${s.criteria.length} item(s)</td>
+                            <td>
+                                ${s.draft_version_id
+                                    ? `<button class="btn btn-outline btn-sm" onclick="wblEditCriteria(${s.draft_version_id})">Checklist</button>
+                                       <button class="btn btn-outline btn-sm" onclick="wblPublish(${s.draft_version_id})">Publish draft</button>`
+                                    : ''}
+                                ${s.status === 'published'
+                                    ? `<button class="btn btn-outline btn-sm" onclick="wblNewVersion(${s.id})">New Version</button>
+                                       <button class="btn btn-outline btn-sm" onclick="wblRetire(${s.version_id})">Retire</button>`
+                                    : ''}
+                            </td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No skills yet.</div>';
+
+            document.getElementById('wbl-qc-body').innerHTML = qc.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Criterion</th><th>Description</th></tr></thead>
+                    <tbody>${qc.map(c => `<tr><td>${wblEsc(c.name)}</td><td>${wblEsc(c.description || '')}</td></tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No QC criteria yet.</div>';
+        }
+
+        async function saveWblTierPoints() {
+            const tiers = ['not_shippable', 'rework', 'meets', 'exceeds'].map(t => ({
+                tier: t, points_pct: Number(document.getElementById('wbl-tier-' + t).value),
+            }));
+            if (tiers.some(t => isNaN(t.points_pct))) return alert('Every tier needs a percentage.');
+            await wblApi('PUT', `/programs/${wblProgramId()}/tier-points`, { tiers });
+            alert('Saved.');
+        }
+
+        async function wblEditCriteria(versionId) {
+            const skill = wblCatalogSkills.find(s => s.draft_version_id === versionId || s.version_id === versionId);
+            const versions = await wblApi('GET', `/skills/${skill.id}/versions`);
+            const v = versions.find(x => x.id === versionId);
+            const current = (v.criteria || []).map(c => c.name).join('\n');
+            const text = prompt('Mastery checklist — one item per line:', current);
+            if (text === null) return;
+            const criteria = text.split('\n').map(s => s.trim()).filter(Boolean);
+            await wblApi('PUT', `/skill-versions/${versionId}/criteria`, { criteria });
+            loadWblCatalog();
+        }
+
+        async function wblPublish(versionId) {
+            if (!confirm('Publish this version?\n\nOnce published its wording and checklist are frozen — '
+                       + 'changing scope later means publishing a new version, which keeps every past '
+                       + 'assessment honest about what it was measured against.')) return;
+            await wblApi('POST', `/skill-versions/${versionId}/publish`);
+            loadWblCatalog();
+        }
+
+        async function wblNewVersion(skillId) {
+            const note = prompt('What changed? (recorded on the new version)', '');
+            if (note === null) return;
+            await wblApi('POST', `/skills/${skillId}/versions?copy_current=true`, { change_note: note });
+            loadWblCatalog();
+        }
+
+        async function wblRetire(versionId, force) {
+            try {
+                await wblApi('POST', `/skill-versions/${versionId}/retire${force ? '?force=true' : ''}`);
+                loadWblCatalog();
+            } catch (e) {
+                if (e.status === 409 && e.body?.error === 'skill_in_use') {
+                    if (confirm(`This skill is still required by: ${e.body.credentials.join(', ')}.\n\n`
+                              + `${e.body.students_stranded} enrolled student(s) have not yet earned those `
+                              + 'credentials and would be unable to finish them.\n\nRetire anyway?')) {
+                        return wblRetire(versionId, true);
+                    }
+                    return;
+                }
+                alert('Could not retire: ' + e.message);
+            }
+        }
+
+        // ── Modals (prompt-based; deliberately minimal) ────────────────────────
+        async function openWblProgramModal() {
+            const name = prompt('Program name (e.g. "Carpentry Job Shop")');
+            if (!name) return;
+            try { await wblApi('POST', '/programs', { name }); }
+            catch (e) { return alert(e.status === 409 ? 'A program with that name already exists.' : e.message); }
+            loadWblPrograms();
+        }
+
+        async function openWblEnrollModal() {
+            const ids = prompt('Student IDs to enroll, comma or space separated:');
+            if (!ids) return;
+            const student_ids = ids.split(/[\s,]+/).filter(Boolean);
+            const r = await wblApi('POST', `/programs/${wblProgramId()}/enrollments`, { student_ids });
+            alert(`Enrolled ${r.enrolled} student(s).`);
+            loadWblRoster();
+        }
+
+        async function openWblEventModal() {
+            const title = prompt('Work event title (the job, order, or build)');
+            if (!title) return;
+            const external_ref = prompt('Shop order / ticket number (optional)', '') || null;
+            await wblApi('POST', `/programs/${wblProgramId()}/work-events`, { title, external_ref });
+            loadWblEvents();
+        }
+
+        async function openWblParticipantModal(weId) {
+            const classes = await (await teacherFetch('/api/teacher/classes')).json();
+            if (!classes.length) return alert('Create a class first — participants carry a class for gradebook sync.');
+            const classId = prompt('Class ID for these participants:\n\n'
+                + classes.map(c => `${c.id} — ${c.name}`).join('\n'), String(classes[0].id));
+            if (!classId) return;
+            const ids = prompt('Student IDs, comma or space separated:');
+            if (!ids) return;
+            await wblApi('POST', `/work-events/${weId}/participants`, {
+                class_id: Number(classId),
+                student_ids: ids.split(/[\s,]+/).filter(Boolean),
+            });
+            openWblEvent(weId);
+        }
+
+        async function openWblCredentialModal() {
+            const name = prompt('Credential name');
+            if (!name) return;
+            const tier = prompt('Minimum output quality for technique to count toward it:\n'
+                + 'not_shippable / rework / meets / exceeds', 'meets');
+            if (!tier) return;
+            try { await wblApi('POST', `/programs/${wblProgramId()}/credentials`, { name, min_holistic_tier: tier }); }
+            catch (e) { return alert(e.message); }
+            loadWblCatalog();
+        }
+
+        async function openWblCredSkillsModal(credId) {
+            const list = wblCatalogSkills.map(s => `${s.id} — ${s.name || s.slug}`).join('\n');
+            const spec = prompt('Required skills as "skillId x demonstrations", one per line.\n'
+                + 'Demonstrations must occur on DIFFERENT work events.\n\n' + list, '');
+            if (spec === null) return;
+            const skills = spec.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+                const [id, n] = l.split(/\s*x\s*/i);
+                return { skill_id: Number(id), required_demonstrations: Number(n) || 2 };
+            });
+            try { await wblApi('PUT', `/credentials/${credId}/skills`, { skills }); }
+            catch (e) { return alert(e.message); }
+            loadWblCatalog();
+        }
+
+        async function openWblSkillModal() {
+            const name = prompt('Skill name');
+            if (!name) return;
+            const slug = prompt('Short slug (stable across versions)', name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            if (!slug) return;
+            try { await wblApi('POST', `/programs/${wblProgramId()}/skills`, { name, slug }); }
+            catch (e) { return alert(e.status === 409 ? 'That slug is already used in this program.' : e.message); }
+            loadWblCatalog();
+        }
+
+        async function openWblQcModal() {
+            const name = prompt('QC criterion (measurable and objective, e.g. "Joint is square within 1mm")');
+            if (!name) return;
+            await wblApi('POST', `/programs/${wblProgramId()}/qc-criteria`, { name });
+            loadWblCatalog();
+        }
+
+        async function openWblQcCheckModal() {
+            const crit = wblP.qcCriteria;
+            if (!crit.length) return alert('Add QC criteria to this program first (Catalog tab).');
+            const spec = prompt('Outcome per criterion — pass / fail / na, one per line:\n\n'
+                + crit.map((c, i) => `${i + 1}. ${c.name}`).join('\n'),
+                crit.map(() => 'pass').join('\n'));
+            if (spec === null) return;
+            const lines = spec.split('\n').map(s => s.trim().toLowerCase());
+            const results = crit.map((c, i) => ({ criterion_id: c.id, outcome: lines[i] || 'na' }));
+            try {
+                await wblApi('POST', `/participants/${wblP.participant.id}/qc-check`, { results });
+            } catch (e) {
+                if (e.status === 409) return alert(`Already checked in ${e.body.iso_week} (on ${e.body.checked_on}).\n\n`
+                    + 'Spot checks are capped at one per student per calendar week.');
+                return alert(e.message);
+            }
+            openWblParticipant(wblP.participant.id);
+        }
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 </body>

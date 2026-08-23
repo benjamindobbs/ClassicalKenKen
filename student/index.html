@@ -67,6 +67,48 @@
         .rubric-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
         .rubric-table tr:last-child td { border-bottom: none; }
 
+        /* Work-Based Learning — Do Now / Exit Slip */
+        .wbl-card       { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:1.125rem 1.25rem; margin-bottom:1rem; }
+        .wbl-card-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin:0 0 0.25rem; }
+        .wbl-card-sub   { font-size:0.8125rem; color:#94a3b8; margin:0 0 1rem; }
+        .wbl-prog-row   { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .wbl-prog-row select { padding:0.35rem 0.55rem; border:1px solid var(--border); border-radius:var(--radius); font-size:0.8125rem; }
+        .wbl-phase-tag  { font-size:0.75rem; font-weight:700; padding:0.2rem 0.6rem; border-radius:9999px; }
+        .wbl-phase-tag.p1 { background:#f1f5f9; color:#475569; }
+        .wbl-phase-tag.p2 { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+
+        /* Dispositional skill picker */
+        .wbl-picks      { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; }
+        .wbl-pick       { display:flex; align-items:flex-start; gap:0.625rem; padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
+        .wbl-pick:hover { background:#f8fafc; }
+        .wbl-pick.sel   { border-color:#2563eb; background:#eff6ff; }
+        .wbl-pick input { margin-top:0.15rem; flex-shrink:0; }
+        .wbl-pick-name  { font-size:0.875rem; font-weight:600; color:#0f172a; }
+        .wbl-pick-hint  { display:block; font-size:0.75rem; color:#64748b; margin-top:0.15rem; }
+        .wbl-chosen     { display:flex; flex-wrap:wrap; gap:0.375rem; }
+        .wbl-chip       { font-size:0.8125rem; padding:0.3rem 0.7rem; border-radius:9999px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+
+        /* Feedback delivered forward from the previous reflection */
+        .wbl-feedback   { background:#fffbeb; border:1px solid #fde68a; border-radius:var(--radius); padding:0.75rem 0.875rem; margin-bottom:1rem; }
+        .wbl-feedback-label { font-size:0.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#92400e; margin-bottom:0.3rem; }
+        .wbl-feedback-body  { font-size:0.875rem; color:#78350f; line-height:1.5; }
+
+        /* Exit slip */
+        .wbl-slip       { border:1px solid var(--border); border-radius:var(--radius); padding:0.875rem 1rem; margin-bottom:0.75rem; }
+        .wbl-slip-head  { font-size:0.875rem; font-weight:600; color:#0f172a; margin-bottom:0.5rem; }
+        .wbl-slip textarea { width:100%; min-height:88px; padding:0.6rem 0.7rem; border:1px solid var(--border); border-radius:var(--radius); font-size:0.875rem; font-family:inherit; resize:vertical; box-sizing:border-box; }
+        .wbl-slip select   { padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:var(--radius); font-size:0.8125rem; margin-bottom:0.5rem; }
+        .wbl-slip-done  { background:#f8fafc; }
+        .wbl-slip-text  { font-size:0.875rem; color:#334155; line-height:1.55; white-space:pre-wrap; }
+        .wbl-slip-meta  { font-size:0.75rem; color:#94a3b8; margin-top:0.5rem; }
+        .wbl-locked     { font-size:0.75rem; color:#94a3b8; margin-top:0.75rem; }
+        .wbl-voided     { font-size:0.75rem; color:#b91c1c; }
+
+        /* Credentials */
+        .wbl-creds      { display:flex; flex-wrap:wrap; gap:0.5rem; }
+        .wbl-cred       { font-size:0.8125rem; padding:0.35rem 0.75rem; border-radius:9999px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+        .wbl-cred-prog  { color:#64748b; font-size:0.75rem; }
+
         /* Empty states */
         .empty-state { color: #94a3b8; font-size: 0.875rem; padding: 1.5rem 0; text-align: center; }
 
@@ -116,6 +158,20 @@
                     <p class="daily-title">Today&rsquo;s Assignment</p>
                     <div id="daily-content"></div>
                 </div>
+            </div>
+
+            <!-- Work-Based Learning: Do Now / Exit Slip -->
+            <div id="wbl-section" style="display:none">
+                <div class="section-heading">Work-Based Learning</div>
+                <div class="wbl-prog-row">
+                    <select id="wbl-program" onchange="loadWblDay()"></select>
+                    <span id="wbl-phase-tag"></span>
+                    <span id="wbl-year" class="wbl-card-sub" style="margin:0"></span>
+                </div>
+                <div id="wbl-donow"></div>
+                <div id="wbl-exit"></div>
+                <div id="wbl-transfer"></div>
+                <div id="wbl-credentials"></div>
             </div>
 
             <!-- Charts -->
@@ -231,6 +287,7 @@
                 loadScores(),
                 loadMicrocredentials(),
                 loadRubrics(),
+                loadWbl(),
             ]);
         }
 
@@ -654,6 +711,328 @@
             document.getElementById('rubric-from').value = '';
             document.getElementById('rubric-to').value   = '';
             loadRubrics();
+        }
+
+        // ── Work-Based Learning: Do Now / Exit Slip ───────────────────────────
+        let wblMe = null, wblDay = null;
+
+        const wblEsc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const wblToday = () => new Date().toISOString().slice(0, 10);
+        const wblLabel = code => code.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        async function wblApi(method, path, body) {
+            const res = await authFetch('/api/wbl' + path, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            let json = null;
+            try { json = await res.json(); } catch { /* no body */ }
+            if (!res.ok) { const e = new Error(json?.error || res.statusText); e.status = res.status; e.body = json; throw e; }
+            return json;
+        }
+
+        async function loadWbl() {
+            try { wblMe = await wblApi('GET', '/me'); }
+            catch { return; }                       // not enrolled — section stays hidden
+            if (!wblMe.programs?.length) return;
+
+            document.getElementById('wbl-section').style.display = '';
+            const sel = document.getElementById('wbl-program');
+            sel.innerHTML = wblMe.programs.map(p => `<option value="${p.id}">${wblEsc(p.name)}</option>`).join('');
+            sel.parentElement.style.display = wblMe.programs.length > 1 ? '' : 'none';
+            renderWblCredentials();
+            loadWblDay();
+        }
+
+        const wblProgram = () => wblMe.programs.find(p => String(p.id) === document.getElementById('wbl-program').value)
+                              || wblMe.programs[0];
+
+        async function loadWblDay() {
+            const p = wblProgram();
+            document.getElementById('wbl-phase-tag').innerHTML =
+                `<span class="wbl-phase-tag p${p.phase}">Phase ${p.phase}</span>`;
+            document.getElementById('wbl-year').textContent =
+                p.pathway_year ? `Year ${p.pathway_year}` : '';
+            wblDay = await wblApi('GET', `/me/do-now?program_id=${p.id}&date=${wblToday()}`);
+            renderWblDoNow();
+            await renderWblExit();
+            await renderWblTransfer();
+        }
+
+        // ── Do Now (session entry) ────────────────────────────────────────────
+        function renderWblDoNow() {
+            const el = document.getElementById('wbl-donow');
+            const d  = wblDay;
+
+            // Feedback is delivered forward — it shows up at the START of the
+            // next session, never as a correction attached to the old reflection.
+            const feedback = d.pending_feedback.map(f => `
+                <div class="wbl-feedback">
+                    <div class="wbl-feedback-label">From your instructor, on an earlier reflection</div>
+                    <div class="wbl-feedback-body">${wblEsc(f.body)}</div>
+                </div>`).join('');
+
+            if (d.do_now) {
+                el.innerHTML = `
+                    <div class="wbl-card">
+                        <p class="wbl-card-title">Do Now &mdash; today's focus</p>
+                        <p class="wbl-card-sub">Chosen for ${wblEsc(d.date)}.</p>
+                        ${feedback}
+                        <div class="wbl-chosen">${d.skills.map(s =>
+                            `<span class="wbl-chip">${wblEsc(wblLabel(s.soft_skill_code))}</span>`).join('')}</div>
+                    </div>`;
+                return;
+            }
+
+            // Phase 1 narrows the choice to openings the instructor pre-identified
+            // in the day's unit; Phase 2 selection is fully self-directed.
+            const hints = {};
+            for (const o of d.openings || []) {
+                (hints[o.soft_skill_code] ||= []).push(o.skill_name);
+            }
+
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Do Now &mdash; pick your focus</p>
+                    <p class="wbl-card-sub">
+                        Choose one skill to watch for in yourself today (two at most).
+                        ${d.phase === 1
+                            ? 'Your instructor has flagged where these tend to come up in this unit.'
+                            : 'Pick against the work you actually have in front of you.'}
+                    </p>
+                    ${feedback}
+                    <div class="wbl-picks">
+                        ${d.available.map(s => `
+                            <label class="wbl-pick" id="wbl-pick-${s.code}">
+                                <input type="checkbox" value="${s.code}" onchange="wblTogglePick(this)" />
+                                <span>
+                                    <span class="wbl-pick-name">${wblEsc(s.name)}</span>
+                                    ${hints[s.code] ? `<span class="wbl-pick-hint">Comes up in: ${wblEsc(hints[s.code].filter(Boolean).join(', '))}</span>` : ''}
+                                </span>
+                            </label>`).join('')}
+                    </div>
+                    <button class="btn btn-primary btn-xs" id="wbl-donow-save" onclick="saveWblDoNow()" disabled>
+                        Start the session
+                    </button>
+                </div>`;
+        }
+
+        function wblTogglePick(input) {
+            const boxes = [...document.querySelectorAll('#wbl-donow input[type=checkbox]')];
+            const picked = boxes.filter(b => b.checked);
+            // Cap of two, enforced here, in the route, and by a database trigger.
+            if (picked.length > 2) { input.checked = false; return; }
+            boxes.forEach(b => b.closest('.wbl-pick').classList.toggle('sel', b.checked));
+            document.getElementById('wbl-donow-save').disabled = picked.length === 0;
+        }
+
+        async function saveWblDoNow() {
+            const skills = [...document.querySelectorAll('#wbl-donow input:checked')].map(b => b.value);
+            if (!skills.length) return;
+            const btn = document.getElementById('wbl-donow-save');
+            btn.disabled = true; btn.textContent = 'Saving…';
+            try {
+                await wblApi('POST', '/me/do-now', { program_id: wblProgram().id, date: wblToday(), skills });
+            } catch (e) {
+                btn.disabled = false; btn.textContent = 'Start the session';
+                return alert('Could not save: ' + e.message);
+            }
+            loadWblDay();
+        }
+
+        // ── Exit Slip (session departure) ─────────────────────────────────────
+        async function renderWblExit() {
+            const el = document.getElementById('wbl-exit');
+            if (!wblDay.do_now) { el.innerHTML = ''; return; }
+
+            const slips = await wblApi('GET', '/me/exit-slips');
+            const mine  = slips.filter(s => s.do_now_id === wblDay.do_now.id);
+            const done  = new Map(mine.map(s => [s.soft_skill_code, s]));
+            const jobs  = await wblApi('GET', '/me/work-events');
+
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Exit Slip &mdash; before you leave</p>
+                    <p class="wbl-card-sub">
+                        Not &ldquo;I was persistent&rdquo; &mdash; what actually happened. What got in the
+                        way, and what did you do about it?
+                    </p>
+                    ${wblDay.skills.map(s => {
+                        const slip = done.get(s.soft_skill_code);
+                        if (slip) {
+                            return `
+                            <div class="wbl-slip wbl-slip-done">
+                                <div class="wbl-slip-head">${wblEsc(wblLabel(s.soft_skill_code))}</div>
+                                <div class="wbl-slip-text">${wblEsc(slip.narrative)}</div>
+                                <div class="wbl-slip-meta">
+                                    Submitted ${wblEsc(slip.date)}
+                                    ${slip.confidence ? ` · ${wblEsc(wblLabel(slip.confidence))} by your instructor` : ''}
+                                    ${slip.void_reason ? `<br><span class="wbl-voided">Voided: ${wblEsc(slip.void_reason)}</span>` : ''}
+                                </div>
+                            </div>`;
+                        }
+                        return `
+                        <div class="wbl-slip">
+                            <div class="wbl-slip-head">${wblEsc(wblLabel(s.soft_skill_code))}</div>
+                            ${jobs.length ? `
+                            <select id="wbl-job-${s.soft_skill_code}">
+                                <option value="">Which job was this on? (optional)</option>
+                                ${jobs.map(j => `<option value="${j.work_event_id}">${wblEsc(j.title)}</option>`).join('')}
+                            </select><br>` : ''}
+                            <textarea id="wbl-text-${s.soft_skill_code}"
+                                placeholder="What happened today, specifically?"></textarea>
+                            <button class="btn btn-primary btn-xs" style="margin-top:0.5rem"
+                                    onclick="saveWblExitSlip('${s.soft_skill_code}')">Submit</button>
+                        </div>`;
+                    }).join('')}
+                    <p class="wbl-locked">
+                        Exit slips are submitted once and never edited or replaced &mdash; that is what keeps
+                        them a real record of the moment rather than a tidied-up version written later.
+                    </p>
+                </div>`;
+        }
+
+        async function saveWblExitSlip(code) {
+            const text = document.getElementById('wbl-text-' + code).value.trim();
+            if (!text) return alert('Write your reflection first.');
+            if (text.length < 20 && !confirm('That is very short. Exit slips cannot be edited or resubmitted '
+                                           + 'once sent.\n\nSubmit it as-is?')) return;
+            if (!confirm('Submit this reflection?\n\nIt cannot be changed afterwards.')) return;
+            const job = document.getElementById('wbl-job-' + code)?.value;
+            try {
+                await wblApi('POST', '/me/exit-slip', {
+                    do_now_id: wblDay.do_now.id,
+                    soft_skill_code: code,
+                    work_event_id: job ? Number(job) : null,
+                    narrative: text,
+                });
+            } catch (e) {
+                return alert(e.status === 409
+                    ? 'You have already submitted a reflection for that skill today.'
+                    : 'Could not submit: ' + e.message);
+            }
+            renderWblExit();
+        }
+
+        // ── Transfer claims (Phase 2 only) ────────────────────────────────────
+        async function renderWblTransfer() {
+            const el = document.getElementById('wbl-transfer');
+            const p  = wblProgram();
+
+            // Dormant in Phase 1 by design: there is no credential history to
+            // cite against yet, so the lens would be a null case.
+            if (p.phase !== 2) {
+                el.innerHTML = `
+                    <div class="wbl-card">
+                        <p class="wbl-card-title">Transfer Skills</p>
+                        <p class="wbl-card-sub" style="margin:0">
+                            Application of Previous Knowledge and Extension of Knowledge open up when you reach
+                            Phase 2 &mdash; once you have earned credentials to point back at.
+                        </p>
+                    </div>`;
+                return;
+            }
+
+            const jobs = await wblApi('GET', '/me/work-events');
+            if (!jobs.length) {
+                el.innerHTML = `<div class="wbl-card"><p class="wbl-card-title">Transfer Skills</p>
+                    <p class="wbl-card-sub" style="margin:0">No active jobs to claim against right now.</p></div>`;
+                return;
+            }
+            const creds = await wblApi('GET', '/me/credentials');
+
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Transfer Skills</p>
+                    <p class="wbl-card-sub">Cite something specific. Your instructor checks it against your record.</p>
+                    <select id="wbl-tc-job">
+                        ${jobs.map(j => `<option value="${j.participant_id}">${wblEsc(j.title)}</option>`).join('')}
+                    </select>
+                    <select id="wbl-tc-kind" onchange="renderWblTransferFields()">
+                        <option value="application">Application of Previous Knowledge</option>
+                        <option value="extension">Extension of Knowledge</option>
+                    </select>
+                    <div id="wbl-tc-fields" style="margin-top:0.6rem"></div>
+                    <textarea id="wbl-tc-text" style="width:100%;min-height:72px;margin-top:0.5rem;padding:0.6rem;
+                              border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;
+                              font-size:0.875rem;box-sizing:border-box"
+                              placeholder="How did you use it on this job?"></textarea>
+                    <button class="btn btn-primary btn-xs" style="margin-top:0.5rem" onclick="saveWblClaim()">Submit claim</button>
+                </div>`;
+            window.__wblCreds = creds;
+            renderWblTransferFields();
+        }
+
+        function renderWblTransferFields() {
+            const kind = document.getElementById('wbl-tc-kind').value;
+            const creds = window.__wblCreds || [];
+            document.getElementById('wbl-tc-fields').innerHTML = kind === 'application'
+                // Spans every program: citing a credential earned in another
+                // shop is explicitly allowed, and is the most interesting case.
+                ? (creds.length
+                    ? `<select id="wbl-tc-cred">
+                         ${creds.map(c => `<option value="${c.credential_id}" data-prog="${c.program_id}">
+                             ${wblEsc(c.credential_name)} — ${wblEsc(c.program_name)}</option>`).join('')}
+                       </select>`
+                    : `<p class="wbl-card-sub" style="margin:0">You have no credentials on record to cite yet.</p>`)
+                : `<input id="wbl-tc-new" placeholder="What new capability did you build?"
+                          style="width:100%;padding:0.45rem 0.6rem;border:1px solid var(--border);
+                                 border-radius:var(--radius);font-size:0.875rem;box-sizing:border-box" />`;
+        }
+
+        async function saveWblClaim() {
+            const kind = document.getElementById('wbl-tc-kind').value;
+            const text = document.getElementById('wbl-tc-text').value.trim();
+            if (!text) return alert('Describe how it applied.');
+            const body = {
+                participant_id: Number(document.getElementById('wbl-tc-job').value),
+                kind, claim_text: text,
+            };
+            if (kind === 'application') {
+                const opt = document.getElementById('wbl-tc-cred')?.selectedOptions[0];
+                if (!opt) return alert('You have no credentials on record to cite yet.');
+                body.cited_credential_id = Number(opt.value);
+                body.cited_program_id    = Number(opt.dataset.prog);
+            } else {
+                body.new_capability = document.getElementById('wbl-tc-new').value.trim();
+                if (!body.new_capability) return alert('Name the new capability.');
+            }
+            let r;
+            try { r = await wblApi('POST', '/me/transfer-claims', body); }
+            catch (e) {
+                return alert(e.status === 403
+                    ? 'Transfer claims open up in Phase 2.'
+                    : e.status === 409 ? 'You have already made that kind of claim on this job.'
+                    : 'Could not submit: ' + e.message);
+            }
+            // The fact-check is answerable from the student's own record, so it
+            // comes back immediately rather than waiting on the instructor.
+            if (r.factcheck?.novel === false) {
+                alert(`You already hold a credential for that: "${r.factcheck.credential_name}" `
+                    + `(${r.factcheck.program_name}).\n\nThis may really be Application of Previous `
+                    + 'Knowledge rather than Extension — your instructor will look at it.');
+            } else if (r.factcheck?.on_record === false) {
+                alert('Heads up: that credential is not on your record, so your instructor will not be '
+                    + 'able to verify the citation.');
+            } else {
+                alert('Claim submitted.');
+            }
+            renderWblTransfer();
+        }
+
+        function renderWblCredentials() {
+            const el = document.getElementById('wbl-credentials');
+            if (!wblMe.credentials.length) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Credentials earned</p>
+                    <div class="wbl-creds">${wblMe.credentials.map(c =>
+                        `<span class="wbl-cred">${wblEsc(c.credential_name)}
+                           <span class="wbl-cred-prog">· ${wblEsc(c.program_name)}</span></span>`).join('')}
+                    </div>
+                </div>`;
         }
     </script>
 </body>

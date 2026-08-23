@@ -24,6 +24,7 @@ app.use('/api/teacher',   require('./routes/teacher'));
 app.use('/api/student',   require('./routes/student'));
 app.use('/api/questions', require('./routes/questions'));
 app.use('/api/it',        require('./routes/it'));
+app.use('/api/wbl',       require('./routes/wbl'));
 
 app.use(express.static(path.join(__dirname, '..')));
 

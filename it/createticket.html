@@ -32,85 +32,110 @@
         </div>
     </nav>
 
-    <div class="page-content">
-        <h1>Report a Missing or Found Device</h1>
-        <p>Only covers student-assigned devices. Enter the student's ID to confirm a match before submitting.</p>
-        <div class="form-row">
-            <label for="mf-student-id">Student ID</label>
-            <input type="text" id="mf-student-id" oninput="lookupMissingFound()">
+    <div class="page-content narrow">
+        <div class="form-card">
+            <h2>Report a Missing or Found Device</h2>
+            <p class="form-card-hint">Only covers student-assigned devices. Enter the student's ID to confirm a match before submitting.</p>
+
+            <div class="form-grid">
+                <div class="form-row">
+                    <label for="mf-student-id">Student ID</label>
+                    <input type="text" id="mf-student-id" oninput="lookupMissingFound()">
+                </div>
+                <div class="form-row">
+                    <label>Action</label>
+                    <div class="radio-row">
+                        <label><input type="radio" name="mf-action" value="lost" checked> Lost</label>
+                        <label><input type="radio" name="mf-action" value="found"> Found</label>
+                    </div>
+                </div>
+            </div>
+            <p class="landing-status" id="mf-name-confirm"></p>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" id="mf-submit" disabled onclick="submitMissingFound()">Submit</button>
+                <span class="inline-status" id="mf-status"></span>
+            </div>
         </div>
-        <p class="landing-status" id="mf-name-confirm"></p>
-        <div class="form-row">
-            <label><input type="radio" name="mf-action" value="lost" checked> Lost</label>
-            <label><input type="radio" name="mf-action" value="found"> Found</label>
+
+        <div class="form-card">
+            <h2>Submit a Ticket</h2>
+            <form onsubmit="return submitTicket(event)">
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="t-name">Your Name</label>
+                        <input type="text" id="t-name" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="t-email">Email</label>
+                        <input type="text" id="t-email" disabled>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-row" id="t-room-row" style="display:none">
+                        <label for="t-room">Room Number</label>
+                        <input type="text" id="t-room">
+                    </div>
+                    <div class="form-row">
+                        <label for="t-priority">Priority</label>
+                        <select id="t-priority">
+                            <option>Low</option>
+                            <option selected>Medium</option>
+                            <option>High</option>
+                            <option>Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="t-category">Category</label>
+                        <select id="t-category">
+                            <option>Hardware</option>
+                            <option>Software</option>
+                            <option>Accounts</option>
+                            <option value="Whitelist/Blacklist Request">Whitelist/Blacklist Request</option>
+                            <option>DobbsCore</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="t-note">Notes</label>
+                    <textarea id="t-note" rows="3"></textarea>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-row">
+                        <label>Device Owner</label>
+                        <div class="radio-row">
+                            <label><input type="radio" name="t-owner" value="myself" checked onchange="ownerChanged()"> Myself</label>
+                            <label><input type="radio" name="t-owner" value="other" onchange="ownerChanged()"> Someone else</label>
+                        </div>
+                    </div>
+                    <div class="form-grid" id="t-owner-other-row" style="display:none">
+                        <div class="form-row">
+                            <label for="t-owner-type">Owner Type</label>
+                            <select id="t-owner-type" onchange="lookupOwner()">
+                                <option value="student">Student</option>
+                                <option value="staff">Staff</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="t-owner-id">Owner ID</label>
+                            <input type="text" id="t-owner-id" oninput="lookupOwner()">
+                        </div>
+                    </div>
+                    <p class="landing-status" id="t-owner-confirm"></p>
+                    <div class="form-row" id="t-device-row" style="display:none">
+                        <label for="t-device-select">Device</label>
+                        <select id="t-device-select"></select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Submit Ticket</button>
+                    <span class="inline-status" id="t-status"></span>
+                </div>
+            </form>
         </div>
-        <button class="btn btn-primary" id="mf-submit" disabled onclick="submitMissingFound()">Submit</button>
-        <p id="mf-status"></p>
-
-        <hr>
-
-        <h1>Submit a Ticket</h1>
-        <form onsubmit="return submitTicket(event)">
-            <div class="form-row">
-                <label for="t-name">Your Name</label>
-                <input type="text" id="t-name" required>
-            </div>
-            <div class="form-row">
-                <label for="t-email">Email</label>
-                <input type="text" id="t-email" disabled>
-            </div>
-            <div class="form-row" id="t-room-row" style="display:none">
-                <label for="t-room">Room Number</label>
-                <input type="text" id="t-room">
-            </div>
-            <div class="form-row">
-                <label for="t-priority">Priority</label>
-                <select id="t-priority">
-                    <option>Low</option>
-                    <option selected>Medium</option>
-                    <option>High</option>
-                    <option>Urgent</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="t-category">Category</label>
-                <select id="t-category">
-                    <option>Hardware</option>
-                    <option>Software</option>
-                    <option>Accounts</option>
-                    <option value="Whitelist/Blacklist Request">Whitelist/Blacklist Request</option>
-                    <option>DobbsCore</option>
-                    <option>Other</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="t-note">Notes</label>
-                <textarea id="t-note" rows="4"></textarea>
-            </div>
-
-            <div class="form-row">
-                <label>Device Owner</label>
-                <label><input type="radio" name="t-owner" value="myself" checked onchange="ownerChanged()"> Myself</label>
-                <label><input type="radio" name="t-owner" value="other" onchange="ownerChanged()"> Someone else</label>
-            </div>
-            <div class="form-row" id="t-owner-other-row" style="display:none">
-                <label for="t-owner-type">Owner Type</label>
-                <select id="t-owner-type" onchange="lookupOwner()">
-                    <option value="student">Student</option>
-                    <option value="staff">Staff</option>
-                </select>
-                <label for="t-owner-id">Owner ID</label>
-                <input type="text" id="t-owner-id" oninput="lookupOwner()">
-                <p class="landing-status" id="t-owner-confirm"></p>
-            </div>
-            <div class="form-row" id="t-device-row" style="display:none">
-                <label for="t-device-select">Device</label>
-                <select id="t-device-select"></select>
-            </div>
-
-            <button class="btn btn-primary" type="submit">Submit Ticket</button>
-        </form>
-        <p id="t-status"></p>
     </div>
 </div>
 

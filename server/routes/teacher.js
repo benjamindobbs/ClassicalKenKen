@@ -1,69 +1,9 @@
 const { Router } = require('express');
 const { randomUUID } = require('crypto');
 const { db } = require('../db');
+const { requireTeacher, verifyTeacherToken } = require('../teacherAuth');
 
 const router = Router();
-
-const teacherTokenCache = new Map();
-
-async function verifyTeacherToken(token) {
-    const cached = teacherTokenCache.get(token);
-    if (cached && cached.exp * 1000 > Date.now()) return cached;
-
-    const res = await fetch(
-        `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${encodeURIComponent(token)}`
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.email || data.error) return null;
-
-    const domain = data.email.split('@')[1];
-    // Explicitly exclude student subdomain
-    if (domain !== 'hartfordschools.org') return null;
-
-    const teacherKey = data.email.split('@')[0];
-    const entry = {
-        teacherKey,
-        email: data.email,
-        exp: data.expires_in
-            ? Math.floor(Date.now() / 1000) + parseInt(data.expires_in)
-            : Math.floor(Date.now() / 1000) + 3600,
-    };
-
-    teacherTokenCache.set(token, entry);
-    if (teacherTokenCache.size > 200) {
-        const now = Date.now();
-        for (const [k, v] of teacherTokenCache) {
-            if (v.exp * 1000 <= now) teacherTokenCache.delete(k);
-        }
-    }
-
-    return entry;
-}
-
-async function requireTeacher(req, res, next) {
-    if (process.env.DEV_TEACHER) {
-        req.teacherKey = process.env.DEV_TEACHER;
-        return next();
-    }
-    const header = req.headers['authorization'] || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing token' });
-
-    // Check persistent session tokens first — no network call needed
-    const session = db.prepare('SELECT user_key FROM teacher_sessions WHERE token = ?').get(token);
-    if (session) {
-        db.prepare('UPDATE teacher_sessions SET last_seen = ? WHERE token = ?').run(Date.now(), token);
-        req.teacherKey = session.user_key;
-        return next();
-    }
-
-    // Fall back to verifying a raw Google access token
-    const identity = await verifyTeacherToken(token);
-    if (!identity) return res.status(403).json({ error: 'Not authorized as teacher' });
-    req.teacherKey = identity.teacherKey;
-    next();
-}
 
 // Exchange a short-lived Google access token for a persistent session token
 router.post('/login', async (req, res) => {
@@ -102,8 +42,13 @@ router.post('/profile', requireTeacher, (req, res) => {
 const GS_DEFAULTS = {
     assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0,
     mc_subtask_max_score: 10,  mc_credential_max_score: 50, mc_include_subtasks: 1,
-    rubric_max_score: 15
+    rubric_max_score: 15,
+    // Must mirror the ALTER TABLE defaults in db.js, or a teacher with no saved
+    // row sees different values than one who has saved once.
+    wbl_credential_max_score: 50, wbl_holistic_max_score: 20, wbl_transfer_max_score: 10
 };
+
+const GS_WBL_FIELDS = ['wbl_credential_max_score', 'wbl_holistic_max_score', 'wbl_transfer_max_score'];
 
 router.get('/gradebook-settings', requireTeacher, (req, res) => {
     const row = db.prepare('SELECT * FROM gradebook_settings WHERE teacher_key = ?').get(req.teacherKey);
@@ -119,17 +64,36 @@ router.post('/gradebook-settings', requireTeacher, (req, res) => {
     if ([assignment_max_score, completion_score_pct, no_submission_score_pct,
          mc_subtask_max_score, mc_credential_max_score, rubric_max_score].some(v => v == null || isNaN(Number(v))))
         return res.status(400).json({ error: 'All numeric fields are required' });
+    // Upsert rather than INSERT OR REPLACE: REPLACE deletes the row first, which
+    // would reset every column this statement does not name — silently wiping
+    // the teacher's WBL point values each time they saved this form.
     db.prepare(`
-        INSERT OR REPLACE INTO gradebook_settings(
+        INSERT INTO gradebook_settings(
             teacher_key, assignment_max_score, completion_score_pct, no_submission_score_pct,
             mc_subtask_max_score, mc_credential_max_score, mc_include_subtasks, rubric_max_score
         ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(teacher_key) DO UPDATE SET
+            assignment_max_score    = excluded.assignment_max_score,
+            completion_score_pct    = excluded.completion_score_pct,
+            no_submission_score_pct = excluded.no_submission_score_pct,
+            mc_subtask_max_score    = excluded.mc_subtask_max_score,
+            mc_credential_max_score = excluded.mc_credential_max_score,
+            mc_include_subtasks     = excluded.mc_include_subtasks,
+            rubric_max_score        = excluded.rubric_max_score
     `).run(
         req.teacherKey,
         Number(assignment_max_score), Number(completion_score_pct), Number(no_submission_score_pct),
         Number(mc_subtask_max_score), Number(mc_credential_max_score), mc_include_subtasks ? 1 : 0,
         Number(rubric_max_score)
     );
+
+    // WBL point values are optional here, so the existing form can keep posting
+    // exactly what it posts today without clearing them.
+    const wbl = GS_WBL_FIELDS.filter(k => k in req.body && !isNaN(Number(req.body[k])));
+    if (wbl.length) {
+        db.prepare(`UPDATE gradebook_settings SET ${wbl.map(k => `${k} = ?`).join(', ')} WHERE teacher_key = ?`)
+            .run(...wbl.map(k => Number(req.body[k])), req.teacherKey);
+    }
     res.json({ ok: true });
 });
 
