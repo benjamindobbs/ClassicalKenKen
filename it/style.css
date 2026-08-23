@@ -135,6 +135,18 @@ h1{
     border-style: solid;
   }
   
+  .hub-links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 320px;
+    margin: 24px auto;
+  }
+
+  .hub-links .btn {
+    text-align: center;
+  }
+
   .it-landing {
     display: flex;
     align-items: center;

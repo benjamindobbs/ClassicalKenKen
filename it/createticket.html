@@ -23,7 +23,7 @@
         <a href="./">Home</a>
         <a href="createticket.html" class="active">Create Ticket</a>
         <a href="ticketqueue.html">Ticket Queue</a>
-        <a href="devicestatus.html">Student Device Status</a>
+        <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
         <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
         <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
     </div>
@@ -246,6 +246,7 @@
         if (me.isStaff) {
             document.getElementById('t-room-row').style.display = '';
             document.getElementById('t-room').required = true;
+            document.getElementById('nav-devicestatus-link').style.display = '';
             document.getElementById('nav-inventory-link').style.display = '';
         }
         if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';

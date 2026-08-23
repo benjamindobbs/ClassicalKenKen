@@ -24,7 +24,7 @@
         <a href="./" class="active">Home</a>
         <a href="createticket.html">Create Ticket</a>
         <a href="ticketqueue.html">Ticket Queue</a>
-        <a href="devicestatus.html">Student Device Status</a>
+        <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
         <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
         <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
     </div>
@@ -35,6 +35,16 @@
             <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
         </div>
 
+        <div id="student-hub" style="display:none">
+            <h1>Welcome to CMS IT</h1>
+            <p>Use the links below to get help with a device or check on a request.</p>
+            <div class="hub-links">
+                <a class="btn btn-primary" href="createticket.html">Create a Ticket / Report a Missing Device</a>
+                <a class="btn btn-primary" href="ticketqueue.html">My Ticket Queue</a>
+            </div>
+        </div>
+
+        <div id="staff-dashboard" style="display:none">
         <h1>Welcome to CMS IT</h1>
         <div class="parallax"></div>
         <h2>Quick Reference</h2>
@@ -171,6 +181,7 @@
                 <td>Email Dobbs with specifics</td>
             </tr>
         </table>
+        </div>
     </div>
 </div>
 
@@ -179,7 +190,13 @@
     function onSignedIn() {
         authFetch('/api/it/me').then(r => r.json()).then(me => {
             document.getElementById('user-email').textContent = me.email || '';
-            if (me.isStaff) document.getElementById('nav-inventory-link').style.display = '';
+            if (me.isStaff) {
+                document.getElementById('nav-devicestatus-link').style.display = '';
+                document.getElementById('nav-inventory-link').style.display = '';
+                document.getElementById('staff-dashboard').style.display = '';
+            } else {
+                document.getElementById('student-hub').style.display = '';
+            }
             if (me.isAdmin) document.getElementById('nav-admin-link').style.display = '';
         }).catch(() => {});
         document.getElementById('signout_button').style.display = '';
