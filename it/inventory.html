@@ -41,22 +41,13 @@
 
         <div id="inventory-content" style="display:none">
             <h1>Master Inventory</h1>
-            <input type="text" class="search-input" id="search" placeholder="Search by name, serial, or asset #" oninput="renderTable()">
+            <input type="text" class="search-input" id="search" placeholder="Search by name, advisor, serial, or asset #" oninput="renderAll()">
             <button class="btn btn-primary" onclick="downloadCsv()">Download CSV</button>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Assigned To</th>
-                        <th>Grade</th>
-                        <th>Advisor</th>
-                        <th>Serial</th>
-                        <th>Asset #</th>
-                        <th>Status</th>
-                        <th>Repair Status</th>
-                    </tr>
-                </thead>
-                <tbody id="rows"></tbody>
-            </table>
+
+            <div id="section-staff"></div>
+            <div id="section-student"></div>
+            <div id="section-cart"></div>
+            <div id="section-unassigned"></div>
         </div>
     </div>
 </div>
@@ -64,34 +55,131 @@
 <script src="js/auth.js"></script>
 <script>
     let assets = [];
+    const sortState = {}; // { [sectionName]: { col, dir } }
 
-    function ownerLabel(a) {
-        if (a.assigned_type === 'cart') return a.assigned_cart_name;
-        if (a.person_first_name) return `${a.person_first_name} ${a.person_last_name}`;
-        return '(unassigned)';
+    // ── Column definitions per section ──────────────────────────────────
+
+    const SECTIONS = {
+        staff: {
+            title: 'Staff Devices',
+            data: () => assets.filter(a => a.assigned_type === 'staff'),
+            columns: [
+                { key: 'owner', label: 'Assigned To', value: a => personName(a) },
+                { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
+                { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
+                { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+            ],
+        },
+        student: {
+            title: 'Student Devices',
+            data: () => assets.filter(a => a.assigned_type === 'student'),
+            columns: [
+                { key: 'owner', label: 'Assigned To', value: a => personName(a) },
+                { key: 'grade_level', label: 'Grade', value: a => a.grade_level || '' },
+                { key: 'advisor_name', label: 'Advisor', value: a => a.advisor_name || '' },
+                { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
+                { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
+                { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+            ],
+        },
+        cart: {
+            title: 'Cart Devices',
+            data: () => withCartLabels(assets.filter(a => a.assigned_type === 'cart')),
+            columns: [
+                { key: 'cart_label', label: 'Assigned To', value: a => a.cart_label },
+                { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
+                { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
+                { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+            ],
+        },
+        unassigned: {
+            title: 'Unassigned Devices',
+            data: () => assets.filter(a => !a.assigned_type),
+            columns: [
+                { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
+                { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
+                { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+            ],
+        },
+    };
+
+    function personName(a) {
+        return a.person_first_name ? `${a.person_first_name} ${a.person_last_name}` : '(unassigned)';
     }
 
     function statusPill(status) {
-        const cls = 'status-' + status.replace(/\s+/g, '-');
-        return `<span class="status-pill ${cls}">${status}</span>`;
+        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${status}</span>`;
     }
 
-    function renderTable() {
-        const q     = document.getElementById('search').value.trim().toLowerCase();
-        const rows  = document.getElementById('rows');
-        const match = a => !q || [ownerLabel(a), a.serial_number, a.asset_number].join(' ').toLowerCase().includes(q);
+    // Cart devices carry no individual identity of their own, so within each cart
+    // (grouped by assigned_cart_name) they're numbered by import order — assumed to
+    // already be in the correct physical/progressing order — e.g. MS-SCI-01, MS-SCI-02.
+    function withCartLabels(cartAssets) {
+        const counts = {};
+        return [...cartAssets].sort((a, b) => a.id - b.id).map(a => {
+            const name = a.assigned_cart_name || 'Cart';
+            counts[name] = (counts[name] || 0) + 1;
+            return { ...a, cart_label: `${name}-${String(counts[name]).padStart(2, '0')}` };
+        });
+    }
 
-        rows.innerHTML = assets.filter(match).map(a => `
-            <tr>
-                <td>${ownerLabel(a)}</td>
-                <td>${a.grade_level || ''}</td>
-                <td>${a.advisor_name || ''}</td>
-                <td>${a.serial_number}</td>
-                <td>${a.asset_number || ''}</td>
-                <td>${statusPill(a.device_status)}</td>
-                <td>${a.repair_status || ''}</td>
-            </tr>
-        `).join('') || '<tr><td colspan="7">No matching devices.</td></tr>';
+    function searchHaystack(a) {
+        return [personName(a), a.cart_label, a.assigned_cart_name, a.advisor_name, a.serial_number, a.asset_number]
+            .filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function alphaNumericCompare(a, b) {
+        return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    function sortColumn(sectionName, colKey) {
+        const state = sortState[sectionName] || {};
+        state.dir = state.col === colKey && state.dir === 'asc' ? 'desc' : 'asc';
+        state.col = colKey;
+        sortState[sectionName] = state;
+        renderSection(sectionName);
+    }
+
+    function renderSection(name) {
+        const config    = SECTIONS[name];
+        const container = document.getElementById('section-' + name);
+        const q         = document.getElementById('search').value.trim().toLowerCase();
+
+        let rows = config.data().filter(a => !q || searchHaystack(a).includes(q));
+        if (rows.length === 0 && name === 'unassigned') { container.innerHTML = ''; return; }
+
+        const state = sortState[name];
+        if (state && state.col) {
+            const col = config.columns.find(c => c.key === state.col);
+            rows = [...rows].sort((a, b) => {
+                const cmp = alphaNumericCompare(col.value(a), col.value(b));
+                return state.dir === 'desc' ? -cmp : cmp;
+            });
+        }
+
+        const headCells = config.columns.map(c => {
+            const arrow = state && state.col === c.key ? (state.dir === 'desc' ? ' ↓' : ' ↑') : '';
+            return `<th onclick="sortColumn('${name}','${c.key}')" style="cursor:pointer">${c.label}${arrow}</th>`;
+        }).join('');
+
+        const bodyRows = rows.map(a => `<tr>${config.columns.map(c => `<td>${c.render ? c.render(a) : c.value(a)}</td>`).join('')}</tr>`).join('')
+            || `<tr><td colspan="${config.columns.length}">No devices.</td></tr>`;
+
+        container.innerHTML = `
+            <h2>${config.title}</h2>
+            <table class="data-table">
+                <thead><tr>${headCells}</tr></thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
+        `;
+    }
+
+    function renderAll() {
+        Object.keys(SECTIONS).forEach(renderSection);
     }
 
     function csvEsc(v) {
@@ -100,10 +188,16 @@
     }
 
     function downloadCsv() {
+        const rows = [
+            ...SECTIONS.staff.data().map(a => ({ assigned_to: personName(a), grade_level: '', advisor_name: '', ...a })),
+            ...SECTIONS.student.data().map(a => ({ assigned_to: personName(a), ...a })),
+            ...SECTIONS.cart.data().map(a => ({ assigned_to: a.cart_label, grade_level: '', advisor_name: '', ...a })),
+            ...SECTIONS.unassigned.data().map(a => ({ assigned_to: '(unassigned)', grade_level: '', advisor_name: '', ...a })),
+        ];
         const header = ['assigned_to', 'grade_level', 'advisor_name', 'serial_number', 'asset_number', 'device_status', 'repair_status'];
-        const lines = [header.join(',')].concat(assets.map(a => [
-            ownerLabel(a), a.grade_level || '', a.advisor_name || '', a.serial_number,
-            a.asset_number || '', a.device_status, a.repair_status || '',
+        const lines  = [header.join(',')].concat(rows.map(r => [
+            r.assigned_to, r.grade_level || '', r.advisor_name || '', r.serial_number,
+            r.asset_number || '', r.device_status, r.repair_status || '',
         ].map(csvEsc).join(',')));
         const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
         const link = document.createElement('a');
@@ -122,7 +216,7 @@
         document.getElementById('inventory-content').style.display = '';
         const data = await authFetch('/api/it/assets').then(r => r.json());
         assets = data.assets;
-        renderTable();
+        renderAll();
     }
 </script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
