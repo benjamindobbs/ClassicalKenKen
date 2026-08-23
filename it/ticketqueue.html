@@ -9,31 +9,30 @@
 </head>
 <body>
 
-<div id="landing" class="it-landing">
-    <div class="it-landing-card">
+<div id="landing" class="landing">
+    <div class="landing-card">
         <h1>Classical IT</h1>
         <p>Sign in with your school Google account to continue.</p>
         <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
-        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+        <p class="landing-status" id="landing_status">Loading&hellip;</p>
     </div>
 </div>
 
 <div id="game-ui" style="display:none">
-    <div class="sidebar">
-        <a href="./">Home</a>
-        <a href="createticket.html">Create Ticket</a>
-        <a href="ticketqueue.html" class="active">Ticket Queue</a>
-        <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
-        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
-        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
-    </div>
-
-    <div class="content">
-        <div class="content-topbar">
-            <span id="user-email"></span>
-            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+    <nav class="nav">
+        <a class="nav-brand" href="./">Classical IT</a>
+        <div class="nav-links">
+            <a href="createticket.html">Create Ticket</a>
+            <a href="ticketqueue.html" class="active">Ticket Queue</a>
+            <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
+            <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+            <a href="admin.html" id="nav-admin-link" class="nav-admin" style="display:none">Admin</a>
+            <span class="nav-user-email" id="user-email"></span>
+            <button class="nav-signin-btn" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
         </div>
+    </nav>
 
+    <div class="page-content">
         <h1>My Ticket Queue</h1>
         <table class="data-table">
             <thead>

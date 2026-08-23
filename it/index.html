@@ -9,32 +9,31 @@
 </head>
 <body>
 
-<div id="landing" class="it-landing">
-    <div class="it-landing-card">
+<div id="landing" class="landing">
+    <div class="landing-card">
         <h1>Classical IT</h1>
         <p>Sign in with your school Google account to continue.</p>
         <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
-        <p class="it-landing-status" id="landing_status">Loading&hellip;</p>
+        <p class="landing-status" id="landing_status">Loading&hellip;</p>
     </div>
 </div>
 
 <!-- id="game-ui" is the shared ../js/auth.js convention for "post sign-in content", reused as-is across every page on the site -->
 <div id="game-ui" style="display:none">
-    <div class="sidebar">
-        <a href="./" class="active">Home</a>
-        <a href="createticket.html">Create Ticket</a>
-        <a href="ticketqueue.html">Ticket Queue</a>
-        <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
-        <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
-        <a href="admin.html" id="nav-admin-link" style="display:none">Admin</a>
-    </div>
-
-    <div class="content">
-        <div class="content-topbar">
-            <span id="user-email"></span>
-            <button class="btn-link" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+    <nav class="nav">
+        <a class="nav-brand" href="./">Classical IT</a>
+        <div class="nav-links">
+            <a href="createticket.html">Create Ticket</a>
+            <a href="ticketqueue.html">Ticket Queue</a>
+            <a href="devicestatus.html" id="nav-devicestatus-link" style="display:none">Student Device Status</a>
+            <a href="inventory.html" id="nav-inventory-link" style="display:none">Master Inventory</a>
+            <a href="admin.html" id="nav-admin-link" class="nav-admin" style="display:none">Admin</a>
+            <span class="nav-user-email" id="user-email"></span>
+            <button class="nav-signin-btn" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
         </div>
+    </nav>
 
+    <div class="page-content">
         <div id="student-hub" style="display:none">
             <h1>Welcome to CMS IT</h1>
             <p>Use the links below to get help with a device or check on a request.</p>
@@ -46,14 +45,16 @@
 
         <div id="staff-dashboard" style="display:none">
         <h1>Welcome to CMS IT</h1>
-        <div class="parallax"></div>
         <h2>Quick Reference</h2>
-        <table id="faq">
-            <tr>
-                <th>Problem</th>
-                <th>Action</th>
-                <th>Contact</th>
-            </tr>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Problem</th>
+                    <th>Action</th>
+                    <th>Contact</th>
+                </tr>
+            </thead>
+            <tbody>
             <tr>
                 <td>Classroom Phone</td>
                 <td>Create MHIS Ticket</td>
@@ -94,14 +95,18 @@
                 <td>Request changes be made to the school website</td>
                 <td>Dobbs</td>
             </tr>
+            </tbody>
         </table>
-        <h2> Technical Guides &amp; Resources</h2>
-        <table id="faq">
-            <tr>
-                <th>Resource</th>
-                <th>Description</th>
-                <th>Link</th>
-            </tr>
+        <h2>Technical Guides &amp; Resources</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Description</th>
+                    <th>Link</th>
+                </tr>
+            </thead>
+            <tbody>
             <tr>
                 <td>Connect Student WiFi</td>
                 <td>Connect to hps_student</td>
@@ -142,14 +147,18 @@
                 <td>Repository of School Art/Designs</td>
                 <td><a href="https://drive.google.com/drive/folders/1GgnXfzAu9ZlqdJ5SQ6RQQJGHA8O8jWHZ?usp=drive_link">Drive Folder</a></td>
             </tr>
+            </tbody>
         </table>
-        <h2> Additional Services</h2>
-        <table id="faq">
-            <tr>
-                <th>Service</th>
-                <th>Description</th>
-                <th>How to Request</th>
-            </tr>
+        <h2>Additional Services</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Description</th>
+                    <th>How to Request</th>
+                </tr>
+            </thead>
+            <tbody>
             <tr>
                 <td>Poster Printing</td>
                 <td>Print Large Format Jobs or Bulk Color Jobs</td>
@@ -180,6 +189,7 @@
                 <td>Host a livestream of an event in the building, anywhere, anytime</td>
                 <td>Email Dobbs with specifics</td>
             </tr>
+            </tbody>
         </table>
         </div>
     </div>
