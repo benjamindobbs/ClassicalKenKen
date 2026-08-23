@@ -40,7 +40,7 @@
 
         <div id="status-content" style="display:none">
             <h1>Student Device Status</h1>
-            <p>Devices with a status other than "working".</p>
+            <p>Devices with a status other than "Working".</p>
             <input type="text" class="search-input" id="search" placeholder="Search by name, serial, or advisor" oninput="renderTable()">
             <table class="data-table">
                 <thead>
@@ -63,14 +63,22 @@
 <script>
     let devices = [];
 
+    function ticketNumber(id) {
+        return String(id).padStart(4, '0');
+    }
+
     function ownerLabel(a) {
         if (a.assigned_type === 'cart') return a.assigned_cart_name;
         if (a.person_first_name) return `${a.person_first_name} ${a.person_last_name}`;
         return '(unassigned)';
     }
 
+    function statusLabel(s) {
+        return s ? s.replace(/\b\w/g, c => c.toUpperCase()) : '';
+    }
+
     function statusPill(status) {
-        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${status}</span>`;
+        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${statusLabel(status)}</span>`;
     }
 
     function renderTable() {
@@ -84,7 +92,7 @@
                 <td>${a.advisor_name || ''}</td>
                 <td>${a.serial_number}</td>
                 <td>${statusPill(a.device_status)}</td>
-                <td>${a.repair_status || ''}</td>
+                <td>${statusLabel(a.repair_status)}</td>
                 <td>${a.device_status === 'in shop' && a.active_ticket_id
                     ? `<button class="icon-btn" title="View ticket" onclick="openTicketModal(${a.active_ticket_id})">📝</button>`
                     : ''}</td>
@@ -101,7 +109,7 @@
         if (!data.ticket) { body.innerHTML = 'Ticket not found.'; return; }
         const t = data.ticket;
         body.innerHTML = `
-            <h2>Ticket #${t.id}</h2>
+            <h2>Ticket #${ticketNumber(t.id)}</h2>
             <p><strong>Received:</strong> ${new Date(t.created_at).toLocaleString()}</p>
             <p><strong>Status:</strong> ${t.status}</p>
             <p><strong>Category:</strong> ${t.category} &mdash; <strong>Priority:</strong> ${t.priority}</p>

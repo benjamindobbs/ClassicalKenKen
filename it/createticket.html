@@ -116,6 +116,10 @@
 
 <script src="js/auth.js"></script>
 <script>
+    function ticketNumber(id) {
+        return String(id).padStart(4, '0');
+    }
+
     // ── Missing/found quick tool ─────────────────────────────────────────
 
     let mfMatch = null;
@@ -147,7 +151,7 @@
         const res    = await authFetch('/api/it/tickets/missing-device', { method: 'POST', body: JSON.stringify({ student_id: mfMatch, action }) });
         const data   = await res.json();
         const status = document.getElementById('mf-status');
-        status.textContent = res.ok ? `Ticket submitted. Device serial: ${data.serial_number}.` : `Error: ${data.error}`;
+        status.textContent = res.ok ? `Ticket #${ticketNumber(data.id)} submitted. Device serial: ${data.serial_number}.` : `Error: ${data.error}`;
         if (res.ok) {
             document.getElementById('mf-student-id').value = '';
             document.getElementById('mf-name-confirm').textContent = '';
@@ -226,7 +230,7 @@
         const data   = await res.json();
         const status = document.getElementById('t-status');
         if (res.ok) {
-            status.textContent = 'Ticket submitted.';
+            status.textContent = `Ticket #${ticketNumber(data.id)} submitted.`;
             event.target.reset();
             document.getElementById('t-email').value = document.getElementById('user-email').textContent;
             setDeviceOptions([]);

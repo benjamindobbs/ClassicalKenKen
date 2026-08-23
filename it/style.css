@@ -263,6 +263,8 @@ hr {
 .data-table tbody tr:nth-child(even) { background: #f8fafc; }
 .data-table tbody tr:hover { background: #eff6ff; }
 
+.text-center { text-align: center; }
+
 /* === FORM ELEMENTS === */
 
 .search-input, input[type="text"], input[type="number"], select, textarea {

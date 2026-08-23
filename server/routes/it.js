@@ -107,6 +107,32 @@ router.get('/roster/lookup', (req, res) => {
     res.json({ found: true, name: `${row.first_name} ${row.last_name}` });
 });
 
+router.get('/roster/students', requireItAdmin, (_req, res) => {
+    res.json({ students: db.prepare('SELECT * FROM it_students ORDER BY last_name, first_name').all() });
+});
+
+router.get('/roster/staff', requireItAdmin, (_req, res) => {
+    res.json({ staff: db.prepare('SELECT * FROM it_staff ORDER BY last_name, first_name').all() });
+});
+
+router.post('/roster/students/bulk-delete', requireItAdmin, (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
+    const del = db.prepare('DELETE FROM it_students WHERE student_id = ?');
+    let deleted = 0;
+    for (const id of ids) deleted += del.run(String(id)).changes;
+    res.json({ deleted });
+});
+
+router.post('/roster/staff/bulk-delete', requireItAdmin, (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
+    const del = db.prepare('DELETE FROM it_staff WHERE staff_number = ?');
+    let deleted = 0;
+    for (const id of ids) deleted += del.run(String(id)).changes;
+    res.json({ deleted });
+});
+
 // ── Assets ───────────────────────────────────────────────────────────────
 
 const ASSET_LIST_SQL = `
@@ -277,6 +303,15 @@ router.delete('/assets/:id', requireItAdmin, (req, res) => {
     res.json({ ok: true });
 });
 
+router.post('/assets/bulk-delete', requireItAdmin, (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
+    const del = db.prepare('DELETE FROM it_assets WHERE id = ?');
+    let deleted = 0;
+    for (const id of ids) deleted += del.run(Number(id)).changes;
+    res.json({ deleted });
+});
+
 // ── Tickets ──────────────────────────────────────────────────────────────
 
 const CATEGORIES = new Set(['Hardware', 'Software', 'Accounts', 'Whitelist/Blacklist Request', 'DobbsCore', 'Other']);
@@ -364,8 +399,15 @@ router.get('/tickets/mine', (req, res) => {
     res.json({ tickets: rows });
 });
 
+const TICKET_LIST_SQL = `
+    SELECT t.*, a.serial_number AS asset_serial_number, a.asset_number AS asset_asset_number,
+           a.device_status AS asset_device_status
+    FROM it_tickets t
+    LEFT JOIN it_assets a ON t.linked_asset_id = a.id
+`;
+
 router.get('/tickets', requireItAdmin, (_req, res) => {
-    res.json({ tickets: db.prepare('SELECT * FROM it_tickets ORDER BY created_at DESC').all() });
+    res.json({ tickets: db.prepare(TICKET_LIST_SQL + ' ORDER BY t.created_at DESC').all() });
 });
 
 router.patch('/tickets/:id', requireItAdmin, (req, res) => {
@@ -394,7 +436,7 @@ router.post('/tickets/:id/notes', requireItAdmin, (req, res) => {
 
 // Ticket detail + event log — used by the ticket queue and the Device Status notes popup.
 router.get('/tickets/:id', (req, res) => {
-    const ticket = db.prepare('SELECT * FROM it_tickets WHERE id = ?').get(Number(req.params.id));
+    const ticket = db.prepare(TICKET_LIST_SQL + ' WHERE t.id = ?').get(Number(req.params.id));
     if (!ticket) return res.status(404).json({ error: 'not found' });
 
     const email = getUserEmail(req.userKey);

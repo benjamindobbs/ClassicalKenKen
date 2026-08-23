@@ -69,7 +69,7 @@
                 { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
                 { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
                 { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
-                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '', render: a => statusLabel(a.repair_status) },
             ],
         },
         student: {
@@ -82,7 +82,7 @@
                 { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
                 { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
                 { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
-                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '', render: a => statusLabel(a.repair_status) },
             ],
         },
         cart: {
@@ -93,7 +93,7 @@
                 { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
                 { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
                 { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
-                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '', render: a => statusLabel(a.repair_status) },
             ],
         },
         unassigned: {
@@ -103,7 +103,7 @@
                 { key: 'serial_number', label: 'Serial', value: a => a.serial_number },
                 { key: 'asset_number', label: 'Asset #', value: a => a.asset_number || '' },
                 { key: 'device_status', label: 'Status', value: a => a.device_status, render: a => statusPill(a.device_status) },
-                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '' },
+                { key: 'repair_status', label: 'Repair Status', value: a => a.repair_status || '', render: a => statusLabel(a.repair_status) },
             ],
         },
     };
@@ -112,8 +112,12 @@
         return a.person_first_name ? `${a.person_first_name} ${a.person_last_name}` : '(unassigned)';
     }
 
+    function statusLabel(s) {
+        return s ? s.replace(/\b\w/g, c => c.toUpperCase()) : '';
+    }
+
     function statusPill(status) {
-        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${status}</span>`;
+        return `<span class="status-pill status-${status.replace(/\s+/g, '-')}">${statusLabel(status)}</span>`;
     }
 
     // Cart devices carry no individual identity of their own, so within each cart

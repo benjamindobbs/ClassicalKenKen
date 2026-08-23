@@ -10,6 +10,11 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
 const db = new DatabaseSync(dbPath);
 
+// node:sqlite enables FK enforcement by default (unlike most SQLite bindings); this schema
+// uses REFERENCES purely as documentation and relies on it never being enforced — e.g. an
+// asset can be assigned to a roster ID before that roster row is imported.
+db.exec('PRAGMA foreign_keys = OFF');
+
 // Migrate single-row teacher tables to per-teacher-key schema
 {
     const cols = db.prepare("PRAGMA table_info(teacher_profile)").all();

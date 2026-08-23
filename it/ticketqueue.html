@@ -33,10 +33,10 @@
     </nav>
 
     <div class="page-content">
-        <h1>My Ticket Queue</h1>
+        <h1 id="queue-title">My Ticket Queue</h1>
         <table class="data-table">
             <thead>
-                <tr><th>Date</th><th>Category</th><th>Priority</th><th>Status</th><th>Note</th></tr>
+                <tr><th>Ticket #</th><th>Date</th><th>Category</th><th>Priority</th><th>Status</th><th>Note</th><th></th></tr>
             </thead>
             <tbody id="ticket-rows"></tbody>
         </table>
@@ -44,18 +44,60 @@
     </div>
 </div>
 
+<div id="ticket-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeTicketModal()">
+    <div class="modal-card">
+        <div id="ticket-modal-body">Loading&hellip;</div>
+        <button class="btn btn-primary" onclick="closeTicketModal()">Close</button>
+    </div>
+</div>
+
 <script src="js/auth.js"></script>
 <script>
+    function ticketNumber(id) {
+        return String(id).padStart(4, '0');
+    }
+
     function renderTickets(tickets) {
         document.getElementById('ticket-rows').innerHTML = tickets.map(t => `
             <tr>
+                <td>#${ticketNumber(t.id)}</td>
                 <td>${new Date(t.created_at).toLocaleDateString()}</td>
                 <td>${t.category}</td>
                 <td>${t.priority}</td>
-                <td><span class="status-pill status-${t.status.toLowerCase().replace(/\s+/g, '-')}">${t.status}</span></td>
+                <td class="text-center"><span class="status-pill status-${t.status.toLowerCase().replace(/\s+/g, '-')}">${t.status}</span></td>
                 <td>${t.note || ''}</td>
+                <td><button class="icon-btn" title="View history" onclick="openTicketModal(${t.id})">📝</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="5">No tickets yet.</td></tr>';
+        `).join('') || '<tr><td colspan="7">No tickets yet.</td></tr>';
+    }
+
+    async function openTicketModal(ticketId) {
+        const modal = document.getElementById('ticket-modal');
+        const body  = document.getElementById('ticket-modal-body');
+        modal.style.display = 'flex';
+        body.innerHTML = 'Loading&hellip;';
+        const data = await authFetch(`/api/it/tickets/${ticketId}`).then(r => r.json());
+        if (!data.ticket) { body.innerHTML = 'Ticket not found.'; return; }
+        const t = data.ticket;
+        body.innerHTML = `
+            <h2>Ticket #${ticketNumber(t.id)}</h2>
+            <p><strong>Received:</strong> ${new Date(t.created_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${t.status}</p>
+            <p><strong>Category:</strong> ${t.category} &mdash; <strong>Priority:</strong> ${t.priority}</p>
+            ${t.asset_serial_number ? `<p><strong>Asset:</strong> Serial ${t.asset_serial_number}${t.asset_asset_number ? ` (Asset #${t.asset_asset_number})` : ''}</p>` : ''}
+            <p>${t.note || ''}</p>
+            <h3>History</h3>
+            ${data.events.map(e => `
+                <div class="event-log-item">
+                    <div class="event-meta">${new Date(e.created_at).toLocaleString()} &mdash; ${e.actor_email}</div>
+                    <div>${e.detail}</div>
+                </div>
+            `).join('') || '<p>No history yet.</p>'}
+        `;
+    }
+
+    function closeTicketModal() {
+        document.getElementById('ticket-modal').style.display = 'none';
     }
 
     async function loadTickets(all) {
@@ -65,6 +107,7 @@
 
     function showAllTickets() {
         document.getElementById('show-all-btn').style.display = 'none';
+        document.getElementById('queue-title').textContent = 'Ticket Queue';
         loadTickets(true);
     }
 

@@ -54,11 +54,35 @@
                 <input type="file" id="student-csv" accept=".csv,.txt" style="display:none" onchange="handleStudentCsv(event)">
                 <p id="student-csv-status"></p>
 
+                <h3>Existing Students</h3>
+                <input type="text" class="search-input" id="student-search" placeholder="Search students" oninput="renderStudentTable()">
+                <div class="form-row">
+                    <button class="btn btn-outline" id="student-bulk-delete-btn" onclick="bulkDeleteStudents()" disabled>Delete Selected (0)</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th><input type="checkbox" onchange="toggleAllStudents(this.checked)"></th><th>Student ID</th><th>Name</th><th>Grade</th><th>Advisor</th><th></th></tr>
+                    </thead>
+                    <tbody id="student-rows"></tbody>
+                </table>
+
                 <h2>Staff Roster</h2>
                 <p>CSV with a header row: <code>staff_number, first_name, last_name, email</code> (email is optional, but required for a staff member's own "Myself" device lookup on the ticket form).</p>
                 <label class="btn btn-primary" for="staff-csv" style="cursor:pointer">Import Staff CSV</label>
                 <input type="file" id="staff-csv" accept=".csv,.txt" style="display:none" onchange="handleStaffCsv(event)">
                 <p id="staff-csv-status"></p>
+
+                <h3>Existing Staff</h3>
+                <input type="text" class="search-input" id="staff-search-list" placeholder="Search staff" oninput="renderStaffTable()">
+                <div class="form-row">
+                    <button class="btn btn-outline" id="staff-bulk-delete-btn" onclick="bulkDeleteStaff()" disabled>Delete Selected (0)</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th><input type="checkbox" onchange="toggleAllStaff(this.checked)"></th><th>Staff Number</th><th>Name</th><th>Email</th><th></th></tr>
+                    </thead>
+                    <tbody id="staff-rows"></tbody>
+                </table>
             </div>
 
             <div id="admin-tab-assets" class="admin-tab-panel" style="display:none">
@@ -88,10 +112,10 @@
                     <div class="form-row">
                         <label for="new-device-status">Device Status</label>
                         <select id="new-device-status">
-                            <option value="working">working</option>
-                            <option value="missing">missing</option>
-                            <option value="locked">locked</option>
-                            <option value="in shop">in shop</option>
+                            <option value="working">Working</option>
+                            <option value="missing">Missing</option>
+                            <option value="locked">Locked</option>
+                            <option value="in shop">In Shop</option>
                         </select>
                     </div>
                     <button class="btn btn-primary" type="submit">Create Asset</button>
@@ -106,9 +130,12 @@
 
                 <h2>All Assets</h2>
                 <input type="text" class="search-input" id="asset-search" placeholder="Search by name, serial, or asset #" oninput="renderAssetTable()">
+                <div class="form-row">
+                    <button class="btn btn-outline" id="asset-bulk-delete-btn" onclick="bulkDeleteAssets()" disabled>Delete Selected (0)</button>
+                </div>
                 <table class="data-table">
                     <thead>
-                        <tr><th>Assigned To</th><th>Serial</th><th>Asset #</th><th>Device Status</th><th>Repair Status</th><th></th></tr>
+                        <tr><th><input type="checkbox" onchange="toggleAllAssets(this.checked)"></th><th>Assigned To</th><th>Serial</th><th>Asset #</th><th>Device Status</th><th>Repair Status</th><th></th></tr>
                     </thead>
                     <tbody id="asset-rows"></tbody>
                 </table>
@@ -116,10 +143,14 @@
 
             <div id="admin-tab-tickets" class="admin-tab-panel" style="display:none">
                 <h2>All Tickets</h2>
+                <div class="tabs" id="ticket-status-tabs">
+                    <button class="tab active" data-status-tab="todo" onclick="switchTicketStatusTab('todo')">To Do</button>
+                    <button class="tab" data-status-tab="completed" onclick="switchTicketStatusTab('completed')">Completed</button>
+                </div>
                 <input type="text" class="search-input" id="ticket-search" placeholder="Search by requester, category, or note" oninput="renderTicketTable()">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Date</th><th>Requester</th><th>Category</th><th>Priority</th><th>Status</th><th></th></tr>
+                        <tr><th>Ticket #</th><th>Date</th><th>Requester</th><th>Category</th><th>Priority</th><th>Asset</th><th>Status</th><th></th></tr>
                     </thead>
                     <tbody id="admin-ticket-rows"></tbody>
                 </table>
@@ -140,8 +171,34 @@
     </div>
 </div>
 
+<div id="asset-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeAssetEditModal()">
+    <div class="modal-card">
+        <h2>Edit Assignment</h2>
+        <p>Serial: <strong id="edit-asset-serial"></strong></p>
+        <div class="form-row">
+            <label for="edit-assigned-type">Assigned To</label>
+            <select id="edit-assigned-type" onchange="toggleEditAssignedIdRow()">
+                <option value="">Unassigned</option>
+                <option value="student">Student</option>
+                <option value="staff">Staff</option>
+                <option value="cart">Cart</option>
+            </select>
+        </div>
+        <div class="form-row" id="edit-assigned-id-row" style="display:none">
+            <label id="edit-assigned-id-label" for="edit-assigned-id">ID</label>
+            <input type="text" id="edit-assigned-id">
+        </div>
+        <button class="btn btn-primary" onclick="saveAssetAssignment()">Save</button>
+        <button class="btn btn-primary" onclick="closeAssetEditModal()">Cancel</button>
+    </div>
+</div>
+
 <script src="js/auth.js"></script>
 <script>
+    function ticketNumber(id) {
+        return String(id).padStart(4, '0');
+    }
+
     function parseCSV(text) {
         const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) return [];
@@ -163,6 +220,7 @@
             return;
         }
         document.getElementById('admin-content').style.display = '';
+        loadRoster();
     }
 
     function showAdminTab(tab) {
@@ -170,13 +228,22 @@
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         document.getElementById('admin-tab-' + tab).style.display = '';
         document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+        if (tab === 'roster' && students.length === 0 && staffRoster.length === 0) loadRoster();
         if (tab === 'assets' && assets.length === 0) loadAssets();
         if (tab === 'tickets' && tickets.length === 0) loadTickets();
+    }
+
+    // Shared by the assets/students/staff bulk-delete buttons.
+    function updateBulkDeleteBtn(btnId, selectedSet) {
+        const btn = document.getElementById(btnId);
+        btn.textContent = `Delete Selected (${selectedSet.size})`;
+        btn.disabled = selectedSet.size === 0;
     }
 
     // ── Assets ───────────────────────────────────────────────────────────
 
     let assets = [];
+    let selectedAssetIds = new Set();
     const DEVICE_STATUSES = ['working', 'missing', 'locked', 'in shop'];
     const REPAIR_STATUSES = ['', 'not started', 'in progress', 'complete'];
 
@@ -233,34 +300,57 @@
         return '(unassigned)';
     }
 
+    function statusLabel(s) {
+        return s ? s.replace(/\b\w/g, c => c.toUpperCase()) : '(None)';
+    }
+
     async function loadAssets() {
         const data = await authFetch('/api/it/assets').then(r => r.json());
         assets = data.assets;
         renderAssetTable();
     }
 
-    function renderAssetTable() {
-        const q     = document.getElementById('asset-search').value.trim().toLowerCase();
-        const match = a => !q || [assetOwnerLabel(a), a.serial_number, a.asset_number].join(' ').toLowerCase().includes(q);
+    function assetSearchMatch(q) {
+        return a => !q || [assetOwnerLabel(a), a.serial_number, a.asset_number].join(' ').toLowerCase().includes(q);
+    }
 
-        document.getElementById('asset-rows').innerHTML = assets.filter(match).map(a => `
+    function renderAssetTable() {
+        const q = document.getElementById('asset-search').value.trim().toLowerCase();
+
+        document.getElementById('asset-rows').innerHTML = assets.filter(assetSearchMatch(q)).map(a => `
             <tr>
+                <td><input type="checkbox" ${selectedAssetIds.has(a.id) ? 'checked' : ''} onchange="toggleAsset(${a.id}, this.checked)"></td>
                 <td>${assetOwnerLabel(a)}</td>
                 <td>${a.serial_number}</td>
                 <td>${a.asset_number || ''}</td>
                 <td>
                     <select onchange="updateAsset(${a.id}, {device_status: this.value})">
-                        ${DEVICE_STATUSES.map(s => `<option value="${s}" ${s === a.device_status ? 'selected' : ''}>${s}</option>`).join('')}
+                        ${DEVICE_STATUSES.map(s => `<option value="${s}" ${s === a.device_status ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
                     </select>
                 </td>
                 <td>
                     <select onchange="updateAsset(${a.id}, {repair_status: this.value || null})">
-                        ${REPAIR_STATUSES.map(s => `<option value="${s}" ${s === (a.repair_status || '') ? 'selected' : ''}>${s || '(none)'}</option>`).join('')}
+                        ${REPAIR_STATUSES.map(s => `<option value="${s}" ${s === (a.repair_status || '') ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
                     </select>
                 </td>
-                <td><button class="btn-link" onclick="deleteAsset(${a.id})">Delete</button></td>
+                <td>
+                    <button class="btn-link" onclick="openAssetEditModal(${a.id})">Edit</button>
+                    <button class="btn-link" onclick="deleteAsset(${a.id})">Delete</button>
+                </td>
             </tr>
-        `).join('') || '<tr><td colspan="6">No assets yet.</td></tr>';
+        `).join('') || '<tr><td colspan="7">No assets yet.</td></tr>';
+        updateBulkDeleteBtn('asset-bulk-delete-btn', selectedAssetIds);
+    }
+
+    function toggleAsset(id, checked) {
+        if (checked) selectedAssetIds.add(id); else selectedAssetIds.delete(id);
+        updateBulkDeleteBtn('asset-bulk-delete-btn', selectedAssetIds);
+    }
+
+    function toggleAllAssets(checked) {
+        const q = document.getElementById('asset-search').value.trim().toLowerCase();
+        assets.filter(assetSearchMatch(q)).forEach(a => checked ? selectedAssetIds.add(a.id) : selectedAssetIds.delete(a.id));
+        renderAssetTable();
     }
 
     async function updateAsset(id, patch) {
@@ -271,7 +361,52 @@
     async function deleteAsset(id) {
         if (!confirm('Delete this asset?')) return;
         await authFetch(`/api/it/assets/${id}`, { method: 'DELETE' });
+        selectedAssetIds.delete(id);
         loadAssets();
+    }
+
+    async function bulkDeleteAssets() {
+        if (selectedAssetIds.size === 0) return;
+        if (!confirm(`Delete ${selectedAssetIds.size} asset(s)? This cannot be undone.`)) return;
+        await authFetch('/api/it/assets/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [...selectedAssetIds] }) });
+        selectedAssetIds.clear();
+        loadAssets();
+    }
+
+    let editingAssetId = null;
+
+    function openAssetEditModal(id) {
+        const asset = assets.find(a => a.id === id);
+        if (!asset) return;
+        editingAssetId = id;
+        document.getElementById('edit-asset-serial').textContent = asset.serial_number;
+        document.getElementById('edit-assigned-type').value = asset.assigned_type || '';
+        document.getElementById('edit-assigned-id').value =
+            asset.assigned_student_id || asset.assigned_staff_number || asset.assigned_cart_name || '';
+        toggleEditAssignedIdRow();
+        document.getElementById('asset-edit-modal').style.display = 'flex';
+    }
+
+    function toggleEditAssignedIdRow() {
+        const type  = document.getElementById('edit-assigned-type').value;
+        const row   = document.getElementById('edit-assigned-id-row');
+        const label = document.getElementById('edit-assigned-id-label');
+        if (!type) { row.style.display = 'none'; return; }
+        row.style.display = '';
+        label.textContent = type === 'student' ? 'Student ID' : type === 'staff' ? 'Staff Number' : 'Cart Name';
+    }
+
+    function closeAssetEditModal() {
+        document.getElementById('asset-edit-modal').style.display = 'none';
+        editingAssetId = null;
+    }
+
+    async function saveAssetAssignment() {
+        if (editingAssetId == null) return;
+        const assigned_type = document.getElementById('edit-assigned-type').value || null;
+        const assigned_id   = document.getElementById('edit-assigned-id').value.trim() || null;
+        await updateAsset(editingAssetId, { assigned_type, assigned_id });
+        closeAssetEditModal();
     }
 
     async function handleStudentCsv(event) {
@@ -286,6 +421,7 @@
             ? `Imported ${data.imported} student${data.imported !== 1 ? 's' : ''}.`
             : `Error: ${data.error}`;
         event.target.value = '';
+        loadRoster();
     }
 
     async function handleStaffCsv(event) {
@@ -300,12 +436,123 @@
             ? `Imported ${data.imported} staff member${data.imported !== 1 ? 's' : ''}.`
             : `Error: ${data.error}`;
         event.target.value = '';
+        loadRoster();
+    }
+
+    // ── Roster lists (view + bulk delete) ───────────────────────────────────
+
+    let students = [];
+    let staffRoster = [];
+    let selectedStudentIds = new Set();
+    let selectedStaffIds = new Set();
+
+    async function loadRoster() {
+        const [sData, stData] = await Promise.all([
+            authFetch('/api/it/roster/students').then(r => r.json()),
+            authFetch('/api/it/roster/staff').then(r => r.json()),
+        ]);
+        students = sData.students;
+        staffRoster = stData.staff;
+        renderStudentTable();
+        renderStaffTable();
+    }
+
+    function studentSearchMatch(q) {
+        return s => !q || [s.student_id, s.first_name, s.last_name, s.grade_level, s.advisor_name].join(' ').toLowerCase().includes(q);
+    }
+
+    function renderStudentTable() {
+        const q = document.getElementById('student-search').value.trim().toLowerCase();
+
+        document.getElementById('student-rows').innerHTML = students.filter(studentSearchMatch(q)).map(s => `
+            <tr>
+                <td><input type="checkbox" ${selectedStudentIds.has(s.student_id) ? 'checked' : ''} onchange="toggleStudent('${s.student_id}', this.checked)"></td>
+                <td>${s.student_id}</td>
+                <td>${s.first_name} ${s.last_name}</td>
+                <td>${s.grade_level || ''}</td>
+                <td>${s.advisor_name || ''}</td>
+                <td><button class="btn-link" onclick="deleteStudent('${s.student_id}')">Delete</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6">No students imported yet.</td></tr>';
+        updateBulkDeleteBtn('student-bulk-delete-btn', selectedStudentIds);
+    }
+
+    function toggleStudent(id, checked) {
+        if (checked) selectedStudentIds.add(id); else selectedStudentIds.delete(id);
+        updateBulkDeleteBtn('student-bulk-delete-btn', selectedStudentIds);
+    }
+
+    function toggleAllStudents(checked) {
+        const q = document.getElementById('student-search').value.trim().toLowerCase();
+        students.filter(studentSearchMatch(q)).forEach(s => checked ? selectedStudentIds.add(s.student_id) : selectedStudentIds.delete(s.student_id));
+        renderStudentTable();
+    }
+
+    async function deleteStudent(id) {
+        if (!confirm('Remove this student from the roster?')) return;
+        await authFetch('/api/it/roster/students/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [id] }) });
+        selectedStudentIds.delete(id);
+        loadRoster();
+    }
+
+    async function bulkDeleteStudents() {
+        if (selectedStudentIds.size === 0) return;
+        if (!confirm(`Remove ${selectedStudentIds.size} student(s) from the roster? This cannot be undone.`)) return;
+        await authFetch('/api/it/roster/students/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [...selectedStudentIds] }) });
+        selectedStudentIds.clear();
+        loadRoster();
+    }
+
+    function staffSearchMatch(q) {
+        return s => !q || [s.staff_number, s.first_name, s.last_name, s.email].join(' ').toLowerCase().includes(q);
+    }
+
+    function renderStaffTable() {
+        const q = document.getElementById('staff-search-list').value.trim().toLowerCase();
+
+        document.getElementById('staff-rows').innerHTML = staffRoster.filter(staffSearchMatch(q)).map(s => `
+            <tr>
+                <td><input type="checkbox" ${selectedStaffIds.has(s.staff_number) ? 'checked' : ''} onchange="toggleStaff('${s.staff_number}', this.checked)"></td>
+                <td>${s.staff_number}</td>
+                <td>${s.first_name} ${s.last_name}</td>
+                <td>${s.email || ''}</td>
+                <td><button class="btn-link" onclick="deleteStaff('${s.staff_number}')">Delete</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="5">No staff imported yet.</td></tr>';
+        updateBulkDeleteBtn('staff-bulk-delete-btn', selectedStaffIds);
+    }
+
+    function toggleStaff(id, checked) {
+        if (checked) selectedStaffIds.add(id); else selectedStaffIds.delete(id);
+        updateBulkDeleteBtn('staff-bulk-delete-btn', selectedStaffIds);
+    }
+
+    function toggleAllStaff(checked) {
+        const q = document.getElementById('staff-search-list').value.trim().toLowerCase();
+        staffRoster.filter(staffSearchMatch(q)).forEach(s => checked ? selectedStaffIds.add(s.staff_number) : selectedStaffIds.delete(s.staff_number));
+        renderStaffTable();
+    }
+
+    async function deleteStaff(id) {
+        if (!confirm('Remove this staff member from the roster?')) return;
+        await authFetch('/api/it/roster/staff/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [id] }) });
+        selectedStaffIds.delete(id);
+        loadRoster();
+    }
+
+    async function bulkDeleteStaff() {
+        if (selectedStaffIds.size === 0) return;
+        if (!confirm(`Remove ${selectedStaffIds.size} staff member(s) from the roster? This cannot be undone.`)) return;
+        await authFetch('/api/it/roster/staff/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [...selectedStaffIds] }) });
+        selectedStaffIds.clear();
+        loadRoster();
     }
 
     // ── Tickets ──────────────────────────────────────────────────────────
 
     let tickets = [];
     let openTicketId = null;
+    let ticketStatusTab = 'todo';
     const TICKET_STATUSES = ['Open', 'In Progress', 'Completed'];
 
     async function loadTickets() {
@@ -314,16 +561,32 @@
         renderTicketTable();
     }
 
-    function renderTicketTable() {
-        const q     = document.getElementById('ticket-search').value.trim().toLowerCase();
-        const match = t => !q || [t.requester_name, t.requester_email, t.category, t.note].join(' ').toLowerCase().includes(q);
+    function switchTicketStatusTab(tab) {
+        ticketStatusTab = tab;
+        document.querySelectorAll('#ticket-status-tabs .tab').forEach(el =>
+            el.classList.toggle('active', el.dataset.statusTab === tab));
+        renderTicketTable();
+    }
 
-        document.getElementById('admin-ticket-rows').innerHTML = tickets.filter(match).map(t => `
+    function ticketAssetLabel(t) {
+        if (!t.asset_serial_number) return '';
+        return t.asset_asset_number ? `${t.asset_serial_number} / ${t.asset_asset_number}` : t.asset_serial_number;
+    }
+
+    function renderTicketTable() {
+        const q         = document.getElementById('ticket-search').value.trim().toLowerCase();
+        const inTab     = t => ticketStatusTab === 'completed' ? t.status === 'Completed' : t.status !== 'Completed';
+        const match     = t => !q || [ticketNumber(t.id), t.requester_name, t.requester_email, t.category, t.note, ticketAssetLabel(t)].join(' ').toLowerCase().includes(q);
+        const visible   = tickets.filter(inTab).filter(match);
+
+        document.getElementById('admin-ticket-rows').innerHTML = visible.map(t => `
             <tr>
+                <td>#${ticketNumber(t.id)}</td>
                 <td>${new Date(t.created_at).toLocaleDateString()}</td>
                 <td>${t.requester_name}${t.room_number ? ' (Rm ' + t.room_number + ')' : ''}</td>
                 <td>${t.category}</td>
                 <td>${t.priority}</td>
+                <td>${ticketAssetLabel(t) || '—'}</td>
                 <td>
                     <select onchange="updateTicketStatus(${t.id}, this.value)">
                         ${TICKET_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}
@@ -331,7 +594,7 @@
                 </td>
                 <td><button class="btn-link" onclick="openTicketModal(${t.id})">Notes</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="6">No tickets yet.</td></tr>';
+        `).join('') || `<tr><td colspan="8">No ${ticketStatusTab === 'completed' ? 'completed' : 'open'} tickets.</td></tr>`;
     }
 
     async function updateTicketStatus(id, status) {
@@ -355,11 +618,17 @@
         if (!data.ticket) { body.innerHTML = 'Ticket not found.'; return; }
         const t = data.ticket;
         body.innerHTML = `
-            <h2>Ticket #${t.id}</h2>
+            <h2>Ticket #${ticketNumber(t.id)}</h2>
             <p><strong>Requester:</strong> ${t.requester_name} (${t.requester_email})${t.room_number ? ' — Room ' + t.room_number : ''}</p>
             <p><strong>Received:</strong> ${new Date(t.created_at).toLocaleString()}</p>
             <p><strong>Status:</strong> ${t.status}</p>
             <p><strong>Category:</strong> ${t.category} &mdash; <strong>Priority:</strong> ${t.priority}</p>
+            ${ticketAssetLabel(t) ? `<p><strong>Asset:</strong> Serial ${t.asset_serial_number}${t.asset_asset_number ? ` (Asset #${t.asset_asset_number})` : ''}</p>` : ''}
+            ${t.linked_asset_id ? `
+                <button class="btn btn-primary" onclick="toggleAssetLock(${t.id}, ${t.linked_asset_id}, '${t.asset_device_status}')">
+                    ${t.asset_device_status === 'locked' ? 'Mark Unlocked' : 'Mark Locked'}
+                </button>
+            ` : ''}
             <p>${t.note || ''}</p>
             <h3>History</h3>
             ${data.events.map(e => `
@@ -369,6 +638,19 @@
                 </div>
             `).join('') || '<p>No history yet.</p>'}
         `;
+    }
+
+    // Manual toggle only — never triggered automatically by ticket creation. Also
+    // logs a note on the ticket so the lock/unlock shows up in its history.
+    async function toggleAssetLock(ticketId, assetId, currentStatus) {
+        const newStatus = currentStatus === 'locked' ? 'working' : 'locked';
+        await authFetch(`/api/it/assets/${assetId}`, { method: 'PATCH', body: JSON.stringify({ device_status: newStatus }) });
+        await authFetch(`/api/it/tickets/${ticketId}/notes`, {
+            method: 'POST',
+            body: JSON.stringify({ note: `Device marked ${newStatus === 'locked' ? 'Locked' : 'Unlocked (Working)'}.` }),
+        });
+        await refreshTicketModal();
+        loadAssets();
     }
 
     async function addTicketNote() {
