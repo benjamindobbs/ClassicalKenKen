@@ -121,6 +121,19 @@ router.get('/programs/shareable', requireTeacher, (req, res) => {
     `).all(req.teacherKey));
 });
 
+// Which of this teacher's classes feed this program — the link that makes a
+// class eligible for the DobbsCore sync panel and puts the program in front
+// of students on that roster.
+router.get('/programs/:id/classes', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(db.prepare(`
+        SELECT c.id, c.name FROM wbl_class_programs cp
+        JOIN classes c ON c.id = cp.class_id
+        WHERE cp.program_id = ? ORDER BY c.name
+    `).all(p.id));
+});
+
 router.post('/programs/:id/classes', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;

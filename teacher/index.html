@@ -479,6 +479,16 @@
 
                     <div id="wbl-sub-catalog" style="display:none">
                         <div class="classes-header">
+                            <div class="section-title" style="margin:0">Linked Classes</div>
+                            <button class="btn btn-outline btn-sm" onclick="openWblLinkClassModal()">Link Class</button>
+                        </div>
+                        <p class="lookup-note">
+                            Gradebook classes feeding this program. A class must be linked here before it shows
+                            the WBL sync button in PowerSchool, and before enrolled students see this program.
+                        </p>
+                        <div id="wbl-classes-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
                             <div class="section-title" style="margin:0">Micro-credentials</div>
                             <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
                         </div>
@@ -3471,13 +3481,26 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers] = await Promise.all([
+            const [creds, skills, qc, tiers, classes] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
                 wblApi('GET', `/programs/${pid}/tier-points`),
+                wblApi('GET', `/programs/${pid}/classes`),
             ]);
             wblCatalogSkills = skills;
+
+            document.getElementById('wbl-classes-body').innerHTML = classes.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Class</th><th></th></tr></thead>
+                    <tbody>${classes.map(c => `
+                        <tr>
+                            <td>${wblEsc(c.name)}</td>
+                            <td><button class="btn btn-outline btn-sm"
+                                        onclick="wblUnlinkClass(${c.id})">Unlink</button></td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No classes linked yet — this program is invisible to PowerSchool sync and to students.</div>';
 
             document.getElementById('wbl-tier-body').innerHTML = `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -3599,6 +3622,22 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             try { await wblApi('POST', '/programs', { name }); }
             catch (e) { return alert(e.status === 409 ? 'A program with that name already exists.' : e.message); }
             loadWblPrograms();
+        }
+
+        async function openWblLinkClassModal() {
+            const classes = await (await teacherFetch('/api/teacher/classes')).json();
+            if (!classes.length) return alert('Create a class first.');
+            const classId = prompt('Class ID to link to this program:\n\n'
+                + classes.map(c => `${c.id} — ${c.name}`).join('\n'), String(classes[0].id));
+            if (!classId) return;
+            await wblApi('POST', `/programs/${wblProgramId()}/classes`, { class_id: Number(classId) });
+            loadWblCatalog();
+        }
+
+        async function wblUnlinkClass(classId) {
+            if (!confirm('Unlink this class? Its PowerSchool sync IDs for this program will be forgotten.')) return;
+            await wblApi('DELETE', `/programs/${wblProgramId()}/classes/${classId}`);
+            loadWblCatalog();
         }
 
         async function openWblEnrollModal() {
