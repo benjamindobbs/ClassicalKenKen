@@ -40,9 +40,10 @@
 
         <div id="inventory-content" style="display:none">
             <h1>Master Inventory</h1>
-            <input type="text" class="search-input" id="search" placeholder="Search by name, advisor, serial, or asset #" oninput="renderAll()">
+            <input type="text" class="search-input" id="search" placeholder="Search by name, advisor, serial, or asset #" oninput="onSearchInput()">
             <button class="btn btn-primary" onclick="downloadCsv()">Download CSV</button>
 
+            <div class="tabs" id="inventory-tabs"></div>
             <div id="section-staff"></div>
             <div id="section-student"></div>
             <div id="section-cart"></div>
@@ -54,6 +55,7 @@
 <script src="js/auth.js"></script>
 <script>
     let assets = [];
+    let activeTab = 'staff';
     const sortState = {}; // { [sectionName]: { col, dir } }
 
     // ── Column definitions per section ──────────────────────────────────
@@ -143,13 +145,38 @@
         renderSection(sectionName);
     }
 
+    // Tabs: only offer a tab for a group that actually has devices (Unassigned is
+    // usually empty and shouldn't clutter the bar). Computed once from the full,
+    // unfiltered data so typing in search doesn't make tabs appear/disappear.
+    function renderTabs() {
+        const visible = Object.keys(SECTIONS).filter(name => name !== 'unassigned' || SECTIONS.unassigned.data().length > 0);
+        if (!visible.includes(activeTab)) activeTab = visible[0];
+
+        document.getElementById('inventory-tabs').innerHTML = visible.map(name =>
+            `<button class="tab ${name === activeTab ? 'active' : ''}" onclick="switchTab('${name}')">${SECTIONS[name].title}</button>`
+        ).join('');
+
+        visible.forEach(name => {
+            document.getElementById('section-' + name).style.display = name === activeTab ? '' : 'none';
+        });
+    }
+
+    function switchTab(name) {
+        activeTab = name;
+        renderTabs();
+        renderSection(name);
+    }
+
+    function onSearchInput() {
+        renderSection(activeTab);
+    }
+
     function renderSection(name) {
         const config    = SECTIONS[name];
         const container = document.getElementById('section-' + name);
         const q         = document.getElementById('search').value.trim().toLowerCase();
 
         let rows = config.data().filter(a => !q || searchHaystack(a).includes(q));
-        if (rows.length === 0 && name === 'unassigned') { container.innerHTML = ''; return; }
 
         const state = sortState[name];
         if (state && state.col) {
@@ -169,16 +196,11 @@
             || `<tr><td colspan="${config.columns.length}">No devices.</td></tr>`;
 
         container.innerHTML = `
-            <h2>${config.title}</h2>
             <table class="data-table">
                 <thead><tr>${headCells}</tr></thead>
                 <tbody>${bodyRows}</tbody>
             </table>
         `;
-    }
-
-    function renderAll() {
-        Object.keys(SECTIONS).forEach(renderSection);
     }
 
     function csvEsc(v) {
@@ -215,7 +237,8 @@
         document.getElementById('inventory-content').style.display = '';
         const data = await authFetch('/api/it/assets').then(r => r.json());
         assets = data.assets;
-        renderAll();
+        renderTabs();
+        renderSection(activeTab);
     }
 </script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>

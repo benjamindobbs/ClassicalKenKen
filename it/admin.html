@@ -41,10 +41,10 @@
         <div id="admin-content" style="display:none">
             <h1>Admin</h1>
 
-            <div class="admin-tabs">
-                <button class="admin-tab active" data-tab="roster" onclick="showAdminTab('roster')">Roster</button>
-                <button class="admin-tab" data-tab="assets" onclick="showAdminTab('assets')">Assets</button>
-                <button class="admin-tab" data-tab="tickets" onclick="showAdminTab('tickets')">Tickets</button>
+            <div class="tabs">
+                <button class="tab active" data-tab="roster" onclick="showAdminTab('roster')">Roster</button>
+                <button class="tab" data-tab="assets" onclick="showAdminTab('assets')">Assets</button>
+                <button class="tab" data-tab="tickets" onclick="showAdminTab('tickets')">Tickets</button>
             </div>
 
             <div id="admin-tab-roster" class="admin-tab-panel">
@@ -167,9 +167,9 @@
 
     function showAdminTab(tab) {
         document.querySelectorAll('.admin-tab-panel').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         document.getElementById('admin-tab-' + tab).style.display = '';
-        document.querySelector(`.admin-tab[data-tab="${tab}"]`).classList.add('active');
+        document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
         if (tab === 'assets' && assets.length === 0) loadAssets();
         if (tab === 'tickets' && tickets.length === 0) loadTickets();
     }

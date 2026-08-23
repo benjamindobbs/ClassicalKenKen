@@ -298,16 +298,16 @@ hr {
 .status-pill.status-in-progress { background: #fef3c7; color: #92400e; }
 .status-pill.status-completed { background: #dcfce7; color: #15803d; }
 
-/* === ADMIN TABS === */
+/* === TABS (admin sections, master inventory groups) === */
 
-.admin-tabs {
+.tabs {
     display: flex;
     gap: 0.25rem;
     margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--border);
 }
 
-.admin-tab {
+.tab {
     padding: 0.625rem 1rem;
     border: none;
     background: none;
@@ -321,8 +321,8 @@ hr {
     transition: color 0.15s;
 }
 
-.admin-tab.active { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-.admin-tab:hover:not(.active) { color: var(--text); }
+.tab.active { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+.tab:hover:not(.active) { color: var(--text); }
 
 /* === MODAL === */
 
