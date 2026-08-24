@@ -109,6 +109,27 @@
         .wbl-cred       { font-size:0.8125rem; padding:0.35rem 0.75rem; border-radius:9999px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
         .wbl-cred-prog  { color:#64748b; font-size:0.75rem; }
 
+        /* Job history — QC and Holistic verdicts */
+        .wbl-job        { border-top:1px solid #f1f5f9; padding:0.9rem 0; }
+        .wbl-job:first-of-type { border-top:none; padding-top:0; }
+        .wbl-job-head   { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; flex-wrap:wrap; }
+        .wbl-job-title  { font-size:0.9375rem; font-weight:600; color:#0f172a; }
+        .wbl-job-dates  { font-size:0.75rem; color:#94a3b8; }
+        .wbl-job-desc   { font-size:0.8125rem; color:#475569; white-space:pre-wrap; margin:0.4rem 0; }
+        .wbl-job-verdict { display:flex; align-items:center; gap:0.6rem; margin-top:0.5rem; flex-wrap:wrap; }
+        .wbl-tier-pill  { font-size:0.75rem; font-weight:700; padding:0.2rem 0.6rem; border-radius:9999px; }
+        .wbl-tier-not_shippable { background:#fee2e2; color:#991b1b; }
+        .wbl-tier-rework        { background:#fef3c7; color:#92400e; }
+        .wbl-tier-meets         { background:#f0fdf4; color:#166534; }
+        .wbl-tier-exceeds       { background:#eff6ff; color:#1d4ed8; }
+        .wbl-qc-list    { margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem; }
+        .wbl-qc-check   { padding:0.5rem 0.65rem; background:#f8fafc; border-radius:var(--radius); }
+        .wbl-qc-results { display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.35rem; }
+        .wbl-qc-note    { font-size:0.8125rem; color:#334155; margin:0.35rem 0 0; }
+        .wbl-pill       { display:inline-block; font-size:0.6875rem; padding:0.15rem 0.5rem; border-radius:9999px; background:#f1f5f9; color:#475569; }
+        .wbl-pill-good  { background:#f0fdf4; color:#166534; }
+        .wbl-pill-bad   { background:#fee2e2; color:#991b1b; }
+
         /* Empty states */
         .empty-state { color: #94a3b8; font-size: 0.875rem; padding: 1.5rem 0; text-align: center; }
 
@@ -172,6 +193,7 @@
                 <div id="wbl-exit"></div>
                 <div id="wbl-transfer"></div>
                 <div id="wbl-credentials"></div>
+                <div id="wbl-history"></div>
             </div>
 
             <!-- Charts -->
@@ -744,6 +766,7 @@
             sel.parentElement.style.display = wblMe.programs.length > 1 ? '' : 'none';
             renderWblCredentials();
             loadWblDay();
+            loadWblHistory();
         }
 
         const wblProgram = () => wblMe.programs.find(p => String(p.id) === document.getElementById('wbl-program').value)
@@ -1032,6 +1055,45 @@
                         `<span class="wbl-cred">${wblEsc(c.credential_name)}
                            <span class="wbl-cred-prog">· ${wblEsc(c.program_name)}</span></span>`).join('')}
                     </div>
+                </div>`;
+        }
+
+        // ── Job history — QC and Holistic verdicts, the two lenses students
+        // otherwise have no way to see ──────────────────────────────────────
+        const wblTierLabel = { not_shippable: 'Not Shippable', rework: 'Needs Rework', meets: 'Meets Standard', exceeds: 'Exceeds Standard' };
+        async function loadWblHistory() {
+            let jobs;
+            try { jobs = await wblApi('GET', '/me/work-history'); }
+            catch { jobs = []; }
+            const el = document.getElementById('wbl-history');
+            if (!jobs.length) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Job History</p>
+                    ${jobs.map(j => `
+                        <div class="wbl-job">
+                            <div class="wbl-job-head">
+                                <span class="wbl-job-title">${wblEsc(j.title)}</span>
+                                <span class="wbl-job-dates">${wblEsc(j.opened_on)} &rarr; ${wblEsc(j.closed_on || 'in progress')}</span>
+                            </div>
+                            ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
+                            ${j.holistic ? `
+                                <div class="wbl-job-verdict">
+                                    <span class="wbl-tier-pill wbl-tier-${j.holistic.tier}">${wblEsc(wblTierLabel[j.holistic.tier] || j.holistic.tier)}</span>
+                                    ${j.holistic.points_pct != null ? `<span class="wbl-card-sub" style="margin:0">Holistic Output Call &middot; counts as ${j.holistic.points_pct}%</span>` : ''}
+                                </div>` : ''}
+                            ${j.qc_checks.length ? `
+                                <div class="wbl-qc-list">
+                                    ${j.qc_checks.map(q => `
+                                        <div class="wbl-qc-check">
+                                            <span class="wbl-card-sub" style="margin:0">QC spot check &middot; ${wblEsc(q.checked_on)}</span>
+                                            ${q.results.length ? `<div class="wbl-qc-results">${q.results.map(r =>
+                                                `<span class="wbl-pill wbl-pill-${r.outcome === 'pass' ? 'good' : r.outcome === 'fail' ? 'bad' : ''}">${wblEsc(r.criterion)}: ${wblEsc(r.outcome)}</span>`
+                                            ).join('')}</div>` : ''}
+                                            ${q.note ? `<p class="wbl-qc-note">${wblEsc(q.note)}</p>` : ''}
+                                        </div>`).join('')}
+                                </div>` : ''}
+                        </div>`).join('')}
                 </div>`;
         }
     </script>

@@ -134,6 +134,25 @@ router.get('/programs/:id/classes', requireTeacher, (req, res) => {
     `).all(p.id));
 });
 
+// A linked class's roster IS the enrollment source — no separate by-ID entry
+// step. Re-runnable: already-enrolled students are a no-op via INSERT OR IGNORE,
+// so this doubles as the "pick up students added after the class was linked" path.
+function syncClassEnrollment(programId, classId) {
+    const students = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId);
+    const ins = db.prepare(`
+        INSERT OR IGNORE INTO wbl_program_enrollments(program_id, student_id, enrolled_on, updated_at)
+        VALUES(?, ?, ?, ?)
+    `);
+    let added = 0;
+    for (const { student_id } of students) {
+        const sid = normalizeStudentId(student_id);
+        if (!sid) continue;
+        const info = ins.run(programId, sid, L.today(), now());
+        if (info.changes) { L.ensurePhaseRow(programId, sid); added++; }
+    }
+    return added;
+}
+
 router.post('/programs/:id/classes', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
@@ -142,7 +161,45 @@ router.post('/programs/:id/classes', requireTeacher, (req, res) => {
     const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
     if (!cls) return nf(res, 'class_not_found');
     db.prepare('INSERT OR IGNORE INTO wbl_class_programs(class_id, program_id) VALUES(?, ?)').run(classId, p.id);
-    res.json({ ok: true });
+    const enrolled = syncClassEnrollment(p.id, classId);
+    res.json({ ok: true, enrolled });
+});
+
+// Re-pull rosters for every linked class — for schedule changes / adds after
+// the initial link, since linking only syncs once at that moment.
+router.post('/programs/:id/roster/sync', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const classes = db.prepare('SELECT class_id FROM wbl_class_programs WHERE program_id = ?').all(p.id);
+    let enrolled = 0;
+    for (const { class_id } of classes) enrolled += syncClassEnrollment(p.id, class_id);
+    res.json({ ok: true, enrolled, classes: classes.length });
+});
+
+// Enrolled roster grouped by class period — backs the work event participant
+// picker so teachers check off students instead of typing IDs. Joined in JS,
+// not SQL, because class_students carries the raw PowerSchool student number
+// while enrollment keys off normalizeStudentId() — a straight SQL join would
+// silently drop anyone whose raw ID still has its leading zeros.
+router.get('/programs/:id/roster-by-class', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const classes = db.prepare(`
+        SELECT c.id, c.name FROM wbl_class_programs cp JOIN classes c ON c.id = cp.class_id
+        WHERE cp.program_id = ? ORDER BY c.name
+    `).all(p.id);
+    const enrolled = new Set(db.prepare(
+        'SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL'
+    ).all(p.id).map(r => r.student_id));
+    const studentsFor = db.prepare(
+        'SELECT student_id, student_name FROM class_students WHERE class_id = ? ORDER BY student_name'
+    );
+    res.json(classes.map(c => ({
+        class_id: c.id, class_name: c.name,
+        students: studentsFor.all(c.id)
+            .filter(s => enrolled.has(normalizeStudentId(s.student_id)))
+            .map(s => ({ student_id: normalizeStudentId(s.student_id), student_name: s.student_name })),
+    })));
 });
 
 router.delete('/programs/:id/classes/:classId', requireTeacher, (req, res) => {
@@ -299,6 +356,101 @@ router.put('/credentials/:id/skills', requireTeacher, (req, res) => {
     } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
+// Bulk catalog import, mirroring the legacy microcredentials CSV shape
+// (Microcredential, Checkpoint, Description, Subtask) so an existing sheet
+// can be reused: Credential -> Skill -> Criterion. Existing credentials
+// (matched by name) and skills (matched by slug) are left untouched — a
+// published skill version cannot be edited in place, and re-importing must
+// never silently corrupt what a student has already been assessed against.
+// Only new skills get criteria and get published; the credential<->skill
+// link is added either way (INSERT OR IGNORE) so a second pass can still
+// attach a pre-existing skill to a newly-named credential.
+router.post('/programs/:id/catalog/import-csv', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const rows = req.body?.rows;
+    if (!Array.isArray(rows) || !rows.length) return bad(res, 'rows required');
+
+    const slugify = s => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    db.exec('BEGIN');
+    try {
+        const credIds = new Map();   // name -> id
+        const skillIds = new Map();  // slug -> id
+        const newSkillOrder = [];    // slugs created this import, in row order
+        const credSkillOrder = new Map(); // credential name -> [skill slug, ...] in row order
+        let credsCreated = 0, skillsCreated = 0;
+
+        for (const row of rows) {
+            const credName = str(row.credential).trim();
+            const skillName = str(row.skill).trim();
+            if (!credName || !skillName) continue;
+            const slug = slugify(skillName);
+            if (!slug) continue;
+
+            if (!credIds.has(credName)) {
+                let cred = db.prepare('SELECT id FROM wbl_credentials WHERE program_id = ? AND name = ?')
+                    .get(p.id, credName);
+                if (!cred) {
+                    const info = db.prepare(`
+                        INSERT INTO wbl_credentials(program_id, name, description, min_holistic_tier, order_idx, created_at)
+                        VALUES(?, ?, '', 'meets', ?, ?)
+                    `).run(p.id, credName, credIds.size, now());
+                    cred = { id: Number(info.lastInsertRowid) };
+                    credsCreated++;
+                }
+                credIds.set(credName, cred.id);
+                credSkillOrder.set(credName, []);
+            }
+            if (!credSkillOrder.get(credName).includes(slug)) credSkillOrder.get(credName).push(slug);
+
+            if (!skillIds.has(slug)) {
+                let skill = db.prepare('SELECT id FROM wbl_skills WHERE program_id = ? AND slug = ?').get(p.id, slug);
+                if (!skill) {
+                    const s = db.prepare('INSERT INTO wbl_skills(program_id, slug, created_at) VALUES(?, ?, ?)')
+                        .run(p.id, slug, now());
+                    db.prepare(`
+                        INSERT INTO wbl_skill_versions(skill_id, version_no, name, description, status, created_at)
+                        VALUES(?, 1, ?, ?, 'draft', ?)
+                    `).run(s.lastInsertRowid, skillName, str(row.description), now());
+                    skill = { id: Number(s.lastInsertRowid) };
+                    skillsCreated++;
+                    newSkillOrder.push(slug);
+                }
+                skillIds.set(slug, skill.id);
+            }
+
+            const criterion = str(row.criterion).trim();
+            if (criterion && newSkillOrder.includes(slug)) {
+                const skillId = skillIds.get(slug);
+                const v = db.prepare('SELECT id FROM wbl_skill_versions WHERE skill_id = ? AND status = ?')
+                    .get(skillId, 'draft');
+                const n = db.prepare('SELECT COUNT(*) n FROM wbl_skill_criteria WHERE skill_version_id = ?').get(v.id).n;
+                db.prepare('INSERT INTO wbl_skill_criteria(skill_version_id, name, order_idx) VALUES(?, ?, ?)')
+                    .run(v.id, criterion, n);
+            }
+        }
+
+        for (const slug of newSkillOrder) {
+            const skillId = skillIds.get(slug);
+            const v = db.prepare('SELECT id FROM wbl_skill_versions WHERE skill_id = ? AND status = ?').get(skillId, 'draft');
+            db.prepare(`UPDATE wbl_skill_versions SET status = 'published', is_current = 1, published_at = ? WHERE id = ?`)
+                .run(now(), v.id);
+        }
+
+        const linkCred = db.prepare(`
+            INSERT OR IGNORE INTO wbl_credential_skills(credential_id, skill_id, required_demonstrations, order_idx)
+            VALUES(?, ?, 1, ?)
+        `);
+        for (const [credName, slugs] of credSkillOrder) {
+            slugs.forEach((slug, i) => linkCred.run(credIds.get(credName), skillIds.get(slug), i));
+        }
+
+        db.exec('COMMIT');
+        res.json({ ok: true, credentials_created: credsCreated, skills_created: skillsCreated, rows: rows.length });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+});
+
 // =============================================================================
 // 2b. Catalog — skills (versioned)
 // =============================================================================
@@ -331,7 +483,20 @@ router.get('/programs/:id/skills', requireTeacher, (req, res) => {
     const crit = db.prepare(
         'SELECT id, name, order_idx FROM wbl_skill_criteria WHERE skill_version_id = ? ORDER BY order_idx'
     );
-    res.json(rows.map(r => ({ ...r, criteria: r.version_id ? crit.all(r.version_id) : [] })));
+    const openings = db.prepare('SELECT soft_skill_code FROM wbl_skill_openings WHERE skill_id = ?');
+    res.json(rows.map(r => ({
+        ...r,
+        criteria: r.version_id ? crit.all(r.version_id) : [],
+        openings: openings.all(r.id).map(o => o.soft_skill_code),
+    })));
+});
+
+// The fixed dispositional vocabulary — what a skill can be tagged to open up
+// for Phase 1 Do Now reflection.
+router.get('/soft-skills', requireTeacher, (req, res) => {
+    res.json(db.prepare(
+        `SELECT code, name, category FROM wbl_soft_skills WHERE category = 'dispositional' ORDER BY order_idx`
+    ).all());
 });
 
 // Creates the lineage plus a draft v1 — a skill has no content of its own.
@@ -960,6 +1125,43 @@ router.get('/me/work-events', requireAuth, (req, res) => {
     `).all(s.student_id));
 });
 
+// Every job a student has been on, with the verdict they received on each —
+// the QC trail and Holistic Output Call, the two lenses students otherwise
+// have no way to see. Rationale is left out: that's teacher-facing framing
+// language, not the record a student needs.
+router.get('/me/work-history', requireAuth, (req, res) => {
+    const s = me(req, res); if (!s) return;
+    const events = db.prepare(`
+        SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.description,
+               we.status, we.opened_on, we.closed_on, we.program_id,
+               (SELECT name FROM wbl_programs WHERE id = we.program_id) AS program_name
+        FROM wbl_work_event_participants wp
+        JOIN wbl_work_events we ON we.id = wp.work_event_id
+        WHERE wp.student_id = ?
+        ORDER BY we.opened_on DESC
+    `).all(s.student_id);
+    const holistic = db.prepare(`
+        SELECT hc.tier, t.label, t.rank, tp.points_pct
+        FROM wbl_holistic_calls hc
+        JOIN wbl_holistic_tiers t ON t.tier = hc.tier
+        LEFT JOIN wbl_holistic_tier_points tp ON tp.program_id = hc.program_id AND tp.tier = hc.tier
+        WHERE hc.participant_id = ?
+    `);
+    const qcChecks = db.prepare(`
+        SELECT id, checked_on, note FROM wbl_qc_checks WHERE participant_id = ? ORDER BY checked_on
+    `);
+    const qcResults = db.prepare(`
+        SELECT r.outcome, r.note, c.name AS criterion
+        FROM wbl_qc_check_results r JOIN wbl_qc_criteria c ON c.id = r.criterion_id
+        WHERE r.check_id = ?
+    `);
+    res.json(events.map(e => ({
+        ...e,
+        holistic: holistic.get(e.participant_id) ?? null,
+        qc_checks: qcChecks.all(e.participant_id).map(q => ({ ...q, results: qcResults.all(q.id) })),
+    })));
+});
+
 // Returns undelivered feedback so it surfaces at the START of the next
 // session. §4.3.1 is explicit that the loop runs forward — feedback is never
 // an annotation on the prior exit slip.
@@ -1200,6 +1402,7 @@ router.get('/programs/:id/exit-slips', requireTeacher, (req, res) => {
     const sid = req.query.student_id ? normalizeStudentId(req.query.student_id) : null;
     res.json(db.prepare(`
         SELECT es.*,
+               (SELECT student_name FROM class_students cs WHERE cs.student_id = es.student_id LIMIT 1) AS student_name,
                (SELECT confidence FROM wbl_exit_slip_verifications v
                  WHERE v.exit_slip_id = es.id ORDER BY v.verified_at DESC LIMIT 1) AS confidence,
                (SELECT reason FROM wbl_exit_slip_voids vo WHERE vo.exit_slip_id = es.id) AS void_reason

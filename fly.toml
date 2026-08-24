@@ -3,8 +3,8 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'classicalkenken-g0z3ra'
-primary_region = 'ewr'
+app = 'classicalkenken'
+primary_region = 'ams'
 
 [build]
 

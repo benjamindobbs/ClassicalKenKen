@@ -165,6 +165,26 @@
         .wbl-back        { background:none; border:none; color:#2563eb; font-size:0.875rem; cursor:pointer; padding:0; margin-bottom:0.75rem; }
         .wbl-ver         { font-size:0.6875rem; color:#94a3b8; }
         .wbl-inline-input { padding:0.35rem 0.5rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8125rem; }
+
+        /* Generic modal — used for anything a one-line prompt() can't hold:
+           checkbox pickers, multi-field forms, textareas. */
+        .wbl-modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.5); display:flex;
+            align-items:flex-start; justify-content:center; z-index:1000; padding:4vh 1rem; overflow-y:auto; }
+        .wbl-modal       { background:#fff; border-radius:10px; max-width:560px; width:100%;
+            padding:1.25rem 1.5rem 1.5rem; box-shadow:0 10px 40px rgba(0,0,0,0.2); }
+        .wbl-modal h3    { margin:0 0 0.9rem; font-size:1rem; color:#0f172a; }
+        .wbl-modal-group { margin-bottom:1rem; }
+        .wbl-modal-group-title { font-size:0.75rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:.04em; color:#64748b; margin-bottom:0.4rem; }
+        .wbl-modal label.wbl-field { display:block; font-size:0.8125rem; color:#334155; margin-bottom:0.9rem; }
+        .wbl-modal label.wbl-field > span { display:block; margin-bottom:0.3rem; font-weight:600; }
+        .wbl-modal input[type=text], .wbl-modal input[type=date], .wbl-modal textarea {
+            width:100%; padding:0.5rem 0.6rem; border:1px solid #cbd5e1; border-radius:6px;
+            font-size:0.875rem; font-family:inherit; box-sizing:border-box; }
+        .wbl-modal textarea { resize:vertical; min-height:4.5rem; }
+        .wbl-check-row   { display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; font-size:0.875rem; }
+        .wbl-check-row label { flex:1; cursor:pointer; }
+        .wbl-modal-actions { display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.1rem; }
         .mc-subtask-row:last-child { border-bottom:none; }
         .mc-subtask-row span { font-size:0.875rem; color:#334155; flex:1; }
         .mc-subtask-row .mc-cell { flex-shrink:0; pointer-events:none; }
@@ -440,6 +460,7 @@
                         <button class="wbl-subbtn active" id="wbl-sub-btn-roster"   onclick="wblSwitchSub('roster')">Roster</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-events"   onclick="wblSwitchSub('events')">Work Events</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-rotation" onclick="wblSwitchSub('rotation')">QC Rotation</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-exitslips" onclick="wblSwitchSub('exitslips')">Exit Slips</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-catalog"  onclick="wblSwitchSub('catalog')">Catalog</button>
                     </div>
 
@@ -447,10 +468,14 @@
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Enrolled Students</div>
                             <div style="display:flex;gap:0.5rem">
-                                <button class="btn btn-outline btn-sm" onclick="openWblEnrollModal()">Enroll Students</button>
+                                <button class="btn btn-outline btn-sm" onclick="wblSyncRoster()">Sync Roster</button>
                                 <button class="btn btn-outline btn-sm" onclick="wblRollYear()">Advance Pathway Year</button>
                             </div>
                         </div>
+                        <p class="lookup-note">
+                            Enrollment follows a linked class's roster. Link classes under Catalog, then use
+                            Sync Roster here to pick up students added since.
+                        </p>
                         <div id="wbl-roster-body"></div>
                     </div>
 
@@ -477,6 +502,15 @@
                         <div id="wbl-floor-body"></div>
                     </div>
 
+                    <div id="wbl-sub-exitslips" style="display:none">
+                        <div class="section-title">Exit Slip Review</div>
+                        <p class="lookup-note">
+                            Student self-reports on dispositional skills. Verify or void a claim, and feedback
+                            delivers forward to the student's next check-in.
+                        </p>
+                        <div id="wbl-exitslips-body"></div>
+                    </div>
+
                     <div id="wbl-sub-catalog" style="display:none">
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Linked Classes</div>
@@ -490,8 +524,14 @@
 
                         <div class="classes-header" style="margin-top:2rem">
                             <div class="section-title" style="margin:0">Micro-credentials</div>
-                            <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
+                            <div style="display:flex;gap:0.5rem">
+                                <button class="btn btn-outline btn-sm" onclick="downloadWblCsvTemplate()">Download Template</button>
+                                <label class="btn btn-outline btn-sm" for="wbl-csv-input" style="cursor:pointer">Import CSV</label>
+                                <input type="file" id="wbl-csv-input" accept=".csv,.txt" style="display:none" onchange="handleWblCsvUpload(event)">
+                                <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
+                            </div>
                         </div>
+                        <p class="lookup-note" id="wbl-csv-note"></p>
                         <div id="wbl-credentials-body"></div>
 
                         <div class="classes-header" style="margin-top:2rem">
@@ -3083,6 +3123,19 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
 
         const wblProgramId = () => Number(document.getElementById('wbl-program-select').value) || null;
 
+        function wblOpenModal(html) {
+            wblCloseModal();
+            const bd = document.createElement('div');
+            bd.className = 'wbl-modal-backdrop';
+            bd.id = 'wbl-modal-backdrop';
+            bd.onclick = (e) => { if (e.target === bd) wblCloseModal(); };
+            bd.innerHTML = `<div class="wbl-modal">${html}</div>`;
+            document.body.appendChild(bd);
+        }
+        function wblCloseModal() {
+            document.getElementById('wbl-modal-backdrop')?.remove();
+        }
+
         async function wblApi(method, path, body) {
             const res = await teacherFetch('/api/wbl' + path, {
                 method,
@@ -3124,7 +3177,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
 
         function wblSwitchSub(name) {
             wblSub = name;
-            ['roster', 'events', 'rotation', 'catalog'].forEach(s => {
+            ['roster', 'events', 'rotation', 'exitslips', 'catalog'].forEach(s => {
                 document.getElementById('wbl-sub-' + s).style.display = s === name ? '' : 'none';
                 document.getElementById('wbl-sub-btn-' + s).classList.toggle('active', s === name);
             });
@@ -3143,10 +3196,84 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                     '<div class="wbl-empty">Create a program to begin.</div>';
                 return;
             }
-            if (wblSub === 'roster')   loadWblRoster();
-            if (wblSub === 'events')   loadWblEvents();
-            if (wblSub === 'rotation') loadWblRotation();
-            if (wblSub === 'catalog')  loadWblCatalog();
+            if (wblSub === 'roster')    loadWblRoster();
+            if (wblSub === 'events')    loadWblEvents();
+            if (wblSub === 'rotation')  loadWblRotation();
+            if (wblSub === 'exitslips') loadWblExitSlips();
+            if (wblSub === 'catalog')   loadWblCatalog();
+        }
+
+        // ── Exit slip review ─────────────────────────────────────────────────
+        async function loadWblExitSlips() {
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/exit-slips`);
+            const el = document.getElementById('wbl-exitslips-body');
+            if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No exit slips submitted yet.</div>'; return; }
+            el.innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th><th>Date</th><th>Skill</th><th>Reflection</th><th>Status</th><th></th></tr></thead>
+                    <tbody>${rows.map(s => `
+                        <tr>
+                            <td>${wblEsc(s.student_name || s.student_id)}</td>
+                            <td>${wblEsc(s.date)}</td>
+                            <td>${wblEsc(s.soft_skill_code.replace(/_/g, ' '))}</td>
+                            <td style="max-width:320px;white-space:pre-wrap">${wblEsc(s.narrative)}</td>
+                            <td>${s.void_reason
+                                ? `<span class="wbl-pill wbl-pill-bad">voided</span>`
+                                : s.confidence
+                                    ? `<span class="wbl-pill wbl-pill-good">${wblEsc(s.confidence.replace('instructor_', ''))}</span>`
+                                    : `<span class="wbl-pill">student claimed</span>`}</td>
+                            <td style="white-space:nowrap">
+                                ${!s.void_reason ? `
+                                    <button class="btn btn-outline btn-sm" onclick="wblVerifyExitSlip(${s.id})">Verify</button>
+                                    <button class="btn btn-outline btn-sm" onclick="wblFeedbackExitSlip(${s.id})">Feedback</button>
+                                    <button class="btn btn-outline btn-sm" onclick="wblVoidExitSlip(${s.id})">Void</button>`
+                                    : ''}
+                            </td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`;
+        }
+
+        function wblVerifyExitSlip(id) {
+            wblOpenModal(`
+                <h3>Verify Reflection</h3>
+                <div class="wbl-tier-row">
+                    <button class="wbl-tier" onclick="wblDoVerify(${id}, 'instructor_verified')">Verified &mdash; I confirmed this happened</button>
+                    <button class="wbl-tier" onclick="wblDoVerify(${id}, 'instructor_witnessed')">Witnessed &mdash; I saw it firsthand</button>
+                </div>
+                <div class="wbl-modal-actions"><button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button></div>
+            `);
+        }
+        async function wblDoVerify(id, confidence) {
+            await wblApi('POST', `/exit-slips/${id}/verify`, { confidence });
+            wblCloseModal();
+            loadWblExitSlips();
+        }
+
+        async function wblVoidExitSlip(id) {
+            const reason = prompt('Reason for voiding this reflection (kept on record, not erased):');
+            if (!reason) return;
+            await wblApi('POST', `/exit-slips/${id}/void`, { reason });
+            loadWblExitSlips();
+        }
+
+        function wblFeedbackExitSlip(id) {
+            wblOpenModal(`
+                <h3>Feedback</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Delivered forward &mdash; the student sees this at the start of their next Do Now, not attached to this reflection.
+                </p>
+                <label class="wbl-field"><span>Feedback</span><textarea id="wbl-fb-body"></textarea></label>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveFeedback(${id})">Send</button>
+                </div>
+            `);
+        }
+        async function wblSaveFeedback(id) {
+            const body = document.getElementById('wbl-fb-body').value.trim();
+            if (!body) return;
+            await wblApi('POST', `/exit-slips/${id}/feedback`, { body });
+            wblCloseModal();
         }
 
         // ── Roster ────────────────────────────────────────────────────────────
@@ -3190,13 +3317,14 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No work events yet.</div>'; return; }
             el.innerHTML = `
                 <div class="portal-table-wrap"><table class="portal-table">
-                    <thead><tr><th>Job</th><th>Ref</th><th>Opened</th><th>Status</th>
+                    <thead><tr><th>Job</th><th>Ref</th><th>Opened</th><th>Closed</th><th>Status</th>
                                <th>Participants</th><th>Calls</th><th></th></tr></thead>
                     <tbody>${rows.map(w => `
                         <tr>
                             <td><a href="#" onclick="openWblEvent(${w.id});return false">${wblEsc(w.title)}</a></td>
                             <td>${wblEsc(w.external_ref || '—')}</td>
                             <td>${wblEsc(w.opened_on)}</td>
+                            <td>${wblEsc(w.closed_on || '—')}</td>
                             <td class="wbl-status-${w.status}">${wblEsc(w.status)}</td>
                             <td>${w.participants}</td>
                             <td>${w.holistic_calls}/${w.participants}</td>
@@ -3212,7 +3340,13 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
         async function openWblEvent(id) {
             const w = await wblApi('GET', `/work-events/${id}`);
             document.getElementById('wbl-event-detail').innerHTML = `
-                <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)} — participants</div>
+                <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)}</div>
+                <p class="lookup-note" style="margin:0 0 0.25rem">
+                    ${wblEsc(w.opened_on)} &rarr; ${wblEsc(w.closed_on || 'open')}${w.external_ref ? ' &middot; ref ' + wblEsc(w.external_ref) : ''}
+                </p>
+                ${w.description ? `<p style="font-size:0.875rem;color:#334155;white-space:pre-wrap;margin:0.5rem 0">${wblEsc(w.description)}</p>` : ''}
+                <button class="btn btn-outline btn-sm" onclick="openWblEventEditModal(${w.id})">Edit Details</button>
+                <div class="section-title" style="margin-top:1.5rem">Participants</div>
                 <button class="btn btn-outline btn-sm" onclick="openWblParticipantModal(${w.id})">Add Participants</button>
                 ${w.participants.length ? `
                 <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
@@ -3533,13 +3667,17 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
 
             document.getElementById('wbl-skills-body').innerHTML = skills.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
-                    <thead><tr><th>Skill</th><th>Version</th><th>Status</th><th>Checklist</th><th></th></tr></thead>
+                    <thead><tr><th>Skill</th><th>Version</th><th>Status</th><th>Checklist</th><th>Do Now openings</th><th></th></tr></thead>
                     <tbody>${skills.map(s => `
                         <tr>
                             <td>${wblEsc(s.name || s.slug)}</td>
                             <td>v${s.version_no ?? '—'}</td>
                             <td><span class="wbl-pill wbl-pill-${s.status === 'published' ? 'good' : s.status === 'draft' ? 'warn' : ''}">${wblEsc(s.status || 'none')}</span></td>
                             <td>${s.criteria.length} item(s)</td>
+                            <td>${s.openings.length
+                                ? s.openings.map(o => `<span class="wbl-pill">${wblEsc(o.replace(/_/g, ' '))}</span>`).join(' ')
+                                : '<span class="wbl-pill wbl-pill-warn">none</span>'}
+                                <button class="btn btn-outline btn-sm" onclick="wblOpeningsModal(${s.id})">Edit</button></td>
                             <td>
                                 ${s.draft_version_id
                                     ? `<button class="btn btn-outline btn-sm" onclick="wblEditCriteria(${s.draft_version_id})">Checklist</button>
@@ -3551,13 +3689,25 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                                     : ''}
                             </td>
                         </tr>`).join('')}
-                    </tbody></table></div>`
+                    </tbody></table></div>
+                <p class="lookup-note" style="margin-top:0.5rem">
+                    Do Now openings: which dispositional reflections this skill makes available to Phase 1
+                    students. Set once per skill — Phase 2 students choose freely and this list does not apply.
+                </p>`
                 : '<div class="wbl-empty">No skills yet.</div>';
 
             document.getElementById('wbl-qc-body').innerHTML = qc.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
-                    <thead><tr><th>Criterion</th><th>Description</th></tr></thead>
-                    <tbody>${qc.map(c => `<tr><td>${wblEsc(c.name)}</td><td>${wblEsc(c.description || '')}</td></tr>`).join('')}
+                    <thead><tr><th>Criterion</th><th>Description</th><th></th></tr></thead>
+                    <tbody>${qc.map(c => `
+                        <tr>
+                            <td>${wblEsc(c.name)}</td>
+                            <td>${wblEsc(c.description || '')}</td>
+                            <td>
+                                <button class="btn btn-outline btn-sm" onclick="wblEditQcCriterion(${c.id})">Edit</button>
+                                <button class="btn btn-outline btn-sm" onclick="wblDeleteQcCriterion(${c.id})">Delete</button>
+                            </td>
+                        </tr>`).join('')}
                     </tbody></table></div>`
                 : '<div class="wbl-empty">No QC criteria yet.</div>';
         }
@@ -3640,36 +3790,188 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             loadWblCatalog();
         }
 
-        async function openWblEnrollModal() {
-            const ids = prompt('Student IDs to enroll, comma or space separated:');
-            if (!ids) return;
-            const student_ids = ids.split(/[\s,]+/).filter(Boolean);
-            const r = await wblApi('POST', `/programs/${wblProgramId()}/enrollments`, { student_ids });
-            alert(`Enrolled ${r.enrolled} student(s).`);
-            loadWblRoster();
+        async function wblSyncRoster() {
+            const r = await wblApi('POST', `/programs/${wblProgramId()}/roster/sync`);
+            alert(r.classes
+                ? `Synced ${r.classes} linked class(es) — ${r.enrolled} newly enrolled.`
+                : 'No classes linked to this program yet. Link one under Catalog first.');
+            await loadWblPrograms();
         }
 
-        async function openWblEventModal() {
-            const title = prompt('Work event title (the job, order, or build)');
-            if (!title) return;
-            const external_ref = prompt('Shop order / ticket number (optional)', '') || null;
-            await wblApi('POST', `/programs/${wblProgramId()}/work-events`, { title, external_ref });
+        function openWblEventModal() {
+            wblOpenModal(`
+                <h3>New Work Event</h3>
+                <label class="wbl-field"><span>Title</span>
+                    <input type="text" id="wbl-we-title" placeholder="The job, order, or build"></label>
+                <label class="wbl-field"><span>Start date</span>
+                    <input type="date" id="wbl-we-opened" value="${wblToday()}"></label>
+                <label class="wbl-field"><span>Shop order / ticket number (optional)</span>
+                    <input type="text" id="wbl-we-ref"></label>
+                <label class="wbl-field"><span>Job details &amp; deliverables</span>
+                    <textarea id="wbl-we-desc" placeholder="Whatever this job needs written down — part numbers and quantities, color/size/style, spec sheet, whatever varies by shop."></textarea></label>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveNewEvent()">Create</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveNewEvent() {
+            const title = document.getElementById('wbl-we-title').value.trim();
+            if (!title) return alert('Title is required.');
+            await wblApi('POST', `/programs/${wblProgramId()}/work-events`, {
+                title,
+                opened_on: document.getElementById('wbl-we-opened').value || undefined,
+                external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
+                description: document.getElementById('wbl-we-desc').value.trim(),
+            });
+            wblCloseModal();
             loadWblEvents();
         }
 
-        async function openWblParticipantModal(weId) {
-            const classes = await (await teacherFetch('/api/teacher/classes')).json();
-            if (!classes.length) return alert('Create a class first — participants carry a class for gradebook sync.');
-            const classId = prompt('Class ID for these participants:\n\n'
-                + classes.map(c => `${c.id} — ${c.name}`).join('\n'), String(classes[0].id));
-            if (!classId) return;
-            const ids = prompt('Student IDs, comma or space separated:');
-            if (!ids) return;
-            await wblApi('POST', `/work-events/${weId}/participants`, {
-                class_id: Number(classId),
-                student_ids: ids.split(/[\s,]+/).filter(Boolean),
+        async function openWblEventEditModal(id) {
+            const w = await wblApi('GET', `/work-events/${id}`);
+            wblOpenModal(`
+                <h3>Edit ${wblEsc(w.title)}</h3>
+                <label class="wbl-field"><span>Title</span>
+                    <input type="text" id="wbl-we-title" value="${wblEsc(w.title)}"></label>
+                <label class="wbl-field"><span>Start date</span>
+                    <input type="date" id="wbl-we-opened" value="${wblEsc(w.opened_on)}"></label>
+                <label class="wbl-field"><span>End date (optional)</span>
+                    <input type="date" id="wbl-we-closed" value="${wblEsc(w.closed_on || '')}"></label>
+                <label class="wbl-field"><span>Shop order / ticket number (optional)</span>
+                    <input type="text" id="wbl-we-ref" value="${wblEsc(w.external_ref || '')}"></label>
+                <label class="wbl-field"><span>Job details &amp; deliverables</span>
+                    <textarea id="wbl-we-desc">${wblEsc(w.description || '')}</textarea></label>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveEventEdit(${id})">Save</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveEventEdit(id) {
+            const title = document.getElementById('wbl-we-title').value.trim();
+            if (!title) return alert('Title is required.');
+            await wblApi('PATCH', `/work-events/${id}`, {
+                title,
+                opened_on: document.getElementById('wbl-we-opened').value,
+                closed_on: document.getElementById('wbl-we-closed').value || null,
+                external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
+                description: document.getElementById('wbl-we-desc').value.trim(),
             });
+            wblCloseModal();
+            openWblEvent(id);
+        }
+
+        async function openWblParticipantModal(weId) {
+            const [byClass, we] = await Promise.all([
+                wblApi('GET', `/programs/${wblProgramId()}/roster-by-class`),
+                wblApi('GET', `/work-events/${weId}`),
+            ]);
+            if (!byClass.length) {
+                return alert('No classes linked to this program yet — link one under Catalog first.');
+            }
+            const already = new Set(we.participants.map(p => p.student_id));
+            wblOpenModal(`
+                <h3>Add Participants</h3>
+                <div id="wbl-pp-groups">
+                    ${byClass.map(c => `
+                        <div class="wbl-modal-group">
+                            <div class="wbl-modal-group-title">${wblEsc(c.class_name)}</div>
+                            ${c.students.length ? c.students.map(s => `
+                                <div class="wbl-check-row">
+                                    <input type="checkbox" id="wbl-pp-${s.student_id}" value="${s.student_id}"
+                                           data-class="${c.class_id}" ${already.has(s.student_id) ? 'checked disabled' : ''}>
+                                    <label for="wbl-pp-${s.student_id}">${wblEsc(s.student_name)}${already.has(s.student_id) ? ' <span class="wbl-pill">already on this job</span>' : ''}</label>
+                                </div>`).join('')
+                                : '<div class="wbl-empty" style="padding:0.25rem 0">No enrolled students in this class.</div>'}
+                        </div>`).join('')}
+                </div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveParticipants(${weId})">Add Selected</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveParticipants(weId) {
+            const checked = [...document.querySelectorAll('#wbl-pp-groups input[type=checkbox]:checked:not(:disabled)')];
+            if (!checked.length) return wblCloseModal();
+            const byClass = new Map();
+            for (const box of checked) {
+                const cid = box.dataset.class;
+                if (!byClass.has(cid)) byClass.set(cid, []);
+                byClass.get(cid).push(box.value);
+            }
+            for (const [classId, student_ids] of byClass) {
+                await wblApi('POST', `/work-events/${weId}/participants`, { class_id: Number(classId), student_ids });
+            }
+            wblCloseModal();
             openWblEvent(weId);
+        }
+
+        function downloadWblCsvTemplate() {
+            const csv = 'Credential,Skill,Description,Criterion\r\n'
+                + 'Joinery I,Joinery,"Cut and fit joints to spec.",Square cut within tolerance\r\n'
+                + 'Joinery I,Joinery,,Tight fit with no visible gaps\r\n'
+                + 'Joinery I,Finishing,"Sand and finish a piece.",No visible scratches under raking light\r\n'
+                + 'Finishing II,Finishing,,';
+            const a = Object.assign(document.createElement('a'), {
+                href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+                download: 'wbl-catalog-template.csv',
+            });
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function parseWblCsv(text) {
+            const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+            const rows = [];
+            for (const line of lines) {
+                const cols = splitCsvRow(line);
+                const credential = (cols[0] ?? '').trim();
+                const skill = (cols[1] ?? '').trim();
+                if (!credential || !skill) continue;
+                if (credential.toLowerCase() === 'credential' && skill.toLowerCase() === 'skill') continue;
+                rows.push({
+                    credential, skill,
+                    description: (cols[2] ?? '').trim(),
+                    criterion: (cols[3] ?? '').trim(),
+                });
+            }
+            return rows;
+        }
+
+        function handleWblCsvUpload(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            const note = document.getElementById('wbl-csv-note');
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const rows = parseWblCsv(e.target.result);
+                if (!rows.length) {
+                    note.textContent = 'Could not parse CSV — expected columns: Credential, Skill, Description, Criterion.';
+                    note.style.color = '#dc2626';
+                    setTimeout(() => { note.textContent = ''; }, 5000);
+                    return;
+                }
+                note.textContent = 'Importing…';
+                note.style.color = '#64748b';
+                try {
+                    const r = await wblApi('POST', `/programs/${wblProgramId()}/catalog/import-csv`, { rows });
+                    note.textContent = `Imported ${r.credentials_created} new credential(s), ${r.skills_created} new skill(s) `
+                        + `from ${r.rows} row(s). Existing credentials/skills were left untouched — `
+                        + `edit required demonstrations under Micro-credentials.`;
+                    note.style.color = '#16a34a';
+                    loadWblCatalog();
+                } catch (e) {
+                    note.textContent = 'Import failed: ' + e.message;
+                    note.style.color = '#dc2626';
+                }
+            };
+            reader.readAsText(file);
         }
 
         async function openWblCredentialModal() {
@@ -3707,10 +4009,58 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             loadWblCatalog();
         }
 
+        async function wblOpeningsModal(skillId) {
+            const skill = wblCatalogSkills.find(s => s.id === skillId);
+            const soft = await wblApi('GET', '/soft-skills');
+            const current = new Set(skill.openings);
+            wblOpenModal(`
+                <h3>Do Now Openings &mdash; ${wblEsc(skill.name || skill.slug)}</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Which dispositional reflections does demonstrating this skill make available to a
+                    Phase 1 student on their Do Now?
+                </p>
+                ${soft.map(s => `
+                    <div class="wbl-check-row">
+                        <input type="checkbox" id="wbl-op-${s.code}" value="${s.code}" ${current.has(s.code) ? 'checked' : ''}>
+                        <label for="wbl-op-${s.code}">${wblEsc(s.name)}</label>
+                    </div>`).join('')}
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveOpenings(${skillId})">Save</button>
+                </div>
+            `);
+        }
+        async function wblSaveOpenings(skillId) {
+            const codes = [...document.querySelectorAll('.wbl-modal-backdrop input[type=checkbox]:checked')].map(b => b.value);
+            await wblApi('PUT', `/skills/${skillId}/openings`, { soft_skill_codes: codes });
+            wblCloseModal();
+            loadWblCatalog();
+        }
+
         async function openWblQcModal() {
             const name = prompt('QC criterion (measurable and objective, e.g. "Joint is square within 1mm")');
             if (!name) return;
             await wblApi('POST', `/programs/${wblProgramId()}/qc-criteria`, { name });
+            loadWblCatalog();
+        }
+
+        async function wblEditQcCriterion(id) {
+            const criteria = await wblApi('GET', `/programs/${wblProgramId()}/qc-criteria`);
+            const c = criteria.find(x => x.id === id);
+            const name = prompt('Criterion name', c.name);
+            if (!name) return;
+            const description = prompt('Description (optional)', c.description || '') || '';
+            await wblApi('PATCH', `/qc-criteria/${id}`, { name, description });
+            loadWblCatalog();
+        }
+
+        async function wblDeleteQcCriterion(id) {
+            if (!confirm('Delete this QC criterion? Only allowed if it has never been used in a check.')) return;
+            try { await wblApi('DELETE', `/qc-criteria/${id}`); }
+            catch (e) {
+                if (e.status === 409) return alert(`Can't delete — used in ${e.body.checks} check(s). Consider leaving it in place.`);
+                return alert(e.message);
+            }
             loadWblCatalog();
         }
 

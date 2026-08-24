@@ -4,7 +4,7 @@
 // validation and HTTP; this module owns the rules the framework actually
 // specifies, so they exist in exactly one place.
 
-const { db } = require('../db');
+const { db, normalizeStudentId } = require('../db');
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -32,8 +32,11 @@ const today  = () => new Date().toISOString().slice(0, 10);
 // Identity and ownership
 // ---------------------------------------------------------------------------
 
-// Students authenticate as user_key but all WBL data is keyed on student_id.
-// Follows the existing mapping in routes/student.js.
+// Students authenticate as user_key but all WBL data is keyed on
+// normalizeStudentId(student_id) — class_students still carries the raw
+// PowerSchool number, so this must normalize before it goes anywhere near a
+// wbl_* table or a student with a leading-zero ID becomes invisible to
+// every /me/* route.
 function resolveStudent(userKey) {
     const rows = db.prepare(`
         SELECT cs.student_id, cs.class_id, cs.student_name
@@ -41,7 +44,7 @@ function resolveStudent(userKey) {
     `).all(userKey);
     if (!rows.length) return null;
     return {
-        student_id: rows[0].student_id,
+        student_id: normalizeStudentId(rows[0].student_id),
         student_name: rows[0].student_name,
         class_ids: rows.map(r => r.class_id),
     };
