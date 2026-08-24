@@ -298,6 +298,18 @@
             return `rgba(${r},${g},${b},${alpha})`;
         }
 
+        // School year runs Aug 25 – Aug 24. Returns { from, to } as YYYY-MM-DD,
+        // from = most recent Aug 25 on/before today, to = today.
+        function schoolYearRange() {
+            const now = new Date();
+            const startYear = (now.getMonth() > 7 || (now.getMonth() === 7 && now.getDate() >= 25))
+                ? now.getFullYear() : now.getFullYear() - 1;
+            const start = new Date(startYear, 7, 25);
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return { from: fmt(start), to: fmt(now) };
+        }
+
         function destroyChart(id) {
             if (chartInst[id]) { chartInst[id].destroy(); delete chartInst[id]; }
         }
@@ -397,24 +409,22 @@
             if (!kenkenData.length && !satData.length && !mathData.length) return;
             document.getElementById('charts-section').style.display = '';
 
+            const { from: syFrom, to: syTo } = schoolYearRange();
             if (kenkenData.length) {
-                const dates = kenkenData.map(r => new Date(r.submitted_at).toISOString().slice(0,10)).sort();
-                document.getElementById('kk-from').value = dates[0];
-                document.getElementById('kk-to').value   = dates[dates.length - 1];
+                document.getElementById('kk-from').value = syFrom;
+                document.getElementById('kk-to').value   = syTo;
             }
             if (satData.length) {
-                const dates = satData.map(r => new Date(r.submitted_at).toISOString().slice(0,10)).sort();
-                document.getElementById('sat-line-from').value = dates[0];
-                document.getElementById('sat-line-to').value   = dates[dates.length - 1];
-                document.getElementById('bar-from').value = dates[0];
-                document.getElementById('bar-to').value   = dates[dates.length - 1];
+                document.getElementById('sat-line-from').value = syFrom;
+                document.getElementById('sat-line-to').value   = syTo;
+                document.getElementById('bar-from').value = syFrom;
+                document.getElementById('bar-to').value   = syTo;
             }
             if (mathData.length) {
-                const dates = mathData.map(r => new Date(r.submitted_at).toISOString().slice(0,10)).sort();
-                document.getElementById('math-line-from').value = dates[0];
-                document.getElementById('math-line-to').value   = dates[dates.length - 1];
-                document.getElementById('math-bar-from').value  = dates[0];
-                document.getElementById('math-bar-to').value    = dates[dates.length - 1];
+                document.getElementById('math-line-from').value = syFrom;
+                document.getElementById('math-line-to').value   = syTo;
+                document.getElementById('math-bar-from').value  = syFrom;
+                document.getElementById('math-bar-to').value    = syTo;
             }
 
             renderKenKenChart();

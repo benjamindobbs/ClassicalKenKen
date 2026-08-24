@@ -869,27 +869,17 @@
         }
 
         function renderAll() {
-            const satMath = rawData.sat_math || [];
-
-            if (rawData.kenken.length > 0) {
-                const kDates = rawData.kenken.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
-                document.getElementById('all-kenken-from').value = kDates[0];
-                document.getElementById('all-kenken-to').value   = kDates[kDates.length - 1];
-            }
-            if (rawData.sat.length > 0) {
-                const sDates = rawData.sat.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
-                document.getElementById('all-sat-line-from').value = sDates[0];
-                document.getElementById('all-sat-line-to').value   = sDates[sDates.length - 1];
-                document.getElementById('all-bar-from').value = sDates[0];
-                document.getElementById('all-bar-to').value   = sDates[sDates.length - 1];
-            }
-            if (satMath.length > 0) {
-                const mDates = satMath.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
-                document.getElementById('all-math-line-from').value = mDates[0];
-                document.getElementById('all-math-line-to').value   = mDates[mDates.length - 1];
-                document.getElementById('all-math-bar-from').value  = mDates[0];
-                document.getElementById('all-math-bar-to').value    = mDates[mDates.length - 1];
-            }
+            const { from: syFrom, to: syTo } = schoolYearRange();
+            document.getElementById('all-kenken-from').value    = syFrom;
+            document.getElementById('all-kenken-to').value      = syTo;
+            document.getElementById('all-sat-line-from').value  = syFrom;
+            document.getElementById('all-sat-line-to').value    = syTo;
+            document.getElementById('all-bar-from').value       = syFrom;
+            document.getElementById('all-bar-to').value         = syTo;
+            document.getElementById('all-math-line-from').value = syFrom;
+            document.getElementById('all-math-line-to').value   = syTo;
+            document.getElementById('all-math-bar-from').value  = syFrom;
+            document.getElementById('all-math-bar-to').value    = syTo;
 
             renderAllKenKenChart();
             renderAllSATLineChart();
@@ -942,6 +932,18 @@
             const g = parseInt(hex.slice(3,5), 16);
             const b = parseInt(hex.slice(5,7), 16);
             return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        // School year runs Aug 25 – Aug 24. Returns { from, to } as YYYY-MM-DD,
+        // from = most recent Aug 25 on/before today, to = today.
+        function schoolYearRange() {
+            const now = new Date();
+            const startYear = (now.getMonth() > 7 || (now.getMonth() === 7 && now.getDate() >= 25))
+                ? now.getFullYear() : now.getFullYear() - 1;
+            const start = new Date(startYear, 7, 25);
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return { from: fmt(start), to: fmt(now) };
         }
 
         // ── Chart instance registry ───────────────────────────────────────────
