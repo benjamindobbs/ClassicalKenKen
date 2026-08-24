@@ -193,6 +193,52 @@
     </div>
 </div>
 
+<div id="student-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeStudentEditModal()">
+    <div class="modal-card">
+        <h2>Edit Student</h2>
+        <p>Student ID: <strong id="edit-student-id"></strong></p>
+        <div class="form-row">
+            <label for="edit-student-first">First Name</label>
+            <input type="text" id="edit-student-first">
+        </div>
+        <div class="form-row">
+            <label for="edit-student-last">Last Name</label>
+            <input type="text" id="edit-student-last">
+        </div>
+        <div class="form-row">
+            <label for="edit-student-grade">Grade</label>
+            <input type="text" id="edit-student-grade">
+        </div>
+        <div class="form-row">
+            <label for="edit-student-advisor">Advisor</label>
+            <input type="text" id="edit-student-advisor">
+        </div>
+        <button class="btn btn-primary" onclick="saveStudentEdit()">Save</button>
+        <button class="btn btn-primary" onclick="closeStudentEditModal()">Cancel</button>
+    </div>
+</div>
+
+<div id="staff-edit-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this) closeStaffEditModal()">
+    <div class="modal-card">
+        <h2>Edit Staff</h2>
+        <p>Staff Number: <strong id="edit-staff-number"></strong></p>
+        <div class="form-row">
+            <label for="edit-staff-first">First Name</label>
+            <input type="text" id="edit-staff-first">
+        </div>
+        <div class="form-row">
+            <label for="edit-staff-last">Last Name</label>
+            <input type="text" id="edit-staff-last">
+        </div>
+        <div class="form-row">
+            <label for="edit-staff-email">Email</label>
+            <input type="text" id="edit-staff-email">
+        </div>
+        <button class="btn btn-primary" onclick="saveStaffEdit()">Save</button>
+        <button class="btn btn-primary" onclick="closeStaffEditModal()">Cancel</button>
+    </div>
+</div>
+
 <script src="js/auth.js"></script>
 <script>
     function ticketNumber(id) {
@@ -471,7 +517,10 @@
                 <td>${s.first_name} ${s.last_name}</td>
                 <td>${s.grade_level || ''}</td>
                 <td>${s.advisor_name || ''}</td>
-                <td><button class="btn-link" onclick="deleteStudent('${s.student_id}')">Delete</button></td>
+                <td>
+                    <button class="btn-link" onclick="openStudentEditModal('${s.student_id}')">Edit</button>
+                    <button class="btn-link" onclick="deleteStudent('${s.student_id}')">Delete</button>
+                </td>
             </tr>
         `).join('') || '<tr><td colspan="6">No students imported yet.</td></tr>';
         updateBulkDeleteBtn('student-bulk-delete-btn', selectedStudentIds);
@@ -503,6 +552,38 @@
         loadRoster();
     }
 
+    let editingStudentId = null;
+
+    function openStudentEditModal(id) {
+        const s = students.find(x => x.student_id === id);
+        if (!s) return;
+        editingStudentId = id;
+        document.getElementById('edit-student-id').textContent = s.student_id;
+        document.getElementById('edit-student-first').value = s.first_name || '';
+        document.getElementById('edit-student-last').value = s.last_name || '';
+        document.getElementById('edit-student-grade').value = s.grade_level || '';
+        document.getElementById('edit-student-advisor').value = s.advisor_name || '';
+        document.getElementById('student-edit-modal').style.display = 'flex';
+    }
+
+    function closeStudentEditModal() {
+        document.getElementById('student-edit-modal').style.display = 'none';
+        editingStudentId = null;
+    }
+
+    async function saveStudentEdit() {
+        if (editingStudentId == null) return;
+        const body = {
+            first_name: document.getElementById('edit-student-first').value.trim(),
+            last_name: document.getElementById('edit-student-last').value.trim(),
+            grade_level: document.getElementById('edit-student-grade').value.trim() || null,
+            advisor_name: document.getElementById('edit-student-advisor').value.trim() || null,
+        };
+        await authFetch(`/api/it/roster/students/${encodeURIComponent(editingStudentId)}`, { method: 'PATCH', body: JSON.stringify(body) });
+        closeStudentEditModal();
+        loadRoster();
+    }
+
     function staffSearchMatch(q) {
         return s => !q || [s.staff_number, s.first_name, s.last_name, s.email].join(' ').toLowerCase().includes(q);
     }
@@ -516,7 +597,10 @@
                 <td>${s.staff_number}</td>
                 <td>${s.first_name} ${s.last_name}</td>
                 <td>${s.email || ''}</td>
-                <td><button class="btn-link" onclick="deleteStaff('${s.staff_number}')">Delete</button></td>
+                <td>
+                    <button class="btn-link" onclick="openStaffEditModal('${s.staff_number}')">Edit</button>
+                    <button class="btn-link" onclick="deleteStaff('${s.staff_number}')">Delete</button>
+                </td>
             </tr>
         `).join('') || '<tr><td colspan="5">No staff imported yet.</td></tr>';
         updateBulkDeleteBtn('staff-bulk-delete-btn', selectedStaffIds);
@@ -545,6 +629,36 @@
         if (!confirm(`Remove ${selectedStaffIds.size} staff member(s) from the roster? This cannot be undone.`)) return;
         await authFetch('/api/it/roster/staff/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: [...selectedStaffIds] }) });
         selectedStaffIds.clear();
+        loadRoster();
+    }
+
+    let editingStaffId = null;
+
+    function openStaffEditModal(id) {
+        const s = staffRoster.find(x => x.staff_number === id);
+        if (!s) return;
+        editingStaffId = id;
+        document.getElementById('edit-staff-number').textContent = s.staff_number;
+        document.getElementById('edit-staff-first').value = s.first_name || '';
+        document.getElementById('edit-staff-last').value = s.last_name || '';
+        document.getElementById('edit-staff-email').value = s.email || '';
+        document.getElementById('staff-edit-modal').style.display = 'flex';
+    }
+
+    function closeStaffEditModal() {
+        document.getElementById('staff-edit-modal').style.display = 'none';
+        editingStaffId = null;
+    }
+
+    async function saveStaffEdit() {
+        if (editingStaffId == null) return;
+        const body = {
+            first_name: document.getElementById('edit-staff-first').value.trim(),
+            last_name: document.getElementById('edit-staff-last').value.trim(),
+            email: document.getElementById('edit-staff-email').value.trim() || null,
+        };
+        await authFetch(`/api/it/roster/staff/${encodeURIComponent(editingStaffId)}`, { method: 'PATCH', body: JSON.stringify(body) });
+        closeStaffEditModal();
         loadRoster();
     }
 

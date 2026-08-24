@@ -115,6 +115,47 @@ router.get('/roster/staff', requireItAdmin, (_req, res) => {
     res.json({ staff: db.prepare('SELECT * FROM it_staff ORDER BY last_name, first_name').all() });
 });
 
+router.patch('/roster/students/:id', requireItAdmin, (req, res) => {
+    const id = String(req.params.id);
+    const existing = db.prepare('SELECT student_id FROM it_students WHERE student_id = ?').get(id);
+    if (!existing) return res.status(404).json({ error: 'not found' });
+
+    const { first_name, last_name, grade_level, advisor_name } = req.body;
+    if (!first_name || !String(first_name).trim()) return res.status(400).json({ error: 'first_name required' });
+    if (!last_name || !String(last_name).trim()) return res.status(400).json({ error: 'last_name required' });
+
+    db.prepare(`
+        UPDATE it_students SET first_name = ?, last_name = ?, grade_level = ?, advisor_name = ?
+        WHERE student_id = ?
+    `).run(
+        String(first_name).trim(), String(last_name).trim(),
+        grade_level ? String(grade_level).trim() : null,
+        advisor_name ? String(advisor_name).trim() : null,
+        id
+    );
+    res.json({ ok: true });
+});
+
+router.patch('/roster/staff/:id', requireItAdmin, (req, res) => {
+    const id = String(req.params.id);
+    const existing = db.prepare('SELECT staff_number FROM it_staff WHERE staff_number = ?').get(id);
+    if (!existing) return res.status(404).json({ error: 'not found' });
+
+    const { first_name, last_name, email } = req.body;
+    if (!first_name || !String(first_name).trim()) return res.status(400).json({ error: 'first_name required' });
+    if (!last_name || !String(last_name).trim()) return res.status(400).json({ error: 'last_name required' });
+
+    db.prepare(`
+        UPDATE it_staff SET first_name = ?, last_name = ?, email = ?
+        WHERE staff_number = ?
+    `).run(
+        String(first_name).trim(), String(last_name).trim(),
+        email ? String(email).trim().toLowerCase() : null,
+        id
+    );
+    res.json({ ok: true });
+});
+
 router.post('/roster/students/bulk-delete', requireItAdmin, (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
