@@ -467,14 +467,18 @@
                     <div id="wbl-sub-roster">
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Enrolled Students</div>
-                            <div style="display:flex;gap:0.5rem">
+                            <div style="display:flex;gap:0.5rem;align-items:center">
+                                <label style="font-size:0.8125rem;color:#64748b;display:flex;align-items:center;gap:0.35rem">
+                                    <input type="checkbox" id="wbl-show-exited" onchange="loadWblRoster()"> Show exited
+                                </label>
                                 <button class="btn btn-outline btn-sm" onclick="wblSyncRoster()">Sync Roster</button>
                                 <button class="btn btn-outline btn-sm" onclick="wblRollYear()">Advance Pathway Year</button>
                             </div>
                         </div>
                         <p class="lookup-note">
                             Enrollment follows a linked class's roster. Link classes under Catalog, then use
-                            Sync Roster here to pick up students added since.
+                            Sync Roster here to pick up students added since. Unlinking a class exits students with
+                            no other linked class in this program &mdash; their record is kept, not deleted.
                         </p>
                         <div id="wbl-roster-body"></div>
                     </div>
@@ -3278,7 +3282,8 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
 
         // ── Roster ────────────────────────────────────────────────────────────
         async function loadWblRoster() {
-            const rows = await wblApi('GET', `/programs/${wblProgramId()}/roster`);
+            const includeExited = document.getElementById('wbl-show-exited')?.checked;
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/roster${includeExited ? '?include_exited=true' : ''}`);
             const el = document.getElementById('wbl-roster-body');
             if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No students enrolled yet.</div>'; return; }
             el.innerHTML = `
@@ -3296,7 +3301,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                             <td>${r.pathway_year}</td>
                             <td>${r.credentials}</td>
                             <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
-                            <td>${r.exited_on ? '<span class="wbl-pill">exited</span>' : ''}</td>
+                            <td>${r.exited_on ? `<span class="wbl-pill">exited${r.exit_reason ? ' — ' + wblEsc(r.exit_reason) : ''}</span>` : ''}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table></div>`;
@@ -3423,26 +3428,41 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                 <div class="wbl-lens">
                     <div class="wbl-lens-head"><span>Hard Skills</span><span>every work event, both phases</span></div>
                     <div class="wbl-lens-body">
-                        ${wblP.catalogSkills.length ? wblP.catalogSkills.map(s => {
-                            const a = done.get(s.id);
-                            const met = new Set((a?.criteria || []).filter(c => c.met).map(c => c.criterion_id));
-                            return `
-                            <div class="wbl-skill-row">
-                                <div class="wbl-skill-name">
-                                    ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>
-                                    <span class="wbl-skill-crit" id="wbl-crit-${s.id}">${
-                                        s.criteria.map(c => `<label><input type="checkbox" data-crit="${c.id}"
-                                            ${met.has(c.id) ? 'checked' : ''}
-                                            onchange="saveWblSkill(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
-                                    }</span>
-                                </div>
-                                <select class="wbl-inline-input" id="wbl-res-${s.id}"
-                                        onchange="saveWblSkill(${s.id})">
-                                    <option value="">— not assessed —</option>
-                                    ${RESULTS.map(r => `<option value="${r}"${a?.result === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('')}
-                                </select>
-                            </div>`;
-                        }).join('') : '<div class="wbl-empty">No published skills in this program yet.</div>'}
+                        ${(() => {
+                            const skillRow = (s) => {
+                                const a = done.get(s.id);
+                                const met = new Set((a?.criteria || []).filter(c => c.met).map(c => c.criterion_id));
+                                return `
+                                <div class="wbl-skill-row">
+                                    <div class="wbl-skill-name">
+                                        ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>
+                                        <span class="wbl-skill-crit" id="wbl-crit-${s.id}">${
+                                            s.criteria.map(c => `<label><input type="checkbox" data-crit="${c.id}"
+                                                ${met.has(c.id) ? 'checked' : ''}
+                                                onchange="saveWblSkill(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
+                                        }</span>
+                                    </div>
+                                    <select class="wbl-inline-input" id="wbl-res-${s.id}"
+                                            onchange="saveWblSkill(${s.id})">
+                                        <option value="">— not assessed —</option>
+                                        ${RESULTS.map(r => `<option value="${r}"${a?.result === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('')}
+                                    </select>
+                                </div>`;
+                            };
+                            if (!wblP.catalogSkills.length) return '<div class="wbl-empty">No published skills in this program yet.</div>';
+                            const planned = new Set(wblP.planned_skill_ids || []);
+                            if (!planned.size) return wblP.catalogSkills.map(skillRow).join('');
+                            const lead = wblP.catalogSkills.filter(s => planned.has(s.id));
+                            const rest = wblP.catalogSkills.filter(s => !planned.has(s.id));
+                            return lead.map(skillRow).join('')
+                                + (rest.length ? `
+                                    <details style="margin-top:0.5rem">
+                                        <summary class="wbl-back" style="display:inline;cursor:pointer">
+                                            + ${rest.length} more skill(s) in this program (not planned for this job)
+                                        </summary>
+                                        ${rest.map(skillRow).join('')}
+                                    </details>` : '');
+                        })()}
                     </div>
                 </div>
 
@@ -3785,8 +3805,11 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
         }
 
         async function wblUnlinkClass(classId) {
-            if (!confirm('Unlink this class? Its PowerSchool sync IDs for this program will be forgotten.')) return;
-            await wblApi('DELETE', `/programs/${wblProgramId()}/classes/${classId}`);
+            if (!confirm('Unlink this class? Its PowerSchool sync IDs for this program will be forgotten, and any '
+                       + 'enrolled student with no other linked class in this program will be marked exited '
+                       + '(their record is kept, not deleted — re-linking brings them back).')) return;
+            const r = await wblApi('DELETE', `/programs/${wblProgramId()}/classes/${classId}`);
+            if (r.exited) alert(`${r.exited} student(s) exited — no other linked class in this program.`);
             loadWblCatalog();
         }
 
@@ -3798,7 +3821,32 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             await loadWblPrograms();
         }
 
-        function openWblEventModal() {
+        // Shared by the New/Edit Work Event modals. Purely advisory — the
+        // Hard Skills lens keeps every published skill reachable regardless
+        // of what's checked here, so this is "what's planned," not a gate.
+        function wblSkillPickerHtml(skills, checkedIds) {
+            const checked = new Set(checkedIds || []);
+            if (!skills.length) return '';
+            return `
+                <div class="wbl-modal-group">
+                    <div class="wbl-modal-group-title">Skills on this job (optional)</div>
+                    <p class="lookup-note" style="margin:0 0 0.4rem">
+                        Leads the checklist on the assessment screen. Every skill in the program stays available
+                        there too, in case something unplanned comes up.
+                    </p>
+                    ${skills.map(s => `
+                        <div class="wbl-check-row">
+                            <input type="checkbox" id="wbl-we-sk-${s.id}" value="${s.id}" ${checked.has(s.id) ? 'checked' : ''}>
+                            <label for="wbl-we-sk-${s.id}">${wblEsc(s.name || s.slug)}</label>
+                        </div>`).join('')}
+                </div>`;
+        }
+        function wblPickedSkillIds() {
+            return [...document.querySelectorAll('#wbl-modal-backdrop input[id^="wbl-we-sk-"]:checked')].map(b => Number(b.value));
+        }
+
+        async function openWblEventModal() {
+            const skills = (await wblApi('GET', `/programs/${wblProgramId()}/skills`)).filter(s => s.status === 'published');
             wblOpenModal(`
                 <h3>New Work Event</h3>
                 <label class="wbl-field"><span>Title</span>
@@ -3811,6 +3859,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                     <input type="text" id="wbl-we-ref"></label>
                 <label class="wbl-field"><span>Job details &amp; deliverables</span>
                     <textarea id="wbl-we-desc" placeholder="Whatever this job needs written down — part numbers and quantities, color/size/style, spec sheet, whatever varies by shop."></textarea></label>
+                ${wblSkillPickerHtml(skills, [])}
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
                     <button class="btn btn-primary btn-sm" onclick="wblSaveNewEvent()">Create</button>
@@ -3827,13 +3876,17 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                 closed_on: document.getElementById('wbl-we-closed').value || undefined,
                 external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
                 description: document.getElementById('wbl-we-desc').value.trim(),
+                skill_ids: wblPickedSkillIds(),
             });
             wblCloseModal();
             loadWblEvents();
         }
 
         async function openWblEventEditModal(id) {
-            const w = await wblApi('GET', `/work-events/${id}`);
+            const [w, skills] = await Promise.all([
+                wblApi('GET', `/work-events/${id}`),
+                wblApi('GET', `/programs/${wblProgramId()}/skills`).then(list => list.filter(s => s.status === 'published')),
+            ]);
             wblOpenModal(`
                 <h3>Edit ${wblEsc(w.title)}</h3>
                 <label class="wbl-field"><span>Title</span>
@@ -3846,6 +3899,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                     <input type="text" id="wbl-we-ref" value="${wblEsc(w.external_ref || '')}"></label>
                 <label class="wbl-field"><span>Job details &amp; deliverables</span>
                     <textarea id="wbl-we-desc">${wblEsc(w.description || '')}</textarea></label>
+                ${wblSkillPickerHtml(skills, w.skill_ids)}
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
                     <button class="btn btn-primary btn-sm" onclick="wblSaveEventEdit(${id})">Save</button>
@@ -3862,6 +3916,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                 closed_on: document.getElementById('wbl-we-closed').value || null,
                 external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
                 description: document.getElementById('wbl-we-desc').value.trim(),
+                skill_ids: wblPickedSkillIds(),
             });
             wblCloseModal();
             openWblEvent(id);

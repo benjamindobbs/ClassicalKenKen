@@ -137,11 +137,18 @@ router.get('/programs/:id/classes', requireTeacher, (req, res) => {
 // A linked class's roster IS the enrollment source — no separate by-ID entry
 // step. Re-runnable: already-enrolled students are a no-op via INSERT OR IGNORE,
 // so this doubles as the "pick up students added after the class was linked" path.
+// A student who left when a class was unlinked (exit_reason 'class unlinked')
+// is reactivated if a re-link brings them back — a deliberate manual exit
+// (any other reason) is never touched here.
 function syncClassEnrollment(programId, classId) {
     const students = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId);
     const ins = db.prepare(`
         INSERT OR IGNORE INTO wbl_program_enrollments(program_id, student_id, enrolled_on, updated_at)
         VALUES(?, ?, ?, ?)
+    `);
+    const reactivate = db.prepare(`
+        UPDATE wbl_program_enrollments SET exited_on = NULL, exit_reason = '', updated_at = ?
+        WHERE program_id = ? AND student_id = ? AND exit_reason = 'class unlinked'
     `);
     let added = 0;
     for (const { student_id } of students) {
@@ -149,6 +156,7 @@ function syncClassEnrollment(programId, classId) {
         if (!sid) continue;
         const info = ins.run(programId, sid, L.today(), now());
         if (info.changes) { L.ensurePhaseRow(programId, sid); added++; }
+        else reactivate.run(now(), programId, sid);
     }
     return added;
 }
@@ -206,6 +214,14 @@ router.delete('/programs/:id/classes/:classId', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
     const classId = Number(req.params.classId);
+
+    // Captured before the link is removed — this is who is losing their only
+    // path into the program through this class.
+    const leaving = new Set(
+        db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId)
+          .map(r => normalizeStudentId(r.student_id))
+    );
+
     db.prepare('DELETE FROM wbl_class_programs WHERE class_id = ? AND program_id = ?').run(classId, p.id);
     // Orphaned PS assignment IDs are worse than useless — they would make a
     // later sync update an assignment in a class no longer in this program.
@@ -215,7 +231,30 @@ router.delete('/programs/:id/classes/:classId', requireTeacher, (req, res) => {
                 (SELECT id FROM wbl_credentials WHERE program_id = ?)`).run(classId, p.id);
     db.prepare(`DELETE FROM wbl_work_event_sync WHERE class_id = ? AND work_event_id IN
                 (SELECT id FROM wbl_work_events WHERE program_id = ?)`).run(classId, p.id);
-    res.json({ ok: true });
+
+    // A student still reachable through another linked class stays enrolled —
+    // enrollment is a program-wide fact, not tied to any one class. Anyone
+    // left with no remaining path in is exited (not deleted): awards, phase,
+    // and pathway_year persist by student the same as any other exit, and a
+    // later re-link reactivates them via syncClassEnrollment.
+    const stillLinked = new Set(
+        db.prepare(`
+            SELECT DISTINCT cs.student_id FROM class_students cs
+            JOIN wbl_class_programs cp ON cp.class_id = cs.class_id
+            WHERE cp.program_id = ?
+        `).all(p.id).map(r => normalizeStudentId(r.student_id))
+    );
+    const exit = db.prepare(`
+        UPDATE wbl_program_enrollments SET exited_on = ?, exit_reason = 'class unlinked', updated_at = ?
+        WHERE program_id = ? AND student_id = ? AND exited_on IS NULL
+    `);
+    let exited = 0;
+    for (const sid of leaving) {
+        if (stillLinked.has(sid)) continue;
+        exited += exit.run(L.today(), now(), p.id, sid).changes;
+    }
+
+    res.json({ ok: true, exited });
 });
 
 router.get('/programs/:id/roster', requireTeacher, (req, res) => {
@@ -223,7 +262,7 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
     if (!p) return;
     const week = str(req.query.week) || L.isoWeek(L.today());
     const rows = db.prepare(`
-        SELECT e.student_id, e.pathway_year, e.enrolled_on, e.exited_on,
+        SELECT e.student_id, e.pathway_year, e.enrolled_on, e.exited_on, e.exit_reason,
                (SELECT student_name FROM class_students cs WHERE cs.student_id = e.student_id LIMIT 1) AS student_name,
                sp.computed_phase, sp.override_phase, sp.transitioned_at,
                (SELECT COUNT(*) FROM wbl_credential_awards a
@@ -232,7 +271,7 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
                  WHERE q.program_id = e.program_id AND q.student_id = e.student_id) AS last_qc_week
         FROM wbl_program_enrollments e
         LEFT JOIN wbl_student_phase sp ON sp.program_id = e.program_id AND sp.student_id = e.student_id
-        WHERE e.program_id = ?
+        WHERE e.program_id = ? ${req.query.include_exited === 'true' ? '' : 'AND e.exited_on IS NULL'}
         ORDER BY student_name
     `).all(p.id);
     res.json(rows.map(r => ({ ...r, phase: r.override_phase ?? r.computed_phase ?? 1 })));
@@ -771,10 +810,24 @@ router.get('/programs/:id/work-events', requireTeacher, (req, res) => {
     `).all(...(status ? [p.id, status] : [p.id])));
 });
 
+// Skill scoping is advisory (§ note on wbl_work_event_skills), so an invalid
+// id is dropped rather than failing the whole save — a typo in the picker
+// shouldn't block creating the job.
+function setWorkEventSkills(weId, programId, skillIds) {
+    db.prepare('DELETE FROM wbl_work_event_skills WHERE work_event_id = ?').run(weId);
+    if (!Array.isArray(skillIds) || !skillIds.length) return;
+    const ins = db.prepare('INSERT OR IGNORE INTO wbl_work_event_skills(work_event_id, skill_id) VALUES(?, ?)');
+    const owns = db.prepare('SELECT 1 FROM wbl_skills WHERE id = ? AND program_id = ?');
+    for (const sid of skillIds) {
+        const id = int(sid);
+        if (id && owns.get(id, programId)) ins.run(weId, id);
+    }
+}
+
 router.post('/programs/:id/work-events', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
-    const { title, external_ref, description, opened_on, closed_on } = req.body || {};
+    const { title, external_ref, description, opened_on, closed_on, skill_ids } = req.body || {};
     if (!title?.trim()) return bad(res, 'title required');
     const on = L.isDate(opened_on) ? opened_on : L.today();
     const due = L.isDate(closed_on) ? closed_on : null;
@@ -782,7 +835,9 @@ router.post('/programs/:id/work-events', requireTeacher, (req, res) => {
         INSERT INTO wbl_work_events(program_id, title, external_ref, description, opened_on, closed_on, created_at, updated_at)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?)
     `).run(p.id, title.trim(), external_ref ? String(external_ref) : null, str(description), on, due, now(), now());
-    res.json({ id: Number(info.lastInsertRowid) });
+    const weId = Number(info.lastInsertRowid);
+    if ('skill_ids' in (req.body || {})) setWorkEventSkills(weId, p.id, skill_ids);
+    res.json({ id: weId });
 });
 
 router.get('/work-events/:id', requireTeacher, (req, res) => {
@@ -797,7 +852,9 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
                (SELECT COUNT(*) FROM wbl_qc_checks q WHERE q.participant_id = wp.id) AS qc_checks
         FROM wbl_work_event_participants wp WHERE wp.work_event_id = ? ORDER BY student_name
     `).all(we.id);
-    res.json({ ...we, participants });
+    const skill_ids = db.prepare('SELECT skill_id FROM wbl_work_event_skills WHERE work_event_id = ?')
+        .all(we.id).map(r => r.skill_id);
+    res.json({ ...we, participants, skill_ids });
 });
 
 // Closing a job is the one place the framework's cadence is enforced rather
@@ -805,7 +862,8 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
 // every skill demonstrated on it unable to ever count toward mastery, because
 // the credentialing rule joins through the holistic tier.
 router.patch('/work-events/:id', requireTeacher, (req, res) => {
-    if (!owned(req, res, 'workEvent', req.params.id)) return;
+    const p = owned(req, res, 'workEvent', req.params.id);
+    if (!p) return;
     const id = Number(req.params.id);
     const body = req.body || {};
 
@@ -825,13 +883,18 @@ router.patch('/work-events/:id', requireTeacher, (req, res) => {
         }
     }
 
+    if ('skill_ids' in body) setWorkEventSkills(id, p.id, body.skill_ids);
+
     const f = ['title', 'external_ref', 'description', 'status', 'opened_on', 'closed_on']
         .filter(k => k in body);
-    if (!f.length) return bad(res, 'nothing to update');
-    const vals = f.map(k => body[k]);
-    if (body.status === 'complete' && !('closed_on' in body)) { f.push('closed_on'); vals.push(L.today()); }
-    db.prepare(`UPDATE wbl_work_events SET ${f.map(k => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`)
-        .run(...vals, now(), id);
+    if (f.length) {
+        const vals = f.map(k => body[k]);
+        if (body.status === 'complete' && !('closed_on' in body)) { f.push('closed_on'); vals.push(L.today()); }
+        db.prepare(`UPDATE wbl_work_events SET ${f.map(k => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`)
+            .run(...vals, now(), id);
+    } else if (!('skill_ids' in body)) {
+        return bad(res, 'nothing to update');
+    }
     res.json({ ok: true });
 });
 
@@ -896,9 +959,13 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
     const qc = db.prepare('SELECT * FROM wbl_qc_checks WHERE participant_id = ? ORDER BY iso_week').all(wp.id);
     const qcResults = db.prepare('SELECT * FROM wbl_qc_check_results WHERE check_id = ?');
 
+    const plannedSkillIds = db.prepare('SELECT skill_id FROM wbl_work_event_skills WHERE work_event_id = ?')
+        .all(wp.work_event_id).map(r => r.skill_id);
+
     res.json({
         participant: wp,
         phase_now: L.effectivePhase(wp.program_id, wp.student_id),
+        planned_skill_ids: plannedSkillIds,
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),
         qc_checks: qc.map(c => ({ ...c, results: qcResults.all(c.id) })),
         holistic: db.prepare('SELECT * FROM wbl_holistic_calls WHERE participant_id = ?').get(wp.id) ?? null,

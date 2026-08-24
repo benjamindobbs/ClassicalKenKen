@@ -482,6 +482,16 @@ db.exec(`
         updated_at   INTEGER NOT NULL
     );
 
+    -- Which skills a job is expected to exercise — advisory, not a gate. The
+    -- Hard Skills lens uses this to lead with the planned set, but every
+    -- published skill in the program stays reachable, since real jobs surface
+    -- skills nobody planned for.
+    CREATE TABLE IF NOT EXISTS wbl_work_event_skills (
+        work_event_id INTEGER NOT NULL REFERENCES wbl_work_events(id),
+        skill_id      INTEGER NOT NULL REFERENCES wbl_skills(id),
+        PRIMARY KEY (work_event_id, skill_id)
+    );
+
     -- The row every assessment hangs off - all three lenses point here.
     -- phase_at_start keeps the record honest after a student advances.
     CREATE TABLE IF NOT EXISTS wbl_work_event_participants (
