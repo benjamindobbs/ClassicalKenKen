@@ -3805,6 +3805,8 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
                     <input type="text" id="wbl-we-title" placeholder="The job, order, or build"></label>
                 <label class="wbl-field"><span>Start date</span>
                     <input type="date" id="wbl-we-opened" value="${wblToday()}"></label>
+                <label class="wbl-field"><span>End / due date (optional)</span>
+                    <input type="date" id="wbl-we-closed"></label>
                 <label class="wbl-field"><span>Shop order / ticket number (optional)</span>
                     <input type="text" id="wbl-we-ref"></label>
                 <label class="wbl-field"><span>Job details &amp; deliverables</span>
@@ -3822,6 +3824,7 @@ Storefront & Enterprise,Bookkeeping,,Generate a basic income statement`;
             await wblApi('POST', `/programs/${wblProgramId()}/work-events`, {
                 title,
                 opened_on: document.getElementById('wbl-we-opened').value || undefined,
+                closed_on: document.getElementById('wbl-we-closed').value || undefined,
                 external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
                 description: document.getElementById('wbl-we-desc').value.trim(),
             });

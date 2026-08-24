@@ -774,13 +774,14 @@ router.get('/programs/:id/work-events', requireTeacher, (req, res) => {
 router.post('/programs/:id/work-events', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
-    const { title, external_ref, description, opened_on } = req.body || {};
+    const { title, external_ref, description, opened_on, closed_on } = req.body || {};
     if (!title?.trim()) return bad(res, 'title required');
     const on = L.isDate(opened_on) ? opened_on : L.today();
+    const due = L.isDate(closed_on) ? closed_on : null;
     const info = db.prepare(`
-        INSERT INTO wbl_work_events(program_id, title, external_ref, description, opened_on, created_at, updated_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?)
-    `).run(p.id, title.trim(), external_ref ? String(external_ref) : null, str(description), on, now(), now());
+        INSERT INTO wbl_work_events(program_id, title, external_ref, description, opened_on, closed_on, created_at, updated_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(p.id, title.trim(), external_ref ? String(external_ref) : null, str(description), on, due, now(), now());
     res.json({ id: Number(info.lastInsertRowid) });
 });
 
