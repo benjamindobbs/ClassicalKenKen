@@ -372,6 +372,7 @@
                     <div id="wbl-sub-roster">
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Enrolled Students</div>
+                            <div id="wbl-attendance-sync" style="display:flex;align-items:center"></div>
                             <div style="display:flex;gap:0.5rem;align-items:center">
                                 <label style="font-size:0.8125rem;color:#64748b;display:flex;align-items:center;gap:0.35rem">
                                     <input type="checkbox" id="wbl-show-exited" onchange="loadWblRoster()"> Show exited
@@ -384,6 +385,8 @@
                             Enrollment follows a linked class's roster. Link classes under Catalog, then use
                             Sync Roster here to pick up students added since. Unlinking a class exits students with
                             no other linked class in this program &mdash; their record is kept, not deleted.
+                            &ldquo;Called Out&rdquo; voids an unverified PS absence code on that date so it never
+                            docks a student's attendance-derived holistic score.
                         </p>
                         <div id="wbl-roster-body"></div>
                     </div>
@@ -2071,9 +2074,17 @@
         }
 
         // ── Roster ────────────────────────────────────────────────────────────
+        let wblRosterRows = [];
+        let wblCalledOuts = [];
+
         async function loadWblRoster() {
             const includeExited = document.getElementById('wbl-show-exited')?.checked;
-            const rows = await wblApi('GET', `/programs/${wblProgramId()}/roster${includeExited ? '?include_exited=true' : ''}`);
+            const [rows, calledOuts] = await Promise.all([
+                wblApi('GET', `/programs/${wblProgramId()}/roster${includeExited ? '?include_exited=true' : ''}`),
+                wblApi('GET', `/programs/${wblProgramId()}/called-outs`),
+            ]);
+            wblRosterRows = rows;
+            wblCalledOuts = calledOuts;
             const el = document.getElementById('wbl-roster-body');
             if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No students enrolled yet.</div>'; return; }
             el.innerHTML = `
@@ -2082,7 +2093,9 @@
                         <th>Student</th><th>ID</th><th>Phase</th><th>Pathway Year</th>
                         <th>Credentials</th><th>Last QC</th><th></th>
                     </tr></thead>
-                    <tbody>${rows.map(r => `
+                    <tbody>${rows.map(r => {
+                        const coCount = calledOuts.filter(c => c.student_id === r.student_id).length;
+                        return `
                         <tr>
                             <td>${wblEsc(r.student_name || '—')}</td>
                             <td>${wblEsc(r.student_id)}</td>
@@ -2091,10 +2104,62 @@
                             <td>${r.pathway_year}</td>
                             <td>${r.credentials}</td>
                             <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
-                            <td>${r.exited_on ? `<span class="wbl-pill">exited${r.exit_reason ? ' — ' + wblEsc(r.exit_reason) : ''}</span>` : ''}</td>
-                        </tr>`).join('')}
+                            <td style="white-space:nowrap">
+                                ${r.exited_on ? `<span class="wbl-pill">exited${r.exit_reason ? ' — ' + wblEsc(r.exit_reason) : ''}</span>` : ''}
+                                <button class="btn btn-outline btn-sm" onclick="wblCalledOutModal('${wblEsc(r.student_id)}')">Called Out${coCount ? ` (${coCount})` : ''}</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}
                     </tbody>
                 </table></div>`;
+        }
+
+        function wblCalledOutModal(studentId) {
+            const student = wblRosterRows.find(r => r.student_id === studentId);
+            const list = wblCalledOuts.filter(c => c.student_id === studentId).sort((a, b) => b.date.localeCompare(a.date));
+            wblOpenModal(`
+                <h3>Called Out &mdash; ${wblEsc(student?.student_name || studentId)}</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Voids a PS &ldquo;UNV&rdquo; (unverified absence) code on this date so it never docks the
+                    attendance-derived share of the holistic score. Schedule ahead for a known absence, or add one
+                    after the fact to correct a past date.
+                </p>
+                ${list.length ? `
+                    <div class="wbl-modal-group">
+                        ${list.map(c => `
+                            <div class="wbl-check-row">
+                                <span style="flex:1">${wblEsc(c.date)}${c.note ? ' — ' + wblEsc(c.note) : ''}</span>
+                                <button class="btn btn-outline btn-sm" onclick="wblDeleteCalledOut(${c.id})">Remove</button>
+                            </div>`).join('')}
+                    </div>` : ''}
+                <label class="wbl-field"><span>Date</span>
+                    <input type="date" id="wbl-co-date" value="${wblToday()}"></label>
+                <label class="wbl-field"><span>Note (optional)</span>
+                    <input type="text" id="wbl-co-note" placeholder="e.g. doctor's appointment"></label>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Close</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveCalledOut('${wblEsc(studentId)}')">Add</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveCalledOut(studentId) {
+            const date = document.getElementById('wbl-co-date').value;
+            const note = document.getElementById('wbl-co-note').value.trim();
+            if (!date) return alert('Pick a date.');
+            try {
+                await wblApi('POST', `/programs/${wblProgramId()}/called-outs`, { student_id: studentId, date, note });
+            } catch (e) {
+                return alert(e.status === 409 ? 'Already called out on that date.' : 'Could not save: ' + e.message);
+            }
+            wblCloseModal();
+            loadWblRoster();
+        }
+
+        async function wblDeleteCalledOut(id) {
+            await wblApi('DELETE', `/called-outs/${id}`);
+            wblCloseModal();
+            loadWblRoster();
         }
 
         async function wblRollYear() {
@@ -2314,6 +2379,13 @@
                         <div class="wbl-note">
                             Informed by the spot-check history above, not averaged from it. A skill counts toward
                             a credential only when demonstrated on a job that clears the credential's threshold.
+                        </div>
+                        <div class="wbl-note">
+                            ${wblP.attendance
+                                ? `Attendance: ${wblEsc(String(wblP.attendance.days_counted))} day(s) counted,
+                                   ${Math.round(wblP.attendance.ratio * 100)}% attended &mdash; 20% of the synced
+                                   holistic score on this job.`
+                                : 'No attendance data pulled for this job yet — the synced holistic score is the direct assessment only.'}
                         </div>
                     </div>
                 </div>

@@ -63,6 +63,7 @@ const OWNER_SQL = {
     workEvent:   'SELECT p.* FROM wbl_work_events w JOIN wbl_programs p ON p.id = w.program_id WHERE w.id = ? AND p.teacher_key = ?',
     participant: 'SELECT p.* FROM wbl_work_event_participants wp JOIN wbl_work_events w ON w.id = wp.work_event_id JOIN wbl_programs p ON p.id = w.program_id WHERE wp.id = ? AND p.teacher_key = ?',
     transferClaim:'SELECT p.* FROM wbl_transfer_claims t JOIN wbl_programs p ON p.id = t.program_id WHERE t.id = ? AND p.teacher_key = ?',
+    calledOut:   'SELECT p.* FROM wbl_called_outs co JOIN wbl_programs p ON p.id = co.program_id WHERE co.id = ? AND p.teacher_key = ?',
 };
 const ownerOf = (kind, id, teacherKey) => db.prepare(OWNER_SQL[kind]).get(Number(id), teacherKey);
 
@@ -319,6 +320,42 @@ function checkNovelty(studentId, capability) {
         : { novel: true };
 }
 
+// ---------------------------------------------------------------------------
+// Attendance (WBL attendance → Holistic scoring)
+// ---------------------------------------------------------------------------
+
+// Per meeting day: present ('') or any code other than UXT/UNV = 1 full day;
+// UXT (unexcused tardy) = half a day; UNV (unverified absence) is 0 UNLESS a
+// wbl_called_outs row exists for that date, in which case the day is dropped
+// from the ratio entirely (voided, not counted as present). Returns null —
+// not 0 — when there is no attendance data in range at all, so callers can
+// tell "nothing pulled yet" apart from "pulled and it was all absences."
+function attendanceRatio(programId, classId, studentId, from, to) {
+    if (!from || !to) return null;
+    const rows = db.prepare(`
+        SELECT a.date, a.code,
+               EXISTS(SELECT 1 FROM wbl_called_outs co
+                       WHERE co.program_id = ? AND co.student_id = a.student_id AND co.date = a.date) AS called_out
+        FROM wbl_attendance a
+        WHERE a.class_id = ? AND a.student_id = ? AND a.date BETWEEN ? AND ?
+    `).all(programId, classId, studentId, from, to);
+    if (!rows.length) return null;
+
+    let credit = 0, counted = 0;
+    for (const r of rows) {
+        if (r.code === 'UNV') {
+            if (r.called_out) continue;   // voided — neither credit nor a counted day
+            counted += 1;                  // unexcused absence — counts against the ratio
+        } else if (r.code === 'UXT') {
+            credit += 0.5; counted += 1;
+        } else {
+            credit += 1; counted += 1;     // present ('') or any other code (e.g. EXT)
+        }
+    }
+    if (!counted) return null;
+    return { ratio: credit / counted, days_counted: counted };
+}
+
 module.exports = {
     isoWeek, isDate, today,
     resolveStudent, ownedProgram, ownerOf,
@@ -326,4 +363,5 @@ module.exports = {
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,
+    attendanceRatio,
 };

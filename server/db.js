@@ -731,6 +731,37 @@ db.exec(`
         PRIMARY KEY (program_id, tier)
     );
 
+    -- Raw PS attendance, one row per class section + student + date. Source
+    -- of truth is PowerSchool (pulled via the DobbsCore extension); this is
+    -- an import cache, not hand-edited — wbl_called_outs is what overrides
+    -- how a row gets interpreted, never this table directly.
+    CREATE TABLE IF NOT EXISTS wbl_attendance (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id   INTEGER NOT NULL REFERENCES classes(id),
+        student_id TEXT    NOT NULL,
+        date       TEXT    NOT NULL,
+        code       TEXT    NOT NULL DEFAULT '',
+        synced_at  INTEGER NOT NULL,
+        UNIQUE(class_id, student_id, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wbl_attendance_student ON wbl_attendance(student_id, date);
+
+    -- Manual override voiding a UNV (unverified absence) code on a given
+    -- date. Program-scoped, not class-scoped, since it's entered from the
+    -- program-level Roster tab and can be filed before or after the PS pull
+    -- (a scheduled future absence, or a correction to a past one).
+    CREATE TABLE IF NOT EXISTS wbl_called_outs (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id INTEGER NOT NULL REFERENCES wbl_programs(id),
+        student_id TEXT    NOT NULL,
+        date       TEXT    NOT NULL,
+        note       TEXT    NOT NULL DEFAULT '',
+        created_by TEXT    NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(program_id, student_id, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wbl_called_outs_lookup ON wbl_called_outs(program_id, student_id);
+
     CREATE INDEX IF NOT EXISTS idx_wbl_programs_teacher     ON wbl_programs(teacher_key);
     CREATE INDEX IF NOT EXISTS idx_wbl_class_programs_prog  ON wbl_class_programs(program_id);
     CREATE INDEX IF NOT EXISTS idx_wbl_prog_imports_src     ON wbl_program_imports(source_program_id);

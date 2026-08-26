@@ -299,6 +299,36 @@ router.get('/programs/:id/unassigned', requireTeacher, (req, res) => {
     res.json({ date, students: rows });
 });
 
+// ── Called Out (voids a UNV pulled from PS on this date) ────────────────────
+router.get('/programs/:id/called-outs', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(db.prepare(
+        'SELECT * FROM wbl_called_outs WHERE program_id = ? ORDER BY date DESC'
+    ).all(p.id));
+});
+
+router.post('/programs/:id/called-outs', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const studentId = normalizeStudentId(req.body?.student_id);
+    const date = str(req.body?.date);
+    if (!studentId || !L.isDate(date)) return bad(res, 'student_id and a valid date required');
+    try {
+        const info = db.prepare(`
+            INSERT INTO wbl_called_outs(program_id, student_id, date, note, created_by, created_at)
+            VALUES(?, ?, ?, ?, ?, ?)
+        `).run(p.id, studentId, date, str(req.body?.note), req.teacherKey, now());
+        res.json({ ok: true, id: Number(info.lastInsertRowid) });
+    } catch { res.status(409).json({ error: 'already_called_out', hint: 'one call-out per student per date' }); }
+});
+
+router.delete('/called-outs/:id', requireTeacher, (req, res) => {
+    if (!owned(req, res, 'calledOut', req.params.id)) return;
+    db.prepare('DELETE FROM wbl_called_outs WHERE id = ?').run(Number(req.params.id));
+    res.json({ ok: true });
+});
+
 router.post('/programs/:id/enrollments', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
@@ -806,7 +836,7 @@ router.put('/programs/:id/tier-points', requireTeacher, (req, res) => {
 // Resolves a participant to its work event and owning program in one hop.
 function participantCtx(req, res, pid) {
     const row = db.prepare(`
-        SELECT wp.*, we.program_id, we.status AS event_status, we.title AS event_title,
+        SELECT wp.*, we.program_id, we.status AS event_status, we.title AS event_title, we.closed_on AS event_closed_on,
                (SELECT cs.student_name FROM class_students cs
                  WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name
         FROM wbl_work_event_participants wp
@@ -991,6 +1021,8 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),
         qc_checks: qc.map(c => ({ ...c, results: qcResults.all(c.id) })),
         holistic: db.prepare('SELECT * FROM wbl_holistic_calls WHERE participant_id = ?').get(wp.id) ?? null,
+        attendance: L.attendanceRatio(wp.program_id, wp.class_id, wp.student_id,
+            wp.joined_on, wp.left_on || wp.event_closed_on || L.today()),
         transfer_claims: db.prepare('SELECT * FROM wbl_transfer_claims WHERE participant_id = ?').all(wp.id),
         dispositional: db.prepare(`
             SELECT es.*, (SELECT confidence FROM wbl_exit_slip_verifications v
@@ -1594,21 +1626,35 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
             };
         }),
         work_events: db.prepare(`
-            SELECT we.id AS work_event_id, we.title, we.status,
+            SELECT we.id AS work_event_id, we.title, we.status, we.closed_on,
                    s.ps_assignment_id, s.ps_assignmentsection_id, COALESCE(s.sync_enabled, 1) AS sync_enabled
             FROM wbl_work_events we
             LEFT JOIN wbl_work_event_sync s ON s.work_event_id = we.id AND s.class_id = ?
             WHERE we.program_id = ? AND we.status = 'complete'
         `).all(classId, p.id).map(w => ({
             ...w,
+            // points_pct is the blend (80% direct tier assessment, 20% attendance)
+            // when attendance data exists for the participant's window on this job,
+            // and the raw tier value untouched when it doesn't — a student is never
+            // penalized for attendance that was never pulled from PS.
             calls: db.prepare(`
                 SELECT hc.student_id, hc.tier, t.rank,
                        (SELECT points_pct FROM wbl_holistic_tier_points tp
-                         WHERE tp.program_id = ? AND tp.tier = hc.tier) AS points_pct
+                         WHERE tp.program_id = ? AND tp.tier = hc.tier) AS points_pct,
+                       wp.joined_on, wp.left_on
                 FROM wbl_holistic_calls hc
                 JOIN wbl_holistic_tiers t ON t.tier = hc.tier
+                JOIN wbl_work_event_participants wp
+                     ON wp.work_event_id = hc.work_event_id AND wp.student_id = hc.student_id
                 WHERE hc.work_event_id = ? AND hc.class_id = ?
-            `).all(p.id, w.work_event_id, classId),
+            `).all(p.id, w.work_event_id, classId).map(c => {
+                const att = L.attendanceRatio(p.id, classId, c.student_id,
+                    c.joined_on, c.left_on || w.closed_on || L.today());
+                const points_pct = att
+                    ? Math.round((0.8 * c.points_pct + 0.2 * (att.ratio * 100)) * 100) / 100
+                    : c.points_pct;
+                return { student_id: c.student_id, tier: c.tier, rank: c.rank, points_pct, attendance: att };
+            }),
         })),
         transfer: ['application', 'extension'].map(kind => ({
             kind,
@@ -1665,6 +1711,47 @@ router.post('/sync/ids', requireTeacher, (req, res) => {
         tr.run(classId, t.kind, String(t.ps_assignment_id), str(t.ps_assignmentsection_id)); n++;
     }
     res.json({ ok: true, stored: n });
+});
+
+// Bulk ingest from the DobbsCore extension's PS attendance scrape — the whole
+// cached date range for a section in one request, keyed by ps_dcid since
+// that's what the extension has (class_students.ps_dcid, set on roster
+// import). Rows for a student with no matching ps_dcid are skipped and
+// reported back rather than silently dropped.
+router.post('/classes/:classId/attendance/import', requireTeacher, (req, res) => {
+    const classId = int(req.params.classId);
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
+    if (!cls) return nf(res, 'class_not_found');
+    const rows = req.body?.rows;
+    if (!Array.isArray(rows)) return bad(res, 'rows array required');
+
+    const dcidMap = new Map(
+        db.prepare('SELECT student_id, ps_dcid FROM class_students WHERE class_id = ? AND ps_dcid IS NOT NULL')
+          .all(classId).map(s => [String(s.ps_dcid), s.student_id])
+    );
+
+    const ins = db.prepare(`
+        INSERT INTO wbl_attendance(class_id, student_id, date, code, synced_at)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(class_id, student_id, date) DO UPDATE SET
+            code = excluded.code, synced_at = excluded.synced_at
+    `);
+    let imported = 0;
+    const unmatched = new Set();
+    const ts = now();
+    db.exec('BEGIN');
+    try {
+        for (const r of rows) {
+            const studentId = dcidMap.get(String(r.ps_dcid));
+            if (!studentId) { unmatched.add(String(r.ps_dcid)); continue; }
+            if (!L.isDate(r.date)) continue;
+            ins.run(classId, studentId, r.date, str(r.code), ts);
+            imported++;
+        }
+        db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
+
+    res.json({ ok: true, imported, unmatched: [...unmatched] });
 });
 
 module.exports = router;
