@@ -277,6 +277,28 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
     res.json(rows.map(r => ({ ...r, phase: r.override_phase ?? r.computed_phase ?? 1 })));
 });
 
+// Enrolled, active students with no work-event participation covering the
+// given date — backs the "no job today" panel on the Work Events tab.
+router.get('/programs/:id/unassigned', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const date = L.isDate(req.query.date) ? req.query.date : L.today();
+    const rows = db.prepare(`
+        SELECT e.student_id,
+               (SELECT student_name FROM class_students cs WHERE cs.student_id = e.student_id LIMIT 1) AS student_name
+        FROM wbl_program_enrollments e
+        WHERE e.program_id = ? AND e.exited_on IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM wbl_work_event_participants wep
+            JOIN wbl_work_events we ON we.id = wep.work_event_id
+            WHERE wep.student_id = e.student_id AND we.program_id = e.program_id
+              AND wep.joined_on <= ? AND (wep.left_on IS NULL OR wep.left_on >= ?)
+          )
+        ORDER BY student_name
+    `).all(p.id, date, date);
+    res.json({ date, students: rows });
+});
+
 router.post('/programs/:id/enrollments', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;

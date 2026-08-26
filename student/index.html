@@ -885,6 +885,13 @@
             const done  = new Map(mine.map(s => [s.soft_skill_code, s]));
             const jobs  = await wblApi('GET', '/me/work-events');
 
+            // Reminds them of the focus (and, when the instructor pre-flagged it,
+            // why) they picked at Do Now — the exit slip may be written hours later.
+            const hints = {};
+            for (const o of wblDay.openings || []) {
+                (hints[o.soft_skill_code] ||= []).push(o.skill_name);
+            }
+
             el.innerHTML = `
                 <div class="wbl-card">
                     <p class="wbl-card-title">Exit Slip &mdash; before you leave</p>
@@ -893,11 +900,15 @@
                         way, and what did you do about it?
                     </p>
                     ${wblDay.skills.map(s => {
+                        const hint = hints[s.soft_skill_code]
+                            ? `<div class="wbl-card-sub" style="margin:0.15rem 0 0">You picked this at Do Now &mdash; comes up in: ${wblEsc(hints[s.soft_skill_code].filter(Boolean).join(', '))}</div>`
+                            : `<div class="wbl-card-sub" style="margin:0.15rem 0 0">You picked this at Do Now.</div>`;
                         const slip = done.get(s.soft_skill_code);
                         if (slip) {
                             return `
                             <div class="wbl-slip wbl-slip-done">
                                 <div class="wbl-slip-head">${wblEsc(wblLabel(s.soft_skill_code))}</div>
+                                ${hint}
                                 <div class="wbl-slip-text">${wblEsc(slip.narrative)}</div>
                                 <div class="wbl-slip-meta">
                                     Submitted ${wblEsc(slip.date)}
@@ -909,6 +920,7 @@
                         return `
                         <div class="wbl-slip">
                             <div class="wbl-slip-head">${wblEsc(wblLabel(s.soft_skill_code))}</div>
+                            ${hint}
                             ${jobs.length ? `
                             <select id="wbl-job-${s.soft_skill_code}">
                                 <option value="">Which job was this on? (optional)</option>
