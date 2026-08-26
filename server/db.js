@@ -832,6 +832,14 @@ try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_credential_max_s
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_holistic_max_score REAL NOT NULL DEFAULT 20').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_transfer_max_score REAL NOT NULL DEFAULT 10').run(); } catch { /* already exists */ }
 
+// Microcredentials/Daily Rubric are retired, superseded by WBL (see
+// WBL_Schema_Design.md §11). Renamed rather than dropped so the data survives
+// as an inert audit trail — nothing reads legacy_* at runtime.
+for (const t of ['microcredentials', 'mc_checkpoints', 'mc_class_assignments', 'mc_checkpoint_sync',
+                  'mc_completions', 'mc_subtasks', 'mc_subtask_completions', 'daily_rubric']) {
+    try { db.exec(`ALTER TABLE ${t} RENAME TO legacy_${t}`); } catch { /* already renamed */ }
+}
+
 function upsertUser(userKey, email) {
     db.prepare(
         'INSERT OR IGNORE INTO users(user_key, email, first_seen) VALUES(?, ?, ?)'
