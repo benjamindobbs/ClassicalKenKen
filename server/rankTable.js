@@ -1,6 +1,6 @@
 // Rank is a float: integer part = grid size tier (1–7), fractional part = sub-rank (controls hints).
 // Thresholds must stay in sync with LEVEL_STARTS in js/kenken.js.
-const LEVEL_STARTS = [0, 25, 42, 58, 72, 84, 94];
+const LEVEL_STARTS = [0, 50, 84, 116, 144, 168, 188];
 
 function lookupRank(avgScore) {
     let level = 1;

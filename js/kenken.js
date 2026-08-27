@@ -136,7 +136,7 @@ function checkAnswer() {
       score = Math.round(((unsolved / guesses) + (2.5 * unsolved / time)) * size * 10);
       var currentLevel = Math.floor(rank);
       var nextThreshold = LEVEL_STARTS[Math.min(currentLevel, LEVEL_STARTS.length - 1)];
-      score = Math.min(score, Math.round(nextThreshold * 1.5));
+      score = Math.min(score, Math.round(nextThreshold * 1.3));
       writeScore(score, size).then(function(avg) {
           if (avg != null) setTimeout(function() { showRankProgress(avg); }, 1000);
       });
@@ -350,7 +350,7 @@ function createElements() {
 
 // ── Rank progress bar ────────────────────────────────────────────────────────
 // First avg score that places a player into each rank level (1–7).
-var LEVEL_STARTS = [0, 25, 42, 58, 72, 84, 94];
+var LEVEL_STARTS = [0, 50, 84, 116, 144, 168, 188];
 
 function computeRankProgress(avg) {
   var level = 1;
