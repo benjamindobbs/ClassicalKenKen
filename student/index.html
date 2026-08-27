@@ -30,6 +30,28 @@
         /* Charts */
         .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; position: relative; height: 280px; }
         .chart-subtitle { font-size: 0.8125rem; color: #64748b; margin: -0.25rem 0 0.75rem; }
+
+        /* KenKen row: score-over-time chart beside the class leaderboard */
+        .kk-row { display: flex; gap: 1.25rem; align-items: stretch; margin-bottom: 1.5rem; }
+        .kk-row .chart-card { flex: 1 1 62%; min-width: 0; margin-bottom: 0; }
+        .leaderboard-card { flex: 1 1 38%; min-width: 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; height: 280px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .leaderboard-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 0 0 0.15rem; }
+        .leaderboard-sub { font-size: 0.75rem; color: #94a3b8; margin: 0 0 0.5rem; }
+        .leaderboard-scroll { flex: 1; overflow-y: auto; margin: 0 -0.35rem; }
+        .lb-table { width: 100%; border-collapse: collapse; border: none; margin: 0; font-size: 0.8125rem; }
+        .lb-table td { padding: 0.4rem 0.35rem; border: none; border-bottom: 1px solid var(--border); color: #334155; }
+        .lb-table tr:last-child td { border-bottom: none; }
+        .lb-table tbody tr:nth-child(even) { background: none; }
+        .lb-table .lb-rank { width: 1.75rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .lb-table .lb-score { text-align: right; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .lb-table tr.lb-me td { background: #eff6ff; }
+        .lb-table tr.lb-me .lb-name { font-weight: 700; color: #1d4ed8; }
+        .lb-empty { font-size: 0.8125rem; color: #94a3b8; padding: 1rem 0.35rem; }
+
+        @media (max-width: 720px) {
+            .kk-row { flex-direction: column; }
+            .leaderboard-card { height: auto; max-height: 320px; }
+        }
         .date-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
         .date-row label { font-size: 0.8125rem; color: #64748b; }
         .date-row input[type="date"] { padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; }
@@ -177,7 +199,16 @@
                     <label>to</label><input type="date" id="kk-to" />
                     <button class="btn btn-outline btn-xs" onclick="renderKenKenChart()">Apply</button>
                 </div>
-                <div class="chart-card"><canvas id="kk-chart"></canvas></div>
+                <div class="kk-row">
+                    <div class="chart-card"><canvas id="kk-chart"></canvas></div>
+                    <div class="leaderboard-card">
+                        <p class="leaderboard-title">Class Leaderboard</p>
+                        <p class="leaderboard-sub">Top 10 average scores &middot; enrolled students</p>
+                        <div class="leaderboard-scroll">
+                            <table class="lb-table"><tbody id="kk-leaderboard-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="section-heading">SAT English Accuracy Over Time</div>
                 <p class="chart-subtitle">Accuracy % per domain per day</p>
@@ -380,6 +411,7 @@
             }
 
             renderKenKenChart();
+            loadKenKenLeaderboard();
             renderSatLineChart();
             renderBarChart();
             if (mathData.length) {
@@ -419,6 +451,25 @@
                     scales: { y: { title: { display: true, text: 'Score' } }, x: { title: { display: true, text: 'Date' } } },
                 },
             });
+        }
+
+        async function loadKenKenLeaderboard() {
+            const body = document.getElementById('kk-leaderboard-body');
+            const res  = await authFetch('/api/student/kenken-leaderboard');
+            if (!res.ok) { body.innerHTML = ''; return; }
+            const rows = await res.json();
+            if (!rows.length) {
+                body.innerHTML = '<tr><td class="lb-empty">No scores yet.</td></tr>';
+                return;
+            }
+            const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            body.innerHTML = rows.map(r => `
+                <tr class="${r.me ? 'lb-me' : ''}">
+                    <td class="lb-rank">${r.rank}</td>
+                    <td class="lb-name">${esc(r.name)}</td>
+                    <td class="lb-score">${r.avg_score}</td>
+                </tr>`).join('');
         }
 
         function renderSatLineChart() {
