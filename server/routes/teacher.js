@@ -87,31 +87,6 @@ router.post('/gradebook-settings', requireTeacher, (req, res) => {
 // Activity values: kenken | sat | sat-math | both | sat-both | all | either
 const VALID_ACTIVITIES = new Set(['kenken', 'sat', 'sat-math', 'both', 'sat-both', 'all', 'either']);
 
-const DEFAULT_SETTINGS = { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1, required_sat_math_count: 1 };
-
-router.get('/assignment-settings', requireTeacher, (req, res) => {
-    const row = db.prepare('SELECT * FROM assignment_settings WHERE teacher_key = ?').get(req.teacherKey);
-    res.json(row ?? DEFAULT_SETTINGS);
-});
-
-router.post('/assignment-settings', requireTeacher, (req, res) => {
-    const { required_activity, required_kenken_count, required_sat_count, required_sat_math_count } = req.body;
-    if (!VALID_ACTIVITIES.has(required_activity))
-        return res.status(400).json({ error: 'invalid required_activity' });
-    db.prepare(`
-        INSERT OR REPLACE INTO assignment_settings
-            (teacher_key, required_activity, required_kenken_count, required_sat_count, required_sat_math_count)
-        VALUES(?, ?, ?, ?, ?)
-    `).run(
-        req.teacherKey,
-        required_activity,
-        Number(required_kenken_count)      || 1,
-        Number(required_sat_count)         || 1,
-        Number(required_sat_math_count)    || 1
-    );
-    res.json({ ok: true });
-});
-
 // ── Classes ───────────────────────────────────────────────────────────────────
 router.get('/classes', requireTeacher, (req, res) => {
     const rows = db.prepare(`
@@ -198,6 +173,18 @@ router.patch('/classes/:id', requireTeacher, (req, res) => {
             }
             updates.push(`${field} = ?`);
             params.push(stored);
+        }
+    }
+    if (req.body.required_activity != null) {
+        if (!VALID_ACTIVITIES.has(req.body.required_activity))
+            return res.status(400).json({ error: 'invalid required_activity' });
+        updates.push('required_activity = ?');
+        params.push(req.body.required_activity);
+    }
+    for (const field of ['required_kenken_count', 'required_sat_count', 'required_sat_math_count']) {
+        if (req.body[field] != null) {
+            updates.push(`${field} = ?`);
+            params.push(Number(req.body[field]) || 1);
         }
     }
     if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
@@ -297,9 +284,8 @@ router.get('/grades', requireTeacher, (req, res) => {
         .get(req.teacherKey)
         ?? { assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0 };
 
-    const asgn = db.prepare('SELECT * FROM assignment_settings WHERE teacher_key = ?')
-        .get(req.teacherKey)
-        ?? { required_activity: 'either', required_kenken_count: 1, required_sat_count: 1, required_sat_math_count: 1 };
+    // Requirements are per-class now — cls already carries them.
+    const asgn = cls;
 
     const students = db.prepare(
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'

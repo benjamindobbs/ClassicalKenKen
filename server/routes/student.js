@@ -9,9 +9,12 @@ router.use(requireAuth);
 // Returns today's submission counts, remaining requirements, and the activity mode.
 // Returns 401 (via requireAuth) if the student is not signed in.
 router.get('/daily-progress', (req, res) => {
-    // Find this student's teacher via class linkage
+    // Find this student's class — requirements are per-class now, so no
+    // separate teacher-wide lookup is needed.
     const classRow = db.prepare(`
-        SELECT c.teacher_key, c.assessment_type FROM class_students cs
+        SELECT c.assessment_type,
+               c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count
+        FROM class_students cs
         JOIN classes c ON cs.class_id = c.id
         WHERE cs.user_key = ?
         LIMIT 1
@@ -19,12 +22,12 @@ router.get('/daily-progress', (req, res) => {
 
     if (!classRow) return res.json({ settings: null, assessment_type: 'sat' });
 
-    const settings = db.prepare(
-        'SELECT * FROM assignment_settings WHERE teacher_key = ?'
-    ).get(classRow.teacher_key);
-
-    // No requirements configured yet — signal the client to show nothing
-    if (!settings) return res.json({ settings: null });
+    const settings = {
+        required_activity: classRow.required_activity,
+        required_kenken_count: classRow.required_kenken_count,
+        required_sat_count: classRow.required_sat_count,
+        required_sat_math_count: classRow.required_sat_math_count,
+    };
 
     // Midnight UTC today
     const now        = new Date();

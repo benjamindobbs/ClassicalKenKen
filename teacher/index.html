@@ -571,46 +571,6 @@
                     </div>
                 </div>
 
-                <!-- Assignment requirements -->
-                <div class="section-title">Assignment Requirements</div>
-                <div class="settings-card">
-                    <div class="settings-field" style="margin-bottom:1.25rem">
-                        <label class="settings-label" style="margin-bottom:0.5rem">Required Activities</label>
-                        <div class="activity-options">
-                            <label class="activity-option">
-                                <input type="checkbox" id="req-kenken" onchange="updateActivityUI()">
-                                <span>KenKen</span>
-                            </label>
-                            <label class="activity-option">
-                                <input type="checkbox" id="req-sat-math" onchange="updateActivityUI()">
-                                <span>SAT Math</span>
-                            </label>
-                            <label class="activity-option">
-                                <input type="checkbox" id="req-sat-english" onchange="updateActivityUI()">
-                                <span>SAT English</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="settings-grid">
-                        <div class="settings-field" id="ar-kenken-field" style="display:none">
-                            <label class="settings-label">KenKen Correct / Day</label>
-                            <input type="number" id="ar-kenken-count" min="1" step="1" placeholder="1" />
-                        </div>
-                        <div class="settings-field" id="ar-sat-math-field" style="display:none">
-                            <label class="settings-label">SAT Math Correct / Day</label>
-                            <input type="number" id="ar-sat-math-count" min="1" step="1" placeholder="1" />
-                        </div>
-                        <div class="settings-field" id="ar-sat-field" style="display:none">
-                            <label class="settings-label">SAT English Correct / Day</label>
-                            <input type="number" id="ar-sat-count" min="1" step="1" placeholder="1" />
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
-                        <button class="btn btn-primary" onclick="saveAssignmentSettings()">Save Requirements</button>
-                        <span id="ar-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
-                    </div>
-                </div>
-
                 <!-- Classes list -->
                 <div id="classes-list-view">
                     <div class="classes-header">
@@ -792,7 +752,7 @@
                 document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
             });
             document.getElementById('portal-subtitle').textContent = TAB_SUBTITLES[tab] ?? '';
-            if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadAssignmentSettings(); loadClasses(); }
+            if (tab === 'classes')          { loadProfile(); loadGradebookSettings(); loadClasses(); }
             if (tab === 'wbl')              { loadWblPrograms(); }
             if (tab === 'reports')          { loadReportsTab(); }
         }
@@ -1073,7 +1033,6 @@
         let classStudents = [];
         let currentClassId = null;
         let gradebookSettings = null;
-        let assignmentSettingsData = null;
 
         async function loadGradebookSettings() {
             const res  = await teacherFetch('/api/teacher/gradebook-settings');
@@ -1121,21 +1080,7 @@
             document.getElementById('ar-sat-field').style.display      = e ? '' : 'none';
         }
 
-        async function loadAssignmentSettings() {
-            const res  = await teacherFetch('/api/teacher/assignment-settings');
-            const data = await res.json();
-            assignmentSettingsData = data;
-            const act = data.required_activity || 'either';
-            document.getElementById('req-kenken').checked      = ['kenken','both','kenken-math','all','either'].includes(act);
-            document.getElementById('req-sat-math').checked    = ['sat-math','sat-both','kenken-math','all'].includes(act);
-            document.getElementById('req-sat-english').checked = ['sat','both','sat-both','all','either'].includes(act);
-            document.getElementById('ar-kenken-count').value   = data.required_kenken_count;
-            document.getElementById('ar-sat-count').value      = data.required_sat_count;
-            document.getElementById('ar-sat-math-count').value = data.required_sat_math_count ?? 1;
-            updateActivityUI();
-        }
-
-        async function saveAssignmentSettings() {
+        async function saveClassAssignmentSettings(classId) {
             const k = document.getElementById('req-kenken').checked;
             const m = document.getElementById('req-sat-math').checked;
             const e = document.getElementById('req-sat-english').checked;
@@ -1151,8 +1096,8 @@
             const required_kenken_count   = parseInt(document.getElementById('ar-kenken-count').value)   || 1;
             const required_sat_count      = parseInt(document.getElementById('ar-sat-count').value)      || 1;
             const required_sat_math_count = parseInt(document.getElementById('ar-sat-math-count').value) || 1;
-            await teacherFetch('/api/teacher/assignment-settings', {
-                method: 'POST',
+            await teacherFetch(`/api/teacher/classes/${classId}`, {
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count, required_sat_math_count }),
             });
@@ -1278,6 +1223,11 @@
 
             const engEnabled  = parseDomains(cls.sat_english_domains);
             const mathEnabled = parseDomains(cls.sat_math_domains);
+
+            const reqAct = cls.required_activity || 'either';
+            const reqKenken = ['kenken','both','kenken-math','all','either'].includes(reqAct);
+            const reqSatMath = ['sat-math','sat-both','kenken-math','all'].includes(reqAct);
+            const reqSatEnglish = ['sat','both','sat-both','all','either'].includes(reqAct);
 
             const rosterRows = cls.students.map(s => {
                 const selected = s.user_key ? `value="${esc(s.user_key)}" ` : '';
@@ -1429,6 +1379,45 @@
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem">
                         <button class="btn btn-outline btn-sm" onclick="saveClassDomains(${cls.id})">Save Domains</button>
                         <span id="cls-dom-saved" style="display:none;font-size:0.8125rem;color:#10b981;font-weight:500">Saved</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Assignment Requirements</div>
+                <div class="settings-card" style="margin-bottom:1.5rem">
+                    <div class="settings-field" style="margin-bottom:1.25rem">
+                        <label class="settings-label" style="margin-bottom:0.5rem">Required Activities</label>
+                        <div class="activity-options">
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-kenken" onchange="updateActivityUI()" ${reqKenken ? 'checked' : ''}>
+                                <span>KenKen</span>
+                            </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-sat-math" onchange="updateActivityUI()" ${reqSatMath ? 'checked' : ''}>
+                                <span>SAT Math</span>
+                            </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-sat-english" onchange="updateActivityUI()" ${reqSatEnglish ? 'checked' : ''}>
+                                <span>SAT English</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-field" id="ar-kenken-field" style="display:${reqKenken ? '' : 'none'}">
+                            <label class="settings-label">KenKen Correct / Day</label>
+                            <input type="number" id="ar-kenken-count" min="1" step="1" value="${cls.required_kenken_count ?? 1}" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-math-field" style="display:${reqSatMath ? '' : 'none'}">
+                            <label class="settings-label">SAT Math Correct / Day</label>
+                            <input type="number" id="ar-sat-math-count" min="1" step="1" value="${cls.required_sat_math_count ?? 1}" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-field" style="display:${reqSatEnglish ? '' : 'none'}">
+                            <label class="settings-label">SAT English Correct / Day</label>
+                            <input type="number" id="ar-sat-count" min="1" step="1" value="${cls.required_sat_count ?? 1}" />
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
+                        <button class="btn btn-primary" onclick="saveClassAssignmentSettings(${cls.id})">Save Requirements</button>
+                        <span id="ar-saved-msg" style="display:none;color:#10b981;font-size:0.8125rem">Saved</span>
                     </div>
                 </div>
 
@@ -1714,11 +1703,12 @@
                 return;
             }
 
-            // Fetch settings in parallel (get fresh copies in case they changed)
-            const [gsData, asData, profileData] = await Promise.all([
+            // Fetch settings in parallel (get fresh copies in case they changed).
+            // Requirements are per-class now, so they come off cls itself.
+            const [gsData, profileData, cls] = await Promise.all([
                 teacherFetch('/api/teacher/gradebook-settings').then(r => r.json()),
-                teacherFetch('/api/teacher/assignment-settings').then(r => r.json()),
                 teacherFetch('/api/teacher/profile').then(r => r.json()),
+                teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json()),
             ]);
 
             const maxScore       = gsData.assignment_max_score    ?? 100;
@@ -1730,14 +1720,13 @@
             const expectedDays = Math.max(1, Math.round(weekdays * 4 / 5));
 
             // Grade each student
-            const cls = await teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json());
             const rows = cls.students.map(s => {
                 let score;
                 if (!s.user_key) {
                     score = formatScore(noSubScore, false, maxScore, noSubScore, scoreType);
                 } else {
                     const { points, requiredMet } = gradeForStudent(
-                        s.user_key, fromDate, toDate, asData, expectedDays, maxScore, completionScore, noSubScore
+                        s.user_key, fromDate, toDate, cls, expectedDays, maxScore, completionScore, noSubScore
                     );
                     score = formatScore(points, requiredMet, maxScore, noSubScore, scoreType);
                 }

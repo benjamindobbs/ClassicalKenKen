@@ -871,6 +871,28 @@ for (const t of ['microcredentials', 'mc_checkpoints', 'mc_class_assignments', '
     try { db.exec(`ALTER TABLE ${t} RENAME TO legacy_${t}`); } catch { /* already renamed */ }
 }
 
+// Assignment requirements move from one teacher-wide row to per-class
+// columns. All four ALTERs plus the backfill are gated on the first one
+// succeeding, so this only ever runs once per database.
+try {
+    db.prepare("ALTER TABLE classes ADD COLUMN required_activity TEXT NOT NULL DEFAULT 'either'").run();
+    db.prepare('ALTER TABLE classes ADD COLUMN required_kenken_count INTEGER NOT NULL DEFAULT 1').run();
+    db.prepare('ALTER TABLE classes ADD COLUMN required_sat_count INTEGER NOT NULL DEFAULT 1').run();
+    db.prepare('ALTER TABLE classes ADD COLUMN required_sat_math_count INTEGER NOT NULL DEFAULT 1').run();
+    // Carry each teacher's prior teacher-wide requirement into every class
+    // they already have, so switching to per-class doesn't silently reset
+    // anyone's requirements back to the hardcoded default. assignment_settings
+    // is left in place, just unread going forward.
+    db.exec(`
+        UPDATE classes SET
+            required_activity = (SELECT required_activity FROM assignment_settings a WHERE a.teacher_key = classes.teacher_key),
+            required_kenken_count = (SELECT required_kenken_count FROM assignment_settings a WHERE a.teacher_key = classes.teacher_key),
+            required_sat_count = (SELECT required_sat_count FROM assignment_settings a WHERE a.teacher_key = classes.teacher_key),
+            required_sat_math_count = (SELECT required_sat_math_count FROM assignment_settings a WHERE a.teacher_key = classes.teacher_key)
+        WHERE teacher_key IN (SELECT teacher_key FROM assignment_settings)
+    `);
+} catch { /* already migrated */ }
+
 function upsertUser(userKey, email) {
     db.prepare(
         'INSERT OR IGNORE INTO users(user_key, email, first_seen) VALUES(?, ?, ?)'
