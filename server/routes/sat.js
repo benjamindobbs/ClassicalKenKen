@@ -8,18 +8,20 @@ router.use(requireAuth);
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const ACCURACY_THRESHOLD = 0.70;
 const MIN_ATTEMPTS = 5; // require this many attempts before advancing difficulty
+const VALID_ASSESSMENTS = new Set(['sat', 'psat-nmsqt', 'psat89']);
 
-// POST /api/sat/score  { correct, domainIdx, skill, difficulty }
+// POST /api/sat/score  { correct, domainIdx, skill, difficulty, assessment }
 router.post('/score', (req, res) => {
-    const { correct, domainIdx, skill = '', difficulty } = req.body;
+    const { correct, domainIdx, skill = '', difficulty, assessment } = req.body;
     if (correct == null || domainIdx == null || !difficulty) {
         return res.status(400).json({ error: 'correct, domainIdx, and difficulty required' });
     }
+    const asmt = VALID_ASSESSMENTS.has(assessment) ? assessment : 'unknown';
 
     db.prepare(
-        `INSERT INTO sat_scores(user_key, correct, domain_idx, skill, difficulty, submitted_at)
-         VALUES(?, ?, ?, ?, ?, ?)`
-    ).run(req.userKey, correct ? 1 : 0, Number(domainIdx), skill, difficulty, Date.now());
+        `INSERT INTO sat_scores(user_key, correct, domain_idx, skill, difficulty, assessment, submitted_at)
+         VALUES(?, ?, ?, ?, ?, ?, ?)`
+    ).run(req.userKey, correct ? 1 : 0, Number(domainIdx), skill, difficulty, asmt, Date.now());
 
     res.json({ ok: true });
 });

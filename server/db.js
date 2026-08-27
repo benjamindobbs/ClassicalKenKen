@@ -863,6 +863,34 @@ try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_credential_max_s
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_holistic_max_score REAL NOT NULL DEFAULT 20').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN wbl_transfer_max_score REAL NOT NULL DEFAULT 10').run(); } catch { /* already exists */ }
 
+// SAT scores gain an assessment tag: 'sat' | 'psat-nmsqt' | 'psat89' | 'unknown'.
+// New submissions send it; existing rows are backfilled from the assessment_type
+// of the class each student currently belongs to (most recently created, if the
+// student is on several rosters). Students in no class stay 'unknown'. The
+// backfill is gated on the ALTER succeeding, so it runs once per database.
+try {
+    db.prepare("ALTER TABLE sat_scores ADD COLUMN assessment TEXT NOT NULL DEFAULT 'unknown'").run();
+    db.exec(`
+        UPDATE sat_scores SET assessment = COALESCE((
+            SELECT c.assessment_type FROM class_students cs
+            JOIN classes c ON c.id = cs.class_id
+            WHERE cs.user_key = sat_scores.user_key
+            ORDER BY c.created_at DESC LIMIT 1
+        ), 'unknown')
+    `);
+} catch { /* already migrated */ }
+try {
+    db.prepare("ALTER TABLE sat_math_scores ADD COLUMN assessment TEXT NOT NULL DEFAULT 'unknown'").run();
+    db.exec(`
+        UPDATE sat_math_scores SET assessment = COALESCE((
+            SELECT c.assessment_type FROM class_students cs
+            JOIN classes c ON c.id = cs.class_id
+            WHERE cs.user_key = sat_math_scores.user_key
+            ORDER BY c.created_at DESC LIMIT 1
+        ), 'unknown')
+    `);
+} catch { /* already migrated */ }
+
 // Microcredentials/Daily Rubric are retired, superseded by WBL (see
 // WBL_Schema_Design.md §11). Renamed rather than dropped so the data survives
 // as an inert audit trail — nothing reads legacy_* at runtime.

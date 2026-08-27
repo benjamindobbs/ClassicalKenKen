@@ -2,7 +2,7 @@ function onSignedIn() {
     initDailyProgress('sat');
 }
 
-async function writeScore(correct, domainIdx, skill, difficulty) {
+async function writeScore(correct, domainIdx, skill, difficulty, assessment) {
     if (localMode) {
         document.getElementById('submitMessage').innerHTML = 'Local mode — score not saved';
         return;
@@ -10,7 +10,7 @@ async function writeScore(correct, domainIdx, skill, difficulty) {
     try {
         await authFetch('/api/sat/score', {
             method: 'POST',
-            body: JSON.stringify({ correct: correct ? 1 : 0, domainIdx, skill, difficulty }),
+            body: JSON.stringify({ correct: correct ? 1 : 0, domainIdx, skill, difficulty, assessment }),
         });
         if (correct) refreshDailyProgress('sat');
     } catch (err) {

@@ -137,7 +137,8 @@ function submit() {
         correct ? 1 : 0,
         currentDomainIdx,
         question.Skill || '',
-        question.Difficulty || currentDifficulty
+        question.Difficulty || currentDifficulty,
+        assessmentType
     );
 
     if (!correct) {

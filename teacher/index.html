@@ -61,9 +61,26 @@
             .kk-row .chart-card { margin-bottom: 0; }
             .leaderboard-card { height: auto; max-height: 340px; }
         }
-        .bar-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
+        .bar-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
         .bar-legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #334155; }
         .bar-legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+        /* Assessment toggle + drill-down controls on the accuracy bar charts */
+        .bar-asmt-toggle { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
+        .bar-asmt-toggle button {
+            padding: 0.3rem 0.7rem; font-size: 0.75rem; font-family: inherit; line-height: 1;
+            border: 1px solid var(--border); background: #fff; color: #475569;
+            border-radius: 9999px; cursor: pointer;
+        }
+        .bar-asmt-toggle button:hover { background: #f1f5f9; }
+        .bar-asmt-toggle button.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+        .bar-drill-back {
+            display: inline-flex; align-items: center; gap: 0.25rem; padding: 0; margin: 0;
+            background: none; border: none; color: #2563eb; font-size: 0.8125rem;
+            font-family: inherit; cursor: pointer;
+        }
+        .bar-drill-back:hover { text-decoration: underline; }
+        .bar-drill-hint { font-size: 0.75rem; color: #94a3b8; }
         .chart-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.875rem; }
 
         /* Classes tab */
@@ -286,12 +303,13 @@
                 <div class="chart-card"><canvas id="all-sat-line-chart"></canvas></div>
 
                 <div class="section-title">SAT English Accuracy by Domain &amp; Skill</div>
-                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                 <div class="date-range-row">
                     <label>From</label><input type="date" id="all-bar-from" />
                     <label>to</label><input type="date" id="all-bar-to" />
-                    <button class="btn btn-outline btn-sm" onclick="renderAllBarChart()">Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('all-sat-bar-chart')">Apply</button>
                 </div>
+                <div class="bar-asmt-toggle" id="all-sat-bar-chart-toggle"></div>
                 <div class="bar-legend" id="all-bar-legend"></div>
                 <div class="chart-card"><canvas id="all-sat-bar-chart"></canvas></div>
 
@@ -305,12 +323,13 @@
                 <div class="chart-card"><canvas id="all-math-line-chart"></canvas></div>
 
                 <div class="section-title">SAT Math Accuracy by Domain &amp; Skill</div>
-                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                 <div class="date-range-row">
                     <label>From</label><input type="date" id="all-math-bar-from" />
                     <label>to</label><input type="date" id="all-math-bar-to" />
-                    <button class="btn btn-outline btn-sm" onclick="renderAllMathBarChart()">Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('all-math-bar-chart')">Apply</button>
                 </div>
+                <div class="bar-asmt-toggle" id="all-math-bar-chart-toggle"></div>
                 <div class="bar-legend" id="all-math-bar-legend"></div>
                 <div class="chart-card"><canvas id="all-math-bar-chart"></canvas></div>
             </div>
@@ -344,12 +363,13 @@
                     <div class="chart-card"><canvas id="line-chart"></canvas></div>
 
                     <div class="section-title">SAT Accuracy by Domain &amp; Skill</div>
-                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                     <div class="date-range-row">
                         <label>From</label><input type="date" id="bar-from" />
                         <label>to</label><input type="date" id="bar-to" />
-                        <button class="btn btn-outline btn-sm" onclick="renderStudentBarChart()">Apply</button>
+                        <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('bar-chart')">Apply</button>
                     </div>
+                    <div class="bar-asmt-toggle" id="bar-chart-toggle"></div>
                     <div class="bar-legend" id="bar-legend"></div>
                     <div class="chart-card"><canvas id="bar-chart"></canvas></div>
 
@@ -363,12 +383,13 @@
                     <div class="chart-card"><canvas id="math-line-chart"></canvas></div>
 
                     <div class="section-title">SAT Math Accuracy by Domain &amp; Skill</div>
-                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                    <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                     <div class="date-range-row">
                         <label>From</label><input type="date" id="math-bar-from" />
                         <label>to</label><input type="date" id="math-bar-to" />
-                        <button class="btn btn-outline btn-sm" onclick="renderStudentMathBarChart()">Apply</button>
+                        <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('math-bar-chart')">Apply</button>
                     </div>
+                    <div class="bar-asmt-toggle" id="math-bar-chart-toggle"></div>
                     <div class="bar-legend" id="math-bar-legend"></div>
                     <div class="chart-card"><canvas id="math-bar-chart"></canvas></div>
 
@@ -945,19 +966,90 @@
             });
         }
 
-        function buildSATBarChart(canvasId, rows, fromId, toId, legendId, domains) {
-            const DOMAINS = domains || DOMAIN_DISPLAY;
-            destroyChart(canvasId);
-            const from = document.getElementById(fromId)?.value || '';
-            const to   = document.getElementById(toId)?.value   || '';
-            const filtered = rows.filter(r => {
-                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
-                return (!from || d >= from) && (!to || d <= to);
-            });
+        // ── Accuracy bar charts: two levels (domain → skill-by-difficulty),
+        // with a per-chart assessment filter. State is kept per canvas so the
+        // date-range Apply and the toggle preserve the drill-down position. ──
+        const BAR_ASMT_BUCKETS = [
+            { key: 'all',        label: 'All' },
+            { key: 'psat89',     label: 'PSAT 8/9' },
+            { key: 'psat-nmsqt', label: 'PSAT 10/NMSQT' },
+            { key: 'sat',        label: 'SAT' },
+        ];
+        const BAR_DIFF_ORDER = ['Easy', 'Medium', 'Hard'];
+        const BAR_DIFF_ALPHA = { Easy: 0.9, Medium: 0.55, Hard: 0.32, Other: 0.2 };
+        const barState = {};
 
-            const domainSkillMap = {};
-            const domainTotals  = {};
-            const domainCorrect = {};
+        // Mount / remount in a fresh context (tab, lookup, class). Resets the
+        // drill-down and the assessment filter, then (re)builds the toggle.
+        function buildSATBarChart(canvasId, rows, fromId, toId, legendId, domains) {
+            const st = barState[canvasId] || (barState[canvasId] = {});
+            st.rows = rows;
+            st.fromId = fromId;
+            st.toId = toId;
+            st.legendId = legendId;
+            st.DOMAINS = domains || DOMAIN_DISPLAY;
+            st.assessment = 'all';
+            st.drill = null;
+            renderBarToggle(canvasId);
+            renderBarChart(canvasId);
+        }
+
+        // Re-render keeping the toggle + drill state (date-range Apply buttons).
+        function refreshSATBarChart(canvasId) {
+            if (barState[canvasId]) renderBarChart(canvasId);
+        }
+
+        function renderBarToggle(canvasId) {
+            const el = document.getElementById(canvasId + '-toggle');
+            if (!el) return;
+            const st = barState[canvasId];
+            el.innerHTML = BAR_ASMT_BUCKETS.map(b =>
+                `<button class="${b.key === st.assessment ? 'active' : ''}" ` +
+                `onclick="setBarAssessment('${canvasId}','${b.key}')">${b.label}</button>`
+            ).join('');
+        }
+
+        function setBarAssessment(canvasId, key) {
+            const st = barState[canvasId];
+            if (!st) return;
+            st.assessment = key;
+            renderBarToggle(canvasId);
+            renderBarChart(canvasId);
+        }
+
+        function setBarDrill(canvasId, domainIdx) {
+            const st = barState[canvasId];
+            if (!st) return;
+            st.drill = domainIdx;   // null returns to the domain overview
+            renderBarChart(canvasId);
+        }
+
+        function barFilteredRows(canvasId) {
+            const st = barState[canvasId];
+            const from = document.getElementById(st.fromId)?.value || '';
+            const to   = document.getElementById(st.toId)?.value   || '';
+            return st.rows.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
+                if (from && d < from) return false;
+                if (to && d > to) return false;
+                if (st.assessment !== 'all' && (r.assessment || 'unknown') !== st.assessment) return false;
+                return true;
+            });
+        }
+
+        function renderBarChart(canvasId) {
+            destroyChart(canvasId);
+            const st = barState[canvasId];
+            if (st.drill == null) renderBarDomainLevel(canvasId);
+            else                  renderBarSkillLevel(canvasId);
+        }
+
+        function renderBarDomainLevel(canvasId) {
+            const st = barState[canvasId];
+            const DOMAINS = st.DOMAINS;
+            const filtered = barFilteredRows(canvasId);
+
+            const domainSkillMap = {}, domainTotals = {}, domainCorrect = {};
             filtered.forEach(r => {
                 const di = Number(r.domain_idx);
                 const sk = r.skill || 'Unknown';
@@ -969,14 +1061,11 @@
                 domainCorrect[di] = (domainCorrect[di] || 0) + Number(r.correct);
             });
 
-            const alphas    = [1.0, 0.65, 0.42, 0.28];
-            const datasets  = [];
-            const legendItems = [];
-
+            const alphas = [1.0, 0.65, 0.42, 0.28];
+            const datasets = [], legendItems = [];
             DOMAINS.forEach((_, di) => {
-                const skills = Object.keys(domainSkillMap[di] || {});
-                const total  = domainTotals[di] || 1;
-                skills.forEach((sk, si) => {
+                const total = domainTotals[di] || 1;
+                Object.keys(domainSkillMap[di] || {}).forEach((sk, si) => {
                     const cell  = domainSkillMap[di][sk];
                     const value = Math.round(cell.correct / total * 100);
                     const alpha = alphas[si] ?? 0.2;
@@ -994,20 +1083,19 @@
                 });
             });
 
-            // Second tick line per domain, so the sample size behind each bar
-            // is visible without hovering.
             const domainTick = (_v, i) => [DOMAINS[i], `n = ${domainTotals[i] || 0}`];
             const domainFoot = items => {
-                const di = items[0].dataIndex;
-                const n  = domainTotals[di] || 0;
+                const di = items[0].dataIndex, n = domainTotals[di] || 0;
                 const acc = n ? Math.round((domainCorrect[di] || 0) / n * 100) : 0;
                 return `${DOMAINS[di]}: ${acc}% overall · n = ${n}`;
             };
 
-            if (legendId) {
-                document.getElementById(legendId).innerHTML = legendItems.map(it =>
-                    `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
-                ).join('');
+            if (st.legendId) {
+                document.getElementById(st.legendId).innerHTML =
+                    `<span class="bar-drill-hint">Click a domain bar to break it down by skill &amp; difficulty</span>` +
+                    legendItems.map(it =>
+                        `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${esc(it.label)}</span>`
+                    ).join('');
             }
 
             const ctx = document.getElementById(canvasId).getContext('2d');
@@ -1016,6 +1104,8 @@
                 data: { labels: DOMAINS, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    onClick: (_e, els) => { if (els.length) setBarDrill(canvasId, els[0].index); },
+                    onHover: (_e, els, chart) => { chart.canvas.style.cursor = els.length ? 'pointer' : 'default'; },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -1028,6 +1118,92 @@
                     },
                     scales: {
                         x: { stacked: true, ticks: { callback: domainTick } },
+                        y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                    },
+                },
+            });
+        }
+
+        function renderBarSkillLevel(canvasId) {
+            const st = barState[canvasId];
+            const DOMAINS = st.DOMAINS;
+            const di = st.drill;
+            const rows = barFilteredRows(canvasId).filter(r => Number(r.domain_idx) === di);
+
+            // skill -> { total, correct, diffs: { <difficulty>: { total, correct } } }
+            const skillMap = {};
+            rows.forEach(r => {
+                const sk = r.skill || 'Unknown';
+                if (!skillMap[sk]) skillMap[sk] = { total: 0, correct: 0, diffs: {} };
+                skillMap[sk].total += 1;
+                skillMap[sk].correct += Number(r.correct);
+                const df = BAR_DIFF_ORDER.includes(r.difficulty) ? r.difficulty : 'Other';
+                if (!skillMap[sk].diffs[df]) skillMap[sk].diffs[df] = { total: 0, correct: 0 };
+                skillMap[sk].diffs[df].total += 1;
+                skillMap[sk].diffs[df].correct += Number(r.correct);
+            });
+
+            const skills = Object.keys(skillMap).sort();
+            const diffKeys = [...BAR_DIFF_ORDER, 'Other'].filter(df => skills.some(sk => skillMap[sk].diffs[df]));
+            const baseColor = DOMAIN_COLORS[di] || '#64748b';
+
+            const datasets = diffKeys.map(df => ({
+                label: df,
+                // Segment height = this difficulty's contribution to the skill's
+                // overall accuracy, so Easy+Medium+Hard stack to the skill bar.
+                data: skills.map(sk => {
+                    const d = skillMap[sk].diffs[df];
+                    return d ? Math.round(d.correct / skillMap[sk].total * 100) : null;
+                }),
+                backgroundColor: hexToRgba(baseColor, BAR_DIFF_ALPHA[df] ?? 0.3),
+                borderColor: hexToRgba(baseColor, Math.min(1, (BAR_DIFF_ALPHA[df] ?? 0.3) + 0.2)),
+                borderWidth: 1, borderRadius: 2,
+                _stats: skills.map(sk => {
+                    const d = skillMap[sk].diffs[df];
+                    return d ? { dTot: d.total, dCor: d.correct, skTot: skillMap[sk].total, skCor: skillMap[sk].correct } : null;
+                }),
+            }));
+
+            const skillTick = (_v, i) => [skills[i], `n = ${skillMap[skills[i]] ? skillMap[skills[i]].total : 0}`];
+            const skillFoot = items => {
+                const s = skillMap[skills[items[0].dataIndex]];
+                if (!s) return '';
+                const acc = s.total ? Math.round(s.correct / s.total * 100) : 0;
+                return `${skills[items[0].dataIndex]}: ${acc}% overall · n = ${s.total}`;
+            };
+            const segLabel = i => {
+                const stat = i.dataset._stats[i.dataIndex];
+                if (!stat) return null;
+                const diffAcc = stat.dTot ? Math.round(stat.dCor / stat.dTot * 100) : 0;
+                const makeup  = stat.skCor ? Math.round(stat.dCor / stat.skCor * 100) : 0;
+                return `${i.dataset.label}: ${diffAcc}% accuracy (n = ${stat.dTot}) · ${makeup}% of bar`;
+            };
+
+            if (st.legendId) {
+                document.getElementById(st.legendId).innerHTML =
+                    `<button class="bar-drill-back" onclick="setBarDrill('${canvasId}', null)">&#8592; All domains</button>` +
+                    `<span class="bar-drill-hint">${esc(DOMAINS[di] || ('Domain ' + di))} &mdash; skills by difficulty</span>` +
+                    diffKeys.map(df =>
+                        `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${hexToRgba(baseColor, BAR_DIFF_ALPHA[df] ?? 0.3)}"></span>${df}</span>`
+                    ).join('');
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: skills, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    onHover: (_e, _els, chart) => { chart.canvas.style.cursor = 'default'; },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            filter: i => i.raw !== null,
+                            callbacks: { label: segLabel, footer: skillFoot },
+                        },
+                    },
+                    scales: {
+                        x: { stacked: true, ticks: { callback: skillTick } },
                         y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
                     },
                 },
@@ -1349,12 +1525,13 @@
                 <div class="chart-card"><canvas id="class-line-chart"></canvas></div>
 
                 <div class="section-title">Class SAT Accuracy by Domain &amp; Skill</div>
-                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                 <div class="date-range-row">
                     <label>From</label><input type="date" id="class-bar-from" />
                     <label>to</label><input type="date" id="class-bar-to" />
-                    <button class="btn btn-outline btn-sm" onclick="renderClassBarChart()">Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('class-bar-chart')">Apply</button>
                 </div>
+                <div class="bar-asmt-toggle" id="class-bar-chart-toggle"></div>
                 <div class="bar-legend" id="class-bar-legend"></div>
                 <div class="chart-card"><canvas id="class-bar-chart"></canvas></div>
 
@@ -1368,12 +1545,13 @@
                 <div class="chart-card"><canvas id="class-math-line-chart"></canvas></div>
 
                 <div class="section-title">Class SAT Math Accuracy by Domain &amp; Skill</div>
-                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution.</p>
+                <p class="lookup-note">Bar height = domain accuracy %. Each segment is one skill&rsquo;s contribution. Click a domain bar to break it down by skill and difficulty.</p>
                 <div class="date-range-row">
                     <label>From</label><input type="date" id="class-math-bar-from" />
                     <label>to</label><input type="date" id="class-math-bar-to" />
-                    <button class="btn btn-outline btn-sm" onclick="renderClassMathBarChart()">Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="refreshSATBarChart('class-math-bar-chart')">Apply</button>
                 </div>
+                <div class="bar-asmt-toggle" id="class-math-bar-chart-toggle"></div>
                 <div class="bar-legend" id="class-math-bar-legend"></div>
                 <div class="chart-card"><canvas id="class-math-bar-chart"></canvas></div>
             ` : '';
