@@ -1264,7 +1264,7 @@ router.get('/me/credentials', requireAuth, (req, res) => {
 router.get('/me/work-events', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
     const jobs = db.prepare(`
-        SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.status,
+        SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.description, we.status,
                we.opened_on, we.program_id, wp.phase_at_start
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id

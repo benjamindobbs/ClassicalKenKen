@@ -646,6 +646,7 @@
                                 <span class="wbl-job-title">${wblEsc(j.title)}</span>
                                 <span class="wbl-job-dates">Since ${wblEsc(j.opened_on)}</span>
                             </div>
+                            ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
                             ${j.coworkers.length ? `
                                 <select style="margin-top:0.5rem">
                                     <option>On this job with you (${j.coworkers.length})</option>
