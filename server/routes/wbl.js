@@ -1263,20 +1263,32 @@ router.get('/me/credentials', requireAuth, (req, res) => {
 
 router.get('/me/work-events', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
-    res.json(db.prepare(`
+    const jobs = db.prepare(`
         SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.status,
                we.opened_on, we.program_id, wp.phase_at_start
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id
-        WHERE wp.student_id = ? AND we.status = 'active'
+        WHERE wp.student_id = ? AND we.status = 'active' AND wp.left_on IS NULL
         ORDER BY we.opened_on DESC
-    `).all(s.student_id));
+    `).all(s.student_id);
+    const coworkers = db.prepare(`
+        SELECT (SELECT student_name FROM class_students cs
+                 WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name
+        FROM wbl_work_event_participants wp
+        WHERE wp.work_event_id = ? AND wp.student_id != ? AND wp.left_on IS NULL
+        ORDER BY student_name
+    `);
+    res.json(jobs.map(j => ({
+        ...j,
+        coworkers: coworkers.all(j.work_event_id, s.student_id).map(r => r.student_name).filter(Boolean),
+    })));
 });
 
-// Every job a student has been on, with the verdict they received on each —
-// the QC trail and Holistic Output Call, the two lenses students otherwise
-// have no way to see. Rationale is left out: that's teacher-facing framing
-// language, not the record a student needs.
+// Every completed job a student has been on, with the verdict they received
+// on each — the QC trail and Holistic Output Call, the two lenses students
+// otherwise have no way to see. Rationale is left out: that's teacher-facing
+// framing language, not the record a student needs. Active jobs surface
+// separately at the top of the page via /me/work-events instead.
 router.get('/me/work-history', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
     const events = db.prepare(`
@@ -1285,7 +1297,7 @@ router.get('/me/work-history', requireAuth, (req, res) => {
                (SELECT name FROM wbl_programs WHERE id = we.program_id) AS program_name
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id
-        WHERE wp.student_id = ?
+        WHERE wp.student_id = ? AND we.status = 'complete'
         ORDER BY we.opened_on DESC
     `).all(s.student_id);
     const holistic = db.prepare(`

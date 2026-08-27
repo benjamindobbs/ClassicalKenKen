@@ -155,6 +155,7 @@
             <!-- Work-Based Learning: Do Now / Exit Slip -->
             <div id="wbl-section" style="display:none">
                 <div class="section-heading">Work-Based Learning</div>
+                <div id="wbl-active-jobs"></div>
                 <div class="wbl-prog-row">
                     <select id="wbl-program" onchange="loadWblDay()"></select>
                     <span id="wbl-phase-tag"></span>
@@ -622,8 +623,38 @@
             sel.innerHTML = wblMe.programs.map(p => `<option value="${p.id}">${wblEsc(p.name)}</option>`).join('');
             sel.parentElement.style.display = wblMe.programs.length > 1 ? '' : 'none';
             renderWblCredentials();
+            loadWblActiveJobs();
             loadWblDay();
             loadWblHistory();
+        }
+
+        // ── Active jobs — surfaced at the top of the page, across every
+        // program the student is in, since a job needs attention regardless
+        // of which program tab happens to be selected.
+        async function loadWblActiveJobs() {
+            let jobs;
+            try { jobs = await wblApi('GET', '/me/work-events'); }
+            catch { jobs = []; }
+            const el = document.getElementById('wbl-active-jobs');
+            if (!jobs.length) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+                <div class="wbl-card" style="border-left:3px solid #2563eb">
+                    <p class="wbl-card-title">Active Job${jobs.length > 1 ? 's' : ''}</p>
+                    ${jobs.map(j => `
+                        <div class="wbl-job">
+                            <div class="wbl-job-head">
+                                <span class="wbl-job-title">${wblEsc(j.title)}</span>
+                                <span class="wbl-job-dates">Since ${wblEsc(j.opened_on)}</span>
+                            </div>
+                            ${j.coworkers.length ? `
+                                <select style="margin-top:0.5rem">
+                                    <option>On this job with you (${j.coworkers.length})</option>
+                                    ${j.coworkers.map(n => `<option>${wblEsc(n)}</option>`).join('')}
+                                </select>
+                            ` : `<p class="wbl-card-sub" style="margin:0.35rem 0 0">You're the only one on this job right now.</p>`}
+                        </div>
+                    `).join('')}
+                </div>`;
         }
 
         const wblProgram = () => wblMe.programs.find(p => String(p.id) === document.getElementById('wbl-program').value)
@@ -943,7 +974,7 @@
                         <div class="wbl-job">
                             <div class="wbl-job-head">
                                 <span class="wbl-job-title">${wblEsc(j.title)}</span>
-                                <span class="wbl-job-dates">${wblEsc(j.opened_on)} &rarr; ${wblEsc(j.closed_on || 'in progress')}</span>
+                                <span class="wbl-job-dates">${wblEsc(j.opened_on)} &rarr; ${wblEsc(j.closed_on)}</span>
                             </div>
                             ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
                             ${j.holistic ? `
