@@ -2701,9 +2701,10 @@
         async function wblSyncRoster() {
             const r = await wblApi('POST', `/programs/${wblProgramId()}/roster/sync`);
             alert(r.classes
-                ? `Synced ${r.classes} linked class(es) — ${r.enrolled} newly enrolled.`
+                ? `Synced ${r.classes} linked class(es) — ${r.enrolled} newly enrolled, ${r.exited} exited (no longer on a linked class roster).`
                 : 'No classes linked to this program yet. Link one under Catalog first.');
             await loadWblPrograms();
+            await loadWblRoster();
         }
 
         // Shared by the New/Edit Work Event modals. Purely advisory — the

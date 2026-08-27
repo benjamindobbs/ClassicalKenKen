@@ -181,7 +181,33 @@ router.post('/programs/:id/roster/sync', requireTeacher, (req, res) => {
     const classes = db.prepare('SELECT class_id FROM wbl_class_programs WHERE program_id = ?').all(p.id);
     let enrolled = 0;
     for (const { class_id } of classes) enrolled += syncClassEnrollment(p.id, class_id);
-    res.json({ ok: true, enrolled, classes: classes.length });
+
+    // A student no longer on ANY linked class's roster (schedule change,
+    // dropped the course, etc.) is exited the same way losing a class link
+    // exits them — enrollment tracks whether a path in still exists, not
+    // which specific class it came through. Never deletes: awards, phase,
+    // and pathway_year persist, and a later re-add reactivates them above.
+    const stillLinked = new Set(
+        db.prepare(`
+            SELECT DISTINCT cs.student_id FROM class_students cs
+            JOIN wbl_class_programs cp ON cp.class_id = cs.class_id
+            WHERE cp.program_id = ?
+        `).all(p.id).map(r => normalizeStudentId(r.student_id))
+    );
+    const active = db.prepare(
+        'SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL'
+    ).all(p.id);
+    const exit = db.prepare(`
+        UPDATE wbl_program_enrollments SET exited_on = ?, exit_reason = 'not on a linked class roster', updated_at = ?
+        WHERE program_id = ? AND student_id = ? AND exited_on IS NULL
+    `);
+    let exited = 0;
+    for (const { student_id } of active) {
+        if (stillLinked.has(student_id)) continue;
+        exited += exit.run(L.today(), now(), p.id, student_id).changes;
+    }
+
+    res.json({ ok: true, enrolled, exited, classes: classes.length });
 });
 
 // Enrolled roster grouped by class period — backs the work event participant
