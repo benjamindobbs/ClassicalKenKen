@@ -139,9 +139,11 @@
             letter-spacing:.04em; color:#64748b; margin-bottom:0.4rem; }
         .wbl-modal label.wbl-field { display:block; font-size:0.8125rem; color:#334155; margin-bottom:0.9rem; }
         .wbl-modal label.wbl-field > span { display:block; margin-bottom:0.3rem; font-weight:600; }
-        .wbl-modal input[type=text], .wbl-modal input[type=date], .wbl-modal textarea {
+        .wbl-modal input[type=text], .wbl-modal input[type=date], .wbl-modal textarea, .wbl-modal select.wbl-pp-select {
             width:100%; padding:0.5rem 0.6rem; border:1px solid #cbd5e1; border-radius:6px;
             font-size:0.875rem; font-family:inherit; box-sizing:border-box; }
+        .wbl-modal select.wbl-pp-select[multiple] option { padding:0.2rem 0.1rem; }
+        .wbl-modal small.wbl-pp-hint { display:block; margin-top:0.3rem; font-size:0.75rem; color:#94a3b8; }
         .wbl-modal textarea { resize:vertical; min-height:4.5rem; }
         .wbl-check-row   { display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; font-size:0.875rem; }
         .wbl-check-row label { flex:1; cursor:pointer; }
@@ -2833,10 +2835,30 @@
                 return alert('No classes linked to this program yet — link one under Catalog first.');
             }
             const already = new Set(we.participants.map(p => p.student_id));
-            wblOpenModal(`
-                <h3>Add Participants</h3>
-                <div id="wbl-pp-groups">
-                    ${byClass.map(c => `
+
+            // One linked class: the familiar checkbox list. Several linked
+            // classes: a multi-select per class, headed by the class name, so
+            // the picker stays short when a program spans multiple periods
+            // while still allowing several students per class in one go.
+            const body = byClass.length > 1
+                ? byClass.map(c => {
+                    const opts = c.students.filter(s => !already.has(s.student_id));
+                    if (!opts.length) {
+                        return `
+                        <label class="wbl-field"><span>${wblEsc(c.class_name)}</span>
+                            <select class="wbl-pp-select" disabled><option>No students available</option></select>
+                        </label>`;
+                    }
+                    return `
+                        <label class="wbl-field"><span>${wblEsc(c.class_name)}</span>
+                            <select class="wbl-pp-select" data-class="${c.class_id}" multiple
+                                    size="${Math.min(Math.max(opts.length, 2), 8)}">
+                                ${opts.map(s => `<option value="${s.student_id}">${wblEsc(s.student_name)}</option>`).join('')}
+                            </select>
+                            <small class="wbl-pp-hint">Ctrl/Cmd- or shift-click to pick several</small>
+                        </label>`;
+                }).join('')
+                : byClass.map(c => `
                         <div class="wbl-modal-group">
                             <div class="wbl-modal-group-title">${wblEsc(c.class_name)}</div>
                             ${c.students.length ? c.students.map(s => `
@@ -2846,7 +2868,12 @@
                                     <label for="wbl-pp-${s.student_id}">${wblEsc(s.student_name)}${already.has(s.student_id) ? ' <span class="wbl-pill">already on this job</span>' : ''}</label>
                                 </div>`).join('')
                                 : '<div class="wbl-empty" style="padding:0.25rem 0">No enrolled students in this class.</div>'}
-                        </div>`).join('')}
+                        </div>`).join('');
+
+            wblOpenModal(`
+                <h3>Add Participants</h3>
+                <div id="wbl-pp-groups">
+                    ${body}
                 </div>
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
@@ -2856,14 +2883,19 @@
         }
 
         async function wblSaveParticipants(weId) {
-            const checked = [...document.querySelectorAll('#wbl-pp-groups input[type=checkbox]:checked:not(:disabled)')];
-            if (!checked.length) return wblCloseModal();
+            // Both pickers coexist: checkboxes for the single-class layout, one
+            // multi-select per class for the multi-class layout.
             const byClass = new Map();
-            for (const box of checked) {
-                const cid = box.dataset.class;
-                if (!byClass.has(cid)) byClass.set(cid, []);
-                byClass.get(cid).push(box.value);
-            }
+            const add = (classId, studentId) => {
+                if (!classId || !studentId) return;
+                if (!byClass.has(classId)) byClass.set(classId, []);
+                byClass.get(classId).push(studentId);
+            };
+            document.querySelectorAll('#wbl-pp-groups input[type=checkbox]:checked:not(:disabled)')
+                .forEach(el => add(el.dataset.class, el.value));
+            document.querySelectorAll('#wbl-pp-groups select.wbl-pp-select')
+                .forEach(el => [...el.selectedOptions].forEach(o => add(el.dataset.class, o.value)));
+            if (!byClass.size) return wblCloseModal();
             for (const [classId, student_ids] of byClass) {
                 await wblApi('POST', `/work-events/${weId}/participants`, { class_id: Number(classId), student_ids });
             }
