@@ -526,39 +526,57 @@
                 const d = new Date(r.submitted_at).toISOString().slice(0,10);
                 return (!from || d >= from) && (!to || d <= to);
             });
-            const domainSkillMap = {}, domainTotals = {};
+            const domainSkillMap = {}, domainTotals = {}, domainCorrect = {};
             rows.forEach(r => {
                 const di = Number(r.domain_idx), sk = r.skill || 'Unknown';
                 if (!domainSkillMap[di]) domainSkillMap[di] = {};
-                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0, total: 0 };
                 domainSkillMap[di][sk].correct += Number(r.correct);
-                domainTotals[di] = (domainTotals[di] || 0) + 1;
+                domainSkillMap[di][sk].total  += 1;
+                domainTotals[di]  = (domainTotals[di]  || 0) + 1;
+                domainCorrect[di] = (domainCorrect[di] || 0) + Number(r.correct);
             });
             const alphas = [1.0, 0.65, 0.42, 0.28], datasets = [], legendItems = [];
             DOMAIN_DISPLAY.forEach((_, di) => {
                 const skills = Object.keys(domainSkillMap[di] || {});
                 const total  = domainTotals[di] || 1;
                 skills.forEach((sk, si) => {
-                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const cell  = domainSkillMap[di][sk];
+                    const value = Math.round(cell.correct / total * 100);
                     const alpha = alphas[si] ?? 0.2;
                     const bg    = hexToRgba(DOMAIN_COLORS[di], alpha);
                     datasets.push({ label: sk, data: DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
                         backgroundColor: bg, borderColor: hexToRgba(DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
-                        borderWidth: 1, borderRadius: 2 });
+                        borderWidth: 1, borderRadius: 2,
+                        skillN: cell.total, skillAcc: Math.round(cell.correct / cell.total * 100) });
                     legendItems.push({ label: sk, color: bg });
                 });
             });
             document.getElementById('bar-legend').innerHTML = legendItems.map(it =>
                 `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
             ).join('');
+            // n behind each domain bar, shown as a second x-axis tick line and
+            // in the tooltip footer.
+            const domainTick = (_v, i) => [DOMAIN_DISPLAY[i], `n = ${domainTotals[i] || 0}`];
+            const domainFoot = items => {
+                const di = items[0].dataIndex, n = domainTotals[di] || 0;
+                const acc = n ? Math.round((domainCorrect[di] || 0) / n * 100) : 0;
+                return `${DOMAIN_DISPLAY[di]}: ${acc}% overall · n = ${n}`;
+            };
             const ctx = document.getElementById('sat-bar-chart').getContext('2d');
             chartInst['sat-bar-chart'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels: DOMAIN_DISPLAY, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } } },
-                    scales: { x: { stacked: true }, y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } } },
+                    plugins: { legend: { display: false }, tooltip: {
+                        filter: i => i.raw !== null,
+                        callbacks: {
+                            label: i => `${i.dataset.label}: ${i.dataset.skillAcc}% correct (n = ${i.dataset.skillN})`,
+                            footer: domainFoot,
+                        },
+                    } },
+                    scales: { x: { stacked: true, ticks: { callback: domainTick } }, y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } } },
                 },
             });
         }
@@ -612,39 +630,55 @@
                 const d = new Date(r.submitted_at).toISOString().slice(0,10);
                 return (!from || d >= from) && (!to || d <= to);
             });
-            const domainSkillMap = {}, domainTotals = {};
+            const domainSkillMap = {}, domainTotals = {}, domainCorrect = {};
             rows.forEach(r => {
                 const di = Number(r.domain_idx), sk = r.skill || 'Unknown';
                 if (!domainSkillMap[di]) domainSkillMap[di] = {};
-                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0, total: 0 };
                 domainSkillMap[di][sk].correct += Number(r.correct);
-                domainTotals[di] = (domainTotals[di] || 0) + 1;
+                domainSkillMap[di][sk].total  += 1;
+                domainTotals[di]  = (domainTotals[di]  || 0) + 1;
+                domainCorrect[di] = (domainCorrect[di] || 0) + Number(r.correct);
             });
             const alphas = [1.0, 0.65, 0.42, 0.28], datasets = [], legendItems = [];
             MATH_DOMAIN_DISPLAY.forEach((_, di) => {
                 const skills = Object.keys(domainSkillMap[di] || {});
                 const total  = domainTotals[di] || 1;
                 skills.forEach((sk, si) => {
-                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const cell  = domainSkillMap[di][sk];
+                    const value = Math.round(cell.correct / total * 100);
                     const alpha = alphas[si] ?? 0.2;
                     const bg    = hexToRgba(MATH_DOMAIN_COLORS[di], alpha);
                     datasets.push({ label: sk, data: MATH_DOMAIN_DISPLAY.map((_, dj) => dj === di ? value : null),
                         backgroundColor: bg, borderColor: hexToRgba(MATH_DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
-                        borderWidth: 1, borderRadius: 2 });
+                        borderWidth: 1, borderRadius: 2,
+                        skillN: cell.total, skillAcc: Math.round(cell.correct / cell.total * 100) });
                     legendItems.push({ label: sk, color: bg });
                 });
             });
             document.getElementById('math-bar-legend').innerHTML = legendItems.map(it =>
                 `<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${it.color}"></span>${it.label}</span>`
             ).join('');
+            const domainTick = (_v, i) => [MATH_DOMAIN_DISPLAY[i], `n = ${domainTotals[i] || 0}`];
+            const domainFoot = items => {
+                const di = items[0].dataIndex, n = domainTotals[di] || 0;
+                const acc = n ? Math.round((domainCorrect[di] || 0) / n * 100) : 0;
+                return `${MATH_DOMAIN_DISPLAY[di]}: ${acc}% overall · n = ${n}`;
+            };
             const ctx = document.getElementById('math-bar-chart').getContext('2d');
             chartInst['math-bar-chart'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels: MATH_DOMAIN_DISPLAY, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } } },
-                    scales: { x: { stacked: true }, y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } } },
+                    plugins: { legend: { display: false }, tooltip: {
+                        filter: i => i.raw !== null,
+                        callbacks: {
+                            label: i => `${i.dataset.label}: ${i.dataset.skillAcc}% correct (n = ${i.dataset.skillN})`,
+                            footer: domainFoot,
+                        },
+                    } },
+                    scales: { x: { stacked: true, ticks: { callback: domainTick } }, y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } } },
                 },
             });
         }

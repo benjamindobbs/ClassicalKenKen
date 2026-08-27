@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { randomUUID } = require('crypto');
 const { db } = require('../db');
 const { requireTeacher, verifyTeacherToken } = require('../teacherAuth');
+const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 
 const router = Router();
 
@@ -372,6 +373,17 @@ router.get('/data', requireTeacher, (_req, res) => {
         'SELECT ms.*, u.email FROM sat_math_scores ms JOIN users u ON ms.user_key = u.user_key ORDER BY ms.submitted_at DESC'
     ).all();
     res.json({ users, kenken, sat, sat_math });
+});
+
+// GET /api/teacher/kenken-leaderboard — top 10 average KenKen scores among
+// students actively enrolled in a class. One row per student.
+router.get('/kenken-leaderboard', requireTeacher, (_req, res) => {
+    res.json(kenkenLeaderboard(10).map((r, i) => ({
+        rank:      i + 1,
+        name:      firstNameLastInitial(r.student_name),
+        avg_score: Math.round(r.avg_score),
+        games:     r.games,
+    })));
 });
 
 // ── Question report management ───────────────────────────────────────────────

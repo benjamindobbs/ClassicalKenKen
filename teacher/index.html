@@ -39,6 +39,28 @@
         /* Charts */
         .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2.5rem; position: relative; height: 320px; }
         .lookup-note { color: #64748b; font-size: 0.875rem; margin: 0.25rem 0 0.75rem; }
+
+        /* KenKen row: score-over-time chart beside the student leaderboard */
+        .kk-row { display: flex; gap: 1.25rem; align-items: stretch; margin-bottom: 2.5rem; }
+        .kk-row .chart-card { flex: 1 1 64%; min-width: 0; margin-bottom: 0; }
+        .leaderboard-card { flex: 1 1 36%; min-width: 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; height: 320px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .leaderboard-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 0 0 0.15rem; }
+        .leaderboard-sub { font-size: 0.75rem; color: #94a3b8; margin: 0 0 0.6rem; }
+        .leaderboard-scroll { flex: 1; overflow-y: auto; margin: 0 -0.35rem; }
+        .lb-table { width: 100%; border-collapse: collapse; border: none; margin: 0; font-size: 0.8125rem; }
+        .lb-table td { padding: 0.4rem 0.35rem; border: none; border-bottom: 1px solid var(--border); color: #334155; }
+        .lb-table tr:last-child td { border-bottom: none; }
+        .lb-table tbody tr:nth-child(even) { background: none; }
+        .lb-table .lb-rank { width: 1.75rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .lb-table .lb-score { text-align: right; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .lb-table .lb-games { text-align: right; width: 3.5rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .lb-empty { font-size: 0.8125rem; color: #94a3b8; padding: 1rem 0.35rem; }
+
+        @media (max-width: 860px) {
+            .kk-row { flex-direction: column; }
+            .kk-row .chart-card { margin-bottom: 0; }
+            .leaderboard-card { height: auto; max-height: 340px; }
+        }
         .bar-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
         .bar-legend-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: #334155; }
         .bar-legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
@@ -243,7 +265,16 @@
                     <label>to</label><input type="date" id="all-kenken-to" />
                     <button class="btn btn-outline btn-sm" onclick="renderAllKenKenChart()">Apply</button>
                 </div>
-                <div class="chart-card"><canvas id="all-kenken-chart"></canvas></div>
+                <div class="kk-row">
+                    <div class="chart-card"><canvas id="all-kenken-chart"></canvas></div>
+                    <div class="leaderboard-card">
+                        <p class="leaderboard-title">Student Leaderboard</p>
+                        <p class="leaderboard-sub">Top 10 average scores &middot; enrolled students</p>
+                        <div class="leaderboard-scroll">
+                            <table class="lb-table"><tbody id="all-kk-leaderboard-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="section-title">SAT English Accuracy Over Time</div>
                 <p class="lookup-note">Accuracy % per domain per day across all students.</p>
@@ -727,10 +758,31 @@
             document.getElementById('all-math-bar-to').value    = syTo;
 
             renderAllKenKenChart();
+            loadAllKenKenLeaderboard();
             renderAllSATLineChart();
             renderAllBarChart();
             renderAllMathLineChart();
             renderAllMathBarChart();
+        }
+
+        async function loadAllKenKenLeaderboard() {
+            const body = document.getElementById('all-kk-leaderboard-body');
+            let rows = [];
+            try {
+                const res = await teacherFetch('/api/teacher/kenken-leaderboard');
+                if (res.ok) rows = await res.json();
+            } catch { /* leave empty */ }
+            if (!rows.length) {
+                body.innerHTML = '<tr><td class="lb-empty">No scores yet.</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(r => `
+                <tr>
+                    <td class="lb-rank">${r.rank}</td>
+                    <td class="lb-name">${esc(r.name)}</td>
+                    <td class="lb-games">n=${r.games}</td>
+                    <td class="lb-score">${r.avg_score}</td>
+                </tr>`).join('');
         }
 
         function renderAllKenKenChart()  { buildKenKenChart('all-kenken-chart', rawData.kenken, 'all-kenken-from', 'all-kenken-to'); }
@@ -905,13 +957,16 @@
 
             const domainSkillMap = {};
             const domainTotals  = {};
+            const domainCorrect = {};
             filtered.forEach(r => {
                 const di = Number(r.domain_idx);
                 const sk = r.skill || 'Unknown';
                 if (!domainSkillMap[di]) domainSkillMap[di] = {};
-                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0 };
+                if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0, total: 0 };
                 domainSkillMap[di][sk].correct += Number(r.correct);
-                domainTotals[di] = (domainTotals[di] || 0) + 1;
+                domainSkillMap[di][sk].total  += 1;
+                domainTotals[di]  = (domainTotals[di]  || 0) + 1;
+                domainCorrect[di] = (domainCorrect[di] || 0) + Number(r.correct);
             });
 
             const alphas    = [1.0, 0.65, 0.42, 0.28];
@@ -922,7 +977,8 @@
                 const skills = Object.keys(domainSkillMap[di] || {});
                 const total  = domainTotals[di] || 1;
                 skills.forEach((sk, si) => {
-                    const value = Math.round(domainSkillMap[di][sk].correct / total * 100);
+                    const cell  = domainSkillMap[di][sk];
+                    const value = Math.round(cell.correct / total * 100);
                     const alpha = alphas[si] ?? 0.2;
                     const bg    = hexToRgba(DOMAIN_COLORS[di], alpha);
                     datasets.push({
@@ -931,10 +987,22 @@
                         backgroundColor: bg,
                         borderColor: hexToRgba(DOMAIN_COLORS[di], Math.min(1, alpha + 0.2)),
                         borderWidth: 1, borderRadius: 2,
+                        skillN: cell.total,
+                        skillAcc: Math.round(cell.correct / cell.total * 100),
                     });
                     legendItems.push({ label: sk, color: bg });
                 });
             });
+
+            // Second tick line per domain, so the sample size behind each bar
+            // is visible without hovering.
+            const domainTick = (_v, i) => [DOMAINS[i], `n = ${domainTotals[i] || 0}`];
+            const domainFoot = items => {
+                const di = items[0].dataIndex;
+                const n  = domainTotals[di] || 0;
+                const acc = n ? Math.round((domainCorrect[di] || 0) / n * 100) : 0;
+                return `${DOMAINS[di]}: ${acc}% overall · n = ${n}`;
+            };
 
             if (legendId) {
                 document.getElementById(legendId).innerHTML = legendItems.map(it =>
@@ -950,10 +1018,16 @@
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        tooltip: { callbacks: { label: i => i.raw !== null ? `${i.dataset.label}: ${i.raw}%` : null } },
+                        tooltip: {
+                            filter: i => i.raw !== null,
+                            callbacks: {
+                                label: i => `${i.dataset.label}: ${i.dataset.skillAcc}% correct (n = ${i.dataset.skillN})`,
+                                footer: domainFoot,
+                            },
+                        },
                     },
                     scales: {
-                        x: { stacked: true },
+                        x: { stacked: true, ticks: { callback: domainTick } },
                         y: { stacked: true, min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
                     },
                 },
