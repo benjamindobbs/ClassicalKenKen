@@ -70,6 +70,11 @@
         .wbl-phase-tag.p1 { background:#f1f5f9; color:#475569; }
         .wbl-phase-tag.p2 { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
 
+        /* Active jobs grouped by program (multi-program students only) */
+        .wbl-prog-group { border-top:1px solid var(--border); margin-top:0.9rem; padding-top:0.75rem; }
+        .wbl-prog-group:first-of-type { border-top:none; margin-top:0.25rem; padding-top:0; }
+        .wbl-prog-group-head { font-size:0.8125rem; font-weight:700; color:#0f172a; margin:0 0 0.35rem; }
+
         /* Dispositional skill picker */
         .wbl-picks      { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; }
         .wbl-pick       { display:flex; align-items:flex-start; gap:0.625rem; padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
@@ -682,30 +687,56 @@
         // ── Active jobs — surfaced at the top of the page, across every
         // program the student is in, since a job needs attention regardless
         // of which program tab happens to be selected.
+        function wblActiveJobRow(j) {
+            return `
+                <div class="wbl-job">
+                    <div class="wbl-job-head">
+                        <span class="wbl-job-title">${wblEsc(j.title)}</span>
+                        <span class="wbl-job-dates">Since ${wblEsc(j.opened_on)}</span>
+                    </div>
+                    ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
+                    ${j.coworkers.length ? `
+                        <select style="margin-top:0.5rem">
+                            <option>On this job with you (${j.coworkers.length})</option>
+                            ${j.coworkers.map(n => `<option>${wblEsc(n)}</option>`).join('')}
+                        </select>
+                    ` : `<p class="wbl-card-sub" style="margin:0.35rem 0 0">You're the only one on this job right now.</p>`}
+                </div>`;
+        }
+
         async function loadWblActiveJobs() {
             let jobs;
             try { jobs = await wblApi('GET', '/me/work-events'); }
             catch { jobs = []; }
             const el = document.getElementById('wbl-active-jobs');
             if (!jobs.length) { el.innerHTML = ''; return; }
+
+            // Students in more than one program get a titled section per program
+            // (ordered by name); programs with no active job are omitted. A
+            // single-program student keeps the flat list — the header would just
+            // repeat the one program tab already shown below.
+            let inner;
+            if ((wblMe?.programs?.length || 0) > 1) {
+                const groups = new Map();
+                for (const j of jobs) {
+                    if (!groups.has(j.program_id)) groups.set(j.program_id, { name: j.program_name, jobs: [] });
+                    groups.get(j.program_id).jobs.push(j);
+                }
+                inner = [...groups.values()]
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                    .map(g => `
+                        <div class="wbl-prog-group">
+                            <p class="wbl-prog-group-head">${wblEsc(g.name)}</p>
+                            ${g.jobs.map(wblActiveJobRow).join('')}
+                        </div>`).join('');
+            } else {
+                inner = jobs.map(wblActiveJobRow).join('');
+            }
+
             el.innerHTML = `
                 <div class="wbl-card" style="border-left:3px solid #2563eb">
                     <p class="wbl-card-title">Active Job${jobs.length > 1 ? 's' : ''}</p>
-                    ${jobs.map(j => `
-                        <div class="wbl-job">
-                            <div class="wbl-job-head">
-                                <span class="wbl-job-title">${wblEsc(j.title)}</span>
-                                <span class="wbl-job-dates">Since ${wblEsc(j.opened_on)}</span>
-                            </div>
-                            ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
-                            ${j.coworkers.length ? `
-                                <select style="margin-top:0.5rem">
-                                    <option>On this job with you (${j.coworkers.length})</option>
-                                    ${j.coworkers.map(n => `<option>${wblEsc(n)}</option>`).join('')}
-                                </select>
-                            ` : `<p class="wbl-card-sub" style="margin:0.35rem 0 0">You're the only one on this job right now.</p>`}
-                        </div>
-                    `).join('')}
+                    ${inner}
                 </div>`;
         }
 
