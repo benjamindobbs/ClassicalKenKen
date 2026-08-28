@@ -2465,6 +2465,7 @@
 
         async function openWblEvent(id) {
             const w = await wblApi('GET', `/work-events/${id}`);
+            wblRoster = { eventId: w.id, ids: w.participants.map(p => p.id) };
             document.getElementById('wbl-event-detail').innerHTML = `
                 <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)}</div>
                 <p class="lookup-note" style="margin:0 0 0.25rem">
@@ -2513,6 +2514,13 @@
 
         // ── The three-lens participant screen ─────────────────────────────────
         let wblP = null;   // currently open participant payload
+        let wblRoster = { eventId: null, ids: [] };   // ordered participant ids for the "Next Student" cycle
+
+        async function wblEnsureRoster(weId) {
+            if (wblRoster.eventId === weId) return;
+            const w = await wblApi('GET', `/work-events/${weId}`);
+            wblRoster = { eventId: weId, ids: w.participants.map(p => p.id) };
+        }
 
         async function openWblParticipant(pid) {
             wblP = await wblApi('GET', `/participants/${pid}`);
@@ -2520,7 +2528,22 @@
             const qcCrit = await wblApi('GET', `/programs/${wblP.participant.program_id}/qc-criteria`);
             wblP.catalogSkills = skills.filter(s => s.status === 'published');
             wblP.qcCriteria    = qcCrit;
+            await wblEnsureRoster(wblP.participant.work_event_id);
             renderWblParticipant();
+        }
+
+        function wblNextParticipant() {
+            const ids = wblRoster.ids;
+            const i = ids.indexOf(wblP.participant.id);
+            if (i === -1 || ids.length < 2) return;
+            openWblParticipant(ids[(i + 1) % ids.length]);
+        }
+
+        function wblPrevParticipant() {
+            const ids = wblRoster.ids;
+            const i = ids.indexOf(wblP.participant.id);
+            if (i === -1 || ids.length < 2) return;
+            openWblParticipant(ids[(i - 1 + ids.length) % ids.length]);
         }
 
         function renderWblParticipant() {
@@ -2538,7 +2561,14 @@
             const checkedThisWeek = wblP.qc_checks.some(c => c.iso_week === wblIsoWeek(wblToday()));
 
             host.innerHTML = `
-                <button class="wbl-back" onclick="closeWblParticipant()">&larr; Back to work events</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+                    <button class="wbl-back" style="margin-bottom:0" onclick="closeWblParticipant()">&larr; Back to work events</button>
+                    ${wblRoster.eventId === p.work_event_id && wblRoster.ids.length > 1
+                        ? `<span>
+                            <button class="wbl-back" style="margin-bottom:0" onclick="wblPrevParticipant()">&larr; Previous Student</button>
+                            <button class="wbl-back" style="margin-bottom:0;margin-left:1rem" onclick="wblNextParticipant()">Next Student &rarr;</button>
+                           </span>` : ''}
+                </div>
                 <div class="detail-header">
                     <div class="detail-title">${wblEsc(p.student_name || p.student_id)} · ${wblEsc(p.event_title)}</div>
                     <span class="wbl-phase wbl-phase-${wblP.phase_now}">Phase ${wblP.phase_now} now</span>
