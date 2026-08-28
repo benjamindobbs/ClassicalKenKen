@@ -318,6 +318,7 @@ router.get('/programs/:id/unassigned', requireTeacher, (req, res) => {
             SELECT 1 FROM wbl_work_event_participants wep
             JOIN wbl_work_events we ON we.id = wep.work_event_id
             WHERE wep.student_id = e.student_id AND we.program_id = e.program_id
+              AND we.status = 'active'
               AND wep.joined_on <= ? AND (wep.left_on IS NULL OR wep.left_on >= ?)
           )
         ORDER BY student_name
