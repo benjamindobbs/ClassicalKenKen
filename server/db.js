@@ -788,6 +788,40 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_wbl_tc_pending           ON wbl_transfer_claims(program_id) WHERE verdict IS NULL;
 `);
 
+// Skill Checks: a standing, teacher-credited skill demonstration with no
+// Work Event or Holistic Call attached (e.g. verifying a whole roster can
+// "coat a screen" outside of any job). Presence of a row = credited; there
+// is no revoked_at — uncrediting is a DELETE, the same mutability precedent
+// as wbl_skill_assessments and wbl_holistic_calls (only Exit Slips are
+// append-only/immutable in this schema). skill_version_id is pinned at
+// credit time for the same reason wbl_skill_assessments pins one.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_skill_checks (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id        INTEGER NOT NULL REFERENCES wbl_programs(id),
+        student_id        TEXT    NOT NULL,
+        skill_id          INTEGER NOT NULL REFERENCES wbl_skills(id),
+        skill_version_id  INTEGER NOT NULL REFERENCES wbl_skill_versions(id),
+        note              TEXT    NOT NULL DEFAULT '',
+        checked_by        TEXT    NOT NULL,
+        checked_at        INTEGER NOT NULL,
+        updated_at        INTEGER NOT NULL,
+        UNIQUE(program_id, student_id, skill_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wbl_skill_checks_student ON wbl_skill_checks(program_id, student_id, skill_id);
+
+    -- Evidence snapshot for a credential award that rests (partly) on a Skill
+    -- Check rather than a Work Event assessment — parallel to
+    -- wbl_award_evidence, kept as its own table rather than loosening
+    -- wbl_award_evidence.assessment_id to nullable on an existing table.
+    CREATE TABLE IF NOT EXISTS wbl_award_skill_check_evidence (
+        award_id       INTEGER NOT NULL REFERENCES wbl_credential_awards(id),
+        skill_id       INTEGER NOT NULL,
+        skill_check_id INTEGER NOT NULL REFERENCES wbl_skill_checks(id),
+        PRIMARY KEY (award_id, skill_check_id)
+    );
+`);
+
 // Invariants the framework rests on, enforced by the database. Triggers fire
 // regardless of the foreign_keys pragma, unlike REFERENCES above.
 db.exec(`

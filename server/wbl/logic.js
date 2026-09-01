@@ -116,18 +116,32 @@ function credentialProgress(credentialId, programId, studentId) {
         ORDER BY sa.assessed_at
     `).all(programId, studentId, minRank);
 
+    // Skill Checks: a standing, out-of-Work-Event credit with no Holistic
+    // Call to gate against — crediting one IS the instructor directly
+    // attesting mastery, so it always counts, unconditionally. The UNIQUE
+    // constraint on wbl_skill_checks caps this at one per (program, student,
+    // skill), so it contributes at most one demonstration.
+    const checks = db.prepare(
+        'SELECT id, skill_id FROM wbl_skill_checks WHERE program_id = ? AND student_id = ?'
+    ).all(programId, studentId);
+
     const skills = reqs.map(r => {
         const mine = qualifying.filter(q => q.skill_id === r.skill_id);
         // "under varying conditions" — count distinct Work Events, not rows.
         const byEvent = new Map();
         for (const q of mine) if (!byEvent.has(q.work_event_id)) byEvent.set(q.work_event_id, q);
-        const demos = byEvent.size;
+        const check = checks.find(c => c.skill_id === r.skill_id);
+        const demos = byEvent.size + (check ? 1 : 0);
+        const evidence = [
+            ...[...byEvent.values()].map(e => ({ type: 'assessment', assessment_id: e.assessment_id })),
+            ...(check ? [{ type: 'skill_check', skill_check_id: check.id }] : []),
+        ].slice(0, r.required_demonstrations);
         return {
             skill_id: r.skill_id,
             required: r.required_demonstrations,
             demos,
             satisfied: demos >= r.required_demonstrations,
-            evidence: [...byEvent.values()].slice(0, r.required_demonstrations),
+            evidence,
         };
     });
 
@@ -163,13 +177,21 @@ function recomputeAttainment(programId, studentId, earnedInClassId = null) {
             VALUES(?, ?, ?, ?, ?, 'auto')
         `).run(c.id, programId, studentId, earnedInClassId, Date.now());
 
-        // Snapshot the satisfying assessments: a credential must rest on a
-        // defensible trail that survives later catalog edits.
-        const ev = db.prepare(
+        // Snapshot the satisfying evidence: a credential must rest on a
+        // defensible trail that survives later catalog edits. Evidence is
+        // tagged by source — a Work Event assessment or a standing Skill
+        // Check — since the two live in separate tables.
+        const evAssessment = db.prepare(
             'INSERT OR IGNORE INTO wbl_award_evidence(award_id, skill_id, assessment_id) VALUES(?, ?, ?)'
         );
+        const evCheck = db.prepare(
+            'INSERT OR IGNORE INTO wbl_award_skill_check_evidence(award_id, skill_id, skill_check_id) VALUES(?, ?, ?)'
+        );
         for (const s of prog.skills) {
-            for (const e of s.evidence) ev.run(info.lastInsertRowid, s.skill_id, e.assessment_id);
+            for (const e of s.evidence) {
+                if (e.type === 'skill_check') evCheck.run(info.lastInsertRowid, s.skill_id, e.skill_check_id);
+                else evAssessment.run(info.lastInsertRowid, s.skill_id, e.assessment_id);
+            }
         }
         awarded.push(c.id);
     }

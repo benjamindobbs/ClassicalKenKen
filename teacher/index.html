@@ -417,6 +417,7 @@
                 <div id="wbl-main">
                     <div class="wbl-subbar">
                         <button class="wbl-subbtn active" id="wbl-sub-btn-roster"   onclick="wblSwitchSub('roster')">Roster</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-skillchecks" onclick="wblSwitchSub('skillchecks')">Skill Checks</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-events"   onclick="wblSwitchSub('events')">Work Events</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-rotation" onclick="wblSwitchSub('rotation')">QC Rotation</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-exitslips" onclick="wblSwitchSub('exitslips')">Exit Slips</button>
@@ -443,6 +444,19 @@
                             docks a student's attendance-derived holistic score.
                         </p>
                         <div id="wbl-roster-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-skillchecks" style="display:none">
+                        <div class="classes-header">
+                            <div class="section-title" style="margin:0">Skill Checks</div>
+                            <select id="wbl-sc-skill-select" onchange="renderWblSkillChecks()"></select>
+                        </div>
+                        <p class="lookup-note">
+                            Credits a skill directly, outside any Work Event or Holistic Call &mdash; for a
+                            standing competency you want to verify across the whole roster at once. Counts as one
+                            demonstration toward any micro-credential requiring this skill.
+                        </p>
+                        <div id="wbl-sc-body"></div>
                     </div>
 
                     <div id="wbl-sub-events" style="display:none">
@@ -2195,7 +2209,7 @@
 
         function wblSwitchSub(name) {
             wblSub = name;
-            ['roster', 'events', 'rotation', 'exitslips', 'catalog'].forEach(s => {
+            ['roster', 'skillchecks', 'events', 'rotation', 'exitslips', 'catalog'].forEach(s => {
                 document.getElementById('wbl-sub-' + s).style.display = s === name ? '' : 'none';
                 document.getElementById('wbl-sub-btn-' + s).classList.toggle('active', s === name);
             });
@@ -2214,7 +2228,8 @@
                     '<div class="wbl-empty">Create a program to begin.</div>';
                 return;
             }
-            if (wblSub === 'roster')    loadWblRoster();
+            if (wblSub === 'roster')      loadWblRoster();
+            if (wblSub === 'skillchecks') loadWblSkillChecks();
             if (wblSub === 'events')    loadWblEvents();
             if (wblSub === 'rotation')  loadWblRotation();
             if (wblSub === 'exitslips') loadWblExitSlips();
@@ -2411,6 +2426,65 @@
             const r = await wblApi('POST', `/programs/${wblProgramId()}/enrollments/roll-year`);
             alert(`Advanced ${r.advanced} student(s).`);
             loadWblRoster();
+        }
+
+        // ── Skill Checks ─────────────────────────────────────────────────────
+        let wblScSkills = [];
+        let wblScRoster = [];
+        let wblScChecks = [];
+
+        async function loadWblSkillChecks() {
+            const pid = wblProgramId();
+            const [roster, skills, checks] = await Promise.all([
+                wblApi('GET', `/programs/${pid}/roster`),
+                wblApi('GET', `/programs/${pid}/skills`),
+                wblApi('GET', `/programs/${pid}/skill-checks`),
+            ]);
+            wblScRoster = roster;
+            wblScSkills = skills.filter(s => s.status === 'published');
+            wblScChecks = checks;
+
+            const sel = document.getElementById('wbl-sc-skill-select');
+            const prev = sel.value;
+            sel.innerHTML = wblScSkills.map(s => `<option value="${s.id}">${wblEsc(s.name)}</option>`).join('');
+            if (prev && wblScSkills.some(s => String(s.id) === prev)) sel.value = prev;
+            renderWblSkillChecks();
+        }
+
+        function renderWblSkillChecks() {
+            const el = document.getElementById('wbl-sc-body');
+            if (!wblScSkills.length) { el.innerHTML = '<div class="wbl-empty">No published skills yet — add one under Catalog.</div>'; return; }
+            if (!wblScRoster.length) { el.innerHTML = '<div class="wbl-empty">No students enrolled yet.</div>'; return; }
+            const skillId = Number(document.getElementById('wbl-sc-skill-select').value);
+            const checked = new Map(
+                wblScChecks.filter(c => c.skill_id === skillId).map(c => [c.student_id, c])
+            );
+            el.innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th><th>Credited</th><th>Credited on</th></tr></thead>
+                    <tbody>${wblScRoster.filter(r => !r.exited_on).map(r => {
+                        const c = checked.get(r.student_id);
+                        return `
+                        <tr>
+                            <td>${wblEsc(r.student_name || r.student_id)}</td>
+                            <td><input type="checkbox" ${c ? 'checked' : ''}
+                                onchange="wblToggleSkillCheck('${wblEsc(r.student_id)}', ${skillId}, this.checked)"></td>
+                            <td>${c ? wblEsc(new Date(c.checked_at).toLocaleDateString()) : '—'}</td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table></div>`;
+        }
+
+        async function wblToggleSkillCheck(studentId, skillId, credited) {
+            const pid = wblProgramId();
+            try {
+                if (credited) await wblApi('PUT', `/programs/${pid}/skill-checks/${studentId}/${skillId}`, {});
+                else await wblApi('DELETE', `/programs/${pid}/skill-checks/${studentId}/${skillId}`);
+            } catch (e) {
+                alert('Could not save: ' + e.message);
+            }
+            loadWblSkillChecks();
         }
 
         // ── Work events ───────────────────────────────────────────────────────

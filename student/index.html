@@ -192,6 +192,7 @@
                 <div id="wbl-exit"></div>
                 <div id="wbl-transfer"></div>
                 <div id="wbl-credentials"></div>
+                <div id="wbl-skillchecks"></div>
                 <div id="wbl-history"></div>
             </div>
 
@@ -713,6 +714,7 @@
             sel.innerHTML = wblMe.programs.map(p => `<option value="${p.id}">${wblEsc(p.name)}</option>`).join('');
             sel.parentElement.style.display = wblMe.programs.length > 1 ? '' : 'none';
             renderWblCredentials();
+            loadWblSkillChecks();
             loadWblActiveJobs();
             loadWblDay();
             loadWblHistory();
@@ -1060,6 +1062,21 @@
                 alert('Claim submitted.');
             }
             renderWblTransfer();
+        }
+
+        async function loadWblSkillChecks() {
+            const rows = await wblApi('GET', '/me/skill-checks');
+            const el = document.getElementById('wbl-skillchecks');
+            if (!rows.length) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Skill Checks</p>
+                    <p class="wbl-card-sub">Skills your instructor has verified you can do.</p>
+                    <div class="wbl-creds">${rows.map(r =>
+                        `<span class="wbl-cred">${wblEsc(r.skill_name)}
+                           <span class="wbl-cred-prog">· ${wblEsc(r.program_name)}</span></span>`).join('')}
+                    </div>
+                </div>`;
         }
 
         function renderWblCredentials() {

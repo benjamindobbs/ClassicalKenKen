@@ -1020,6 +1020,60 @@ router.delete('/work-events/:id/participants/:pid', requireTeacher, (req, res) =
 });
 
 // =============================================================================
+// 4b. Skill Checks — standing credit outside any Work Event
+// =============================================================================
+
+// All skill checks for a program, for the crediting grid's checked state.
+router.get('/programs/:id/skill-checks', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(db.prepare(`
+        SELECT student_id, skill_id, skill_version_id, note, checked_by, checked_at, updated_at
+        FROM wbl_skill_checks WHERE program_id = ?
+    `).all(p.id));
+});
+
+// The client sends skill_id; the server resolves and pins the current
+// version, same as the Work-Event skill assessment route — clients never
+// choose a version.
+router.put('/programs/:id/skill-checks/:studentId/:skillId', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(req.params.studentId);
+    const skillId = Number(req.params.skillId);
+
+    const version = db.prepare(`
+        SELECT v.* FROM wbl_skill_versions v
+        JOIN wbl_skills s ON s.id = v.skill_id
+        WHERE v.skill_id = ? AND v.is_current = 1 AND s.program_id = ?
+    `).get(skillId, p.id);
+    if (!version) return res.status(409).json({ error: 'no_published_version', skill_id: skillId });
+
+    db.prepare(`
+        INSERT INTO wbl_skill_checks
+            (program_id, student_id, skill_id, skill_version_id, note, checked_by, checked_at, updated_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(program_id, student_id, skill_id) DO UPDATE SET
+            skill_version_id = excluded.skill_version_id,
+            note = excluded.note, updated_at = excluded.updated_at
+    `).run(p.id, sid, skillId, version.id, str(req.body?.note), req.teacherKey, now(), now());
+
+    res.json({ ok: true, pinned_version: version.version_no, ...L.recomputeAttainment(p.id, sid) });
+});
+
+// Uncredit. Awards are never revoked automatically — removing a Skill Check
+// does not retroactively un-award a credential already granted from it, the
+// same precedent as a Holistic Call downgrade (see PUT /participants/:id/holistic).
+router.delete('/programs/:id/skill-checks/:studentId/:skillId', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(req.params.studentId);
+    db.prepare('DELETE FROM wbl_skill_checks WHERE program_id = ? AND student_id = ? AND skill_id = ?')
+        .run(p.id, sid, Number(req.params.skillId));
+    res.json({ ok: true });
+});
+
+// =============================================================================
 // 5. Assessment — the three lenses against one participant
 // =============================================================================
 
@@ -1259,6 +1313,22 @@ router.get('/me/credentials', requireAuth, (req, res) => {
         JOIN wbl_programs    p ON p.id = a.program_id
         WHERE a.student_id = ? AND a.revoked_at IS NULL
         ORDER BY p.name, c.name
+    `).all(s.student_id));
+});
+
+// Standing Skill Checks, credited outside any Work Event — a separate
+// category from Credentials, since a credited skill is not itself a
+// finished micro-credential.
+router.get('/me/skill-checks', requireAuth, (req, res) => {
+    const s = me(req, res); if (!s) return;
+    res.json(db.prepare(`
+        SELECT sc.skill_id, v.name AS skill_name, sc.program_id, p.name AS program_name,
+               sc.checked_at, sc.note
+        FROM wbl_skill_checks sc
+        JOIN wbl_programs p ON p.id = sc.program_id
+        JOIN wbl_skill_versions v ON v.id = sc.skill_version_id
+        WHERE sc.student_id = ?
+        ORDER BY sc.checked_at DESC
     `).all(s.student_id));
 });
 
