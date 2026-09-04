@@ -28,6 +28,26 @@ function isoWeek(dateStr) {
 const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const today  = () => new Date().toISOString().slice(0, 10);
 
+// Inclusive count of calendar days between two YYYY-MM-DD strings. Shared by
+// the activity-grade proration (server/routes/teacher.js) and the Habits of
+// Work dispositional average (dispositionalScore below) — one home so the
+// two don't drift apart.
+const dayCount = (a, b) =>
+    Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000) + 1;
+const maxDate = (a, b) => (a > b ? a : b);
+const minDate = (a, b) => (a < b ? a : b);
+
+// Distinct dates a class actually met, from pulled PS attendance
+// (wbl_attendance rows only ever exist for meeting days — PS's own grid
+// never returns a non-meeting date, see the extension's mdToIso comment).
+// Empty when nothing's been pulled for this class/window yet, which is what
+// lets callers fall back to calendar-day counting rather than guessing.
+function meetingDates(classId, start, end) {
+    return db.prepare(
+        'SELECT DISTINCT date FROM wbl_attendance WHERE class_id = ? AND date BETWEEN ? AND ? ORDER BY date'
+    ).all(classId, start, end).map(r => r.date);
+}
+
 // ---------------------------------------------------------------------------
 // Identity and ownership
 // ---------------------------------------------------------------------------
@@ -378,12 +398,114 @@ function attendanceRatio(programId, classId, studentId, from, to) {
     return { ratio: credit / counted, days_counted: counted };
 }
 
+// ---------------------------------------------------------------------------
+// Habits of Work — dispositional scoring (Persistence, Commitment to
+// Excellence, Academic Curiosity)
+// ---------------------------------------------------------------------------
+
+// Cumulative-for-the-marking-period average for one soft skill. `from`/`to`
+// are the effective window already clamped by the caller (mirrors
+// attendanceRatio's contract — this function just computes over the window
+// it's given, same separation of concerns).
+//
+// Per meeting day (meetingDates — school days only, from pulled attendance):
+//   no Do Now submitted at all         → 0 (an opportunity existed, unused)
+//   Do Now submitted, skill not picked → excluded (not this skill's day)
+//   picked, no resulting Exit Slip     → 0 (selected, no follow-through)
+//   resulting Exit Slip, voided        → 0
+//   resulting Exit Slip, unverified    → excluded (student-claimed only,
+//                                         not yet reviewed — doesn't count
+//                                         either way until a teacher rates it)
+//   resulting Exit Slip, rated 0-4     → rating × 25
+// Returns null — not 0 — when there are no meeting days, or no meeting days
+// produced a countable data point at all, so callers can leave the student
+// unscored rather than submit a hollow 0.
+function dispositionalScore(programId, classId, studentId, softSkillCode, from, to) {
+    const dates = meetingDates(classId, from, to);
+    if (!dates.length) return null;
+
+    const doNows = new Map(
+        db.prepare(`
+            SELECT id, date FROM wbl_do_nows
+            WHERE program_id = ? AND student_id = ? AND date BETWEEN ? AND ?
+        `).all(programId, studentId, from, to).map(r => [r.date, r.id])
+    );
+
+    const doNowIds = [...doNows.values()];
+    const pickedDoNowIds = doNowIds.length
+        ? new Set(db.prepare(`
+            SELECT do_now_id FROM wbl_do_now_skills
+            WHERE soft_skill_code = ? AND do_now_id IN (${doNowIds.map(() => '?').join(',')})
+        `).all(softSkillCode, ...doNowIds).map(r => r.do_now_id))
+        : new Set();
+
+    const pickedIds = [...pickedDoNowIds];
+    const slipByDoNow = new Map(
+        (pickedIds.length
+            ? db.prepare(`
+                SELECT id, do_now_id FROM wbl_exit_slips
+                WHERE soft_skill_code = ? AND do_now_id IN (${pickedIds.map(() => '?').join(',')})
+            `).all(softSkillCode, ...pickedIds)
+            : []
+        ).map(s => [s.do_now_id, s])
+    );
+
+    const values = [];
+    for (const date of dates) {
+        const doNowId = doNows.get(date);
+        if (!doNowId) { values.push(0); continue; }
+        if (!pickedDoNowIds.has(doNowId)) continue;
+        const slip = slipByDoNow.get(doNowId);
+        if (!slip) { values.push(0); continue; }
+        if (db.prepare('SELECT 1 FROM wbl_exit_slip_voids WHERE exit_slip_id = ?').get(slip.id)) {
+            values.push(0); continue;
+        }
+        const v = db.prepare(`
+            SELECT rating FROM wbl_exit_slip_verifications
+            WHERE exit_slip_id = ? ORDER BY verified_at DESC LIMIT 1
+        `).get(slip.id);
+        if (!v || v.rating == null) continue;
+        values.push(v.rating * 25);
+    }
+
+    if (!values.length) return null;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+// ---------------------------------------------------------------------------
+// Credential/skill sync lifecycle (Not Started / In Progress / Due)
+// ---------------------------------------------------------------------------
+
+// Loosest "someone has touched this skill" signal — any mastered assessment
+// or standing Skill Check credit from a student on THIS class's roster.
+// Program-wide evidence would leak progress from a different section running
+// the same program; not gated by a credential's Holistic-tier threshold the
+// way credentialProgress's "satisfied" bar is — that's the stricter bar for
+// actually EARNING a demonstration, this is just "is there evidence yet."
+function hasSkillEvidence(programId, classId, skillId) {
+    const studentIds = [...new Set(
+        db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId)
+          .map(r => normalizeStudentId(r.student_id))
+    )];
+    if (!studentIds.length) return false;
+    const placeholders = studentIds.map(() => '?').join(',');
+    const assessed = db.prepare(`
+        SELECT 1 FROM wbl_skill_assessments
+        WHERE program_id = ? AND skill_id = ? AND result = 'mastered' AND student_id IN (${placeholders})
+        LIMIT 1
+    `).get(programId, skillId, ...studentIds);
+    if (assessed) return true;
+    return !!db.prepare(`
+        SELECT 1 FROM wbl_skill_checks WHERE program_id = ? AND skill_id = ? AND student_id IN (${placeholders}) LIMIT 1
+    `).get(programId, skillId, ...studentIds);
+}
+
 module.exports = {
-    isoWeek, isDate, today,
+    isoWeek, isDate, today, dayCount, maxDate, minDate, meetingDates,
     resolveStudent, ownedProgram, ownerOf,
     ensurePhaseRow, effectivePhase, recomputePhase,
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,
-    attendanceRatio,
+    attendanceRatio, dispositionalScore, hasSkillEvidence,
 };

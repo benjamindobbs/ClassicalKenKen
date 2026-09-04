@@ -3,16 +3,16 @@ const { randomUUID } = require('crypto');
 const { db } = require('../db');
 const { requireTeacher, verifyTeacherToken } = require('../teacherAuth');
 const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
+// dayCount/maxDate/minDate/meetingDates live in wbl/logic.js so the activity-
+// grade proration below and the Habits of Work dispositional average share
+// one definition instead of drifting apart.
+const L = require('../wbl/logic');
+const { dayCount, maxDate, minDate, meetingDates } = L;
 
 const router = Router();
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const isDateStr = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
-// Inclusive count of calendar days between two YYYY-MM-DD strings.
-const dayCount = (a, b) =>
-    Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000) + 1;
-const maxDate = (a, b) => (a > b ? a : b);
-const minDate = (a, b) => (a < b ? a : b);
 
 // Exchange a short-lived Google access token for a persistent session token
 router.post('/login', async (req, res) => {
@@ -410,7 +410,13 @@ router.get('/grades', requireTeacher, (req, res) => {
     const maxScore   = settings.assignment_max_score;
     const noSubGrade = Math.round(maxScore * settings.no_submission_score_pct / 100);
 
-    const windowDays = dayCount(start, end);
+    // Meeting-day calendar for this class, when PS attendance has been pulled
+    // for it (server/wbl/logic.js:meetingDates — dates only ever exist there
+    // for days PS actually held class). Falls back to raw calendar-day
+    // counting, unchanged from before, when nothing's been pulled yet — so
+    // this is safe for every class regardless of attendance-pull history.
+    const meetDates  = meetingDates(Number(class_id), start, end);
+    const windowDays = meetDates.length || dayCount(start, end);
 
     const results = students.map(student => {
         // Clamp the grading window to the student's enrollment span. enrolled_on
@@ -427,7 +433,14 @@ router.get('/grades', requireTeacher, (req, res) => {
             };
         }
 
-        const enrolledDays = dayCount(effStart, effEnd);
+        // A real partial-enrollment sub-window should never be skipped or
+        // divided by zero just because attendance happens to carry no rows
+        // in that narrow slice — fall back to a calendar count for it alone
+        // when that happens, even though windowDays above is meeting-day based.
+        const enrolledMeetDays = meetDates.filter(d => d >= effStart && d <= effEnd).length;
+        const enrolledDays = meetDates.length
+            ? (enrolledMeetDays || dayCount(effStart, effEnd))
+            : dayCount(effStart, effEnd);
         const prorate = r => enrolledDays < windowDays
             ? Math.max(1, Math.round(r * enrolledDays / windowDays))
             : r;

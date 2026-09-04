@@ -12,7 +12,25 @@
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\" -Exclude \"node_modules\" -Recurse -File | Where-Object { $_.Extension -in @\\(\".html\", \".css\", \".js\"\\) } | ForEach-Object { $_.FullName })",
       "PowerShell(node --version)",
       "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\\\\server\\\\routes\")",
-      "PowerShell(cd \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"server/index.js\" -PassThru -RedirectStandardOutput \"server_out.txt\" -RedirectStandardError \"server_err.txt\"; Start-Sleep -Seconds 3; $out = Get-Content \"server_out.txt\" -ErrorAction SilentlyContinue; $err = Get-Content \"server_err.txt\" -ErrorAction SilentlyContinue; $proc.Kill\\(\\); Remove-Item \"server_out.txt\",\"server_err.txt\" -ErrorAction SilentlyContinue; Write-Output \"STDOUT: $out\"; Write-Output \"STDERR: $err\")"
+      "PowerShell(cd \"c:\\\\Users\\\\benja\\\\Documents\\\\GitHub\\\\ClassicalKenKen\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"server/index.js\" -PassThru -RedirectStandardOutput \"server_out.txt\" -RedirectStandardError \"server_err.txt\"; Start-Sleep -Seconds 3; $out = Get-Content \"server_out.txt\" -ErrorAction SilentlyContinue; $err = Get-Content \"server_err.txt\" -ErrorAction SilentlyContinue; $proc.Kill\\(\\); Remove-Item \"server_out.txt\",\"server_err.txt\" -ErrorAction SilentlyContinue; Write-Output \"STDOUT: $out\"; Write-Output \"STDERR: $err\")",
+      "Bash(rm -f /tmp/wbl-int.db)",
+      "Bash(DB_PATH=/tmp/wbl-int.db DEV_TEACHER=devteacher PORT=8096 node server/index.js)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:8096/api/teacher/check)",
+      "Bash(DB_PATH=/tmp/wbl-int.db node -e ' *)",
+      "Bash(set +e)",
+      "Bash(curl -s '__TRACKED_VAR__/wbl/sync/habits?class_id=1&term_start=2026-09-08&term_end=2026-09-10')",
+      "Bash(node -e ' *)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%server/index.js%'\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue })",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%server/index.js%'\" | Select-Object ProcessId | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 500; Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%server/index.js%'\")",
+      "Bash(rm -f /tmp/wbl-int.db /tmp/wbl-int.log)",
+      "Bash(cd c:/Users/benja/Documents/GitHub/ClassicalKenKen-Extension && grep -n \"^function \\\\|^async function \" content.js)",
+      "Bash(node -c content.js)",
+      "Bash(node -c server/routes/wbl.js)",
+      "Bash(rm -f /tmp/final-test.db)",
+      "Bash(DB_PATH=/tmp/final-test.db DEV_TEACHER=devteacher PORT=8095 node server/index.js)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:8095/api/teacher/check)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%server/index.js%'\" | Select-Object ProcessId | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue })",
+      "Bash(rm -f /tmp/final-test.db /tmp/final-test.log)"
     ],
     "additionalDirectories": [
       "c:\\Users\\benja\\Documents\\GitHub\\ClassicalKenKen\\KenKen"

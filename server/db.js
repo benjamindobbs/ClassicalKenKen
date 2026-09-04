@@ -963,6 +963,58 @@ try {
     `);
 } catch { /* already migrated */ }
 
+// Per-class credential/skill sync lifecycle, replacing the never-toggled
+// sync_enabled column (it had no route or UI ever writing to it). Every row
+// that exists today came from a completed sync (POST /sync/ids guards on
+// ps_assignment_id being set), so the one-time backfill is unconditional:
+// anything already live in a PS gradebook lands on 'due', not 'not_started',
+// so it doesn't silently vanish from sync. sync_enabled itself is left in
+// place, just unread going forward — dropping it is unnecessary churn.
+try {
+    db.prepare("ALTER TABLE wbl_credential_sync ADD COLUMN state TEXT NOT NULL DEFAULT 'not_started' CHECK(state IN ('not_started','in_progress','due'))").run();
+    db.prepare("ALTER TABLE wbl_credential_skill_sync ADD COLUMN state TEXT NOT NULL DEFAULT 'not_started' CHECK(state IN ('not_started','in_progress','due'))").run();
+    db.exec(`
+        UPDATE wbl_credential_sync SET state = 'due' WHERE ps_assignment_id IS NOT NULL;
+        UPDATE wbl_credential_skill_sync SET state = 'due' WHERE ps_assignment_id IS NOT NULL;
+    `);
+} catch { /* already migrated */ }
+
+// 0-4 rating captured alongside confidence when a teacher verifies/witnesses
+// an Exit Slip — feeds the Habits of Work dispositional average (server/wbl/logic.js).
+// Nullable: a verification row created before this column existed, or (in
+// principle) written by some other path, simply carries no rating.
+try { db.prepare('ALTER TABLE wbl_exit_slip_verifications ADD COLUMN rating INTEGER CHECK(rating BETWEEN 0 AND 4)').run(); } catch { /* already exists */ }
+
+// Habits of Work: one PS-assignment-ID table for all 5 soft skills, keyed by
+// code rather than wbl_transfer_sync's CHECK(kind IN ('application',
+// 'extension')) — that constraint can't be widened in place (SQLite can't
+// ALTER a CHECK), so this is a fresh additive table rather than a migration
+// of the old one. wbl_transfer_sync itself is left in place, unread going
+// forward, same as sync_enabled above.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_habits_sync (
+        soft_skill_code         TEXT    NOT NULL REFERENCES wbl_soft_skills(code),
+        class_id                INTEGER NOT NULL REFERENCES classes(id),
+        ps_assignment_id        TEXT,
+        ps_assignmentsection_id TEXT,
+        PRIMARY KEY (soft_skill_code, class_id)
+    );
+`);
+// Carry over any already-synced Transfer PS assignment IDs so the first
+// Habits of Work sync updates them in place instead of creating duplicates.
+// Idempotent (INSERT OR IGNORE against a PRIMARY KEY), safe to run every start.
+try {
+    db.exec(`
+        INSERT OR IGNORE INTO wbl_habits_sync(soft_skill_code, class_id, ps_assignment_id, ps_assignmentsection_id)
+        SELECT CASE kind
+                   WHEN 'application' THEN 'application_of_previous_knowledge'
+                   WHEN 'extension'   THEN 'extension_of_knowledge'
+               END,
+               class_id, ps_assignment_id, ps_assignmentsection_id
+        FROM wbl_transfer_sync WHERE ps_assignment_id IS NOT NULL
+    `);
+} catch { /* wbl_transfer_sync not present yet on a brand-new DB */ }
+
 function upsertUser(userKey, email) {
     db.prepare(
         'INSERT OR IGNORE INTO users(user_key, email, first_seen) VALUES(?, ?, ?)'

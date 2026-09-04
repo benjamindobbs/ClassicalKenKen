@@ -460,6 +460,68 @@ router.patch('/credentials/:id', requireTeacher, (req, res) => {
     res.json({ ok: true });
 });
 
+const VALID_SYNC_STATES = new Set(['not_started', 'in_progress', 'due']);
+
+// Sets a credential's per-class sync state and cascades it onto every skill
+// it requires — a one-time bulk-set, not a lock. PATCH .../credential-skills/
+// below can still move an individual skill independently afterward (e.g. one
+// skill left In Progress because its Work Event type hasn't run yet, even
+// though the rest of the credential is Due).
+router.patch('/credentials/:id/state', requireTeacher, (req, res) => {
+    if (!owned(req, res, 'credential', req.params.id)) return;
+    const classId = int(req.body?.class_id);
+    const state   = str(req.body?.state);
+    if (!classId) return bad(res, 'class_id required');
+    if (!VALID_SYNC_STATES.has(state)) return bad(res, 'invalid state');
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
+    if (!cls) return nf(res, 'class_not_found');
+
+    const credId = Number(req.params.id);
+    const skillIds = db.prepare('SELECT skill_id FROM wbl_credential_skills WHERE credential_id = ?')
+        .all(credId).map(r => r.skill_id);
+
+    db.exec('BEGIN');
+    try {
+        db.prepare(`
+            INSERT INTO wbl_credential_sync(credential_id, class_id, state) VALUES(?, ?, ?)
+            ON CONFLICT(credential_id, class_id) DO UPDATE SET state = excluded.state
+        `).run(credId, classId, state);
+
+        const cskill = db.prepare(`
+            INSERT INTO wbl_credential_skill_sync(credential_id, skill_id, class_id, state) VALUES(?, ?, ?, ?)
+            ON CONFLICT(credential_id, skill_id, class_id) DO UPDATE SET state = excluded.state
+        `);
+        for (const skillId of skillIds) cskill.run(credId, skillId, classId, state);
+        db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
+
+    res.json({ ok: true, cascaded_skills: skillIds.length });
+});
+
+// Moves one (credential, skill) pair independently — used both for the
+// initial per-skill toggle and to nudge a single skill off whatever a
+// credential-level cascade set it to.
+router.patch('/credential-skills/:credentialId/:skillId/state', requireTeacher, (req, res) => {
+    if (!owned(req, res, 'credential', req.params.credentialId)) return;
+    const classId = int(req.body?.class_id);
+    const state   = str(req.body?.state);
+    if (!classId) return bad(res, 'class_id required');
+    if (!VALID_SYNC_STATES.has(state)) return bad(res, 'invalid state');
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
+    if (!cls) return nf(res, 'class_not_found');
+
+    const credId = Number(req.params.credentialId), skillId = Number(req.params.skillId);
+    const belongs = db.prepare('SELECT 1 FROM wbl_credential_skills WHERE credential_id = ? AND skill_id = ?')
+        .get(credId, skillId);
+    if (!belongs) return nf(res, 'skill_not_required_by_credential');
+
+    db.prepare(`
+        INSERT INTO wbl_credential_skill_sync(credential_id, skill_id, class_id, state) VALUES(?, ?, ?, ?)
+        ON CONFLICT(credential_id, skill_id, class_id) DO UPDATE SET state = excluded.state
+    `).run(credId, skillId, classId, state);
+    res.json({ ok: true });
+});
+
 router.delete('/credentials/:id', requireTeacher, (req, res) => {
     if (!owned(req, res, 'credential', req.params.id)) return;
     const awards = db.prepare('SELECT COUNT(*) n FROM wbl_credential_awards WHERE credential_id = ?')
@@ -1598,14 +1660,20 @@ router.get('/programs/:id/qc-floor', requireTeacher, (req, res) => {
 router.post('/exit-slips/:id/verify', requireTeacher, (req, res) => {
     const confidence = str(req.body?.confidence);
     if (!['instructor_verified', 'instructor_witnessed'].includes(confidence)) return bad(res, 'invalid confidence');
+    // Required together with confidence — the Habits of Work dispositional
+    // average (server/wbl/logic.js:dispositionalScore) treats a verification
+    // with no rating the same as none at all, so this feature has no use for
+    // one existing without the other.
+    const rating = int(req.body?.rating);
+    if (rating == null || !Number.isInteger(rating) || rating < 0 || rating > 4) return bad(res, 'rating (0-4) required');
     const slip = db.prepare(`
         SELECT es.id FROM wbl_exit_slips es
         JOIN wbl_programs p ON p.id = es.program_id
         WHERE es.id = ? AND p.teacher_key = ?
     `).get(Number(req.params.id), req.teacherKey);
     if (!slip) return nf(res, 'exit_slip_not_found');
-    db.prepare(`INSERT INTO wbl_exit_slip_verifications(exit_slip_id, confidence, verified_by, note, verified_at)
-                VALUES(?, ?, ?, ?, ?)`).run(slip.id, confidence, req.teacherKey, str(req.body?.note), now());
+    db.prepare(`INSERT INTO wbl_exit_slip_verifications(exit_slip_id, confidence, verified_by, note, verified_at, rating)
+                VALUES(?, ?, ?, ?, ?, ?)`).run(slip.id, confidence, req.teacherKey, str(req.body?.note), now(), rating);
     res.json({ ok: true });
 });
 
@@ -1653,6 +1721,8 @@ router.get('/programs/:id/exit-slips', requireTeacher, (req, res) => {
                (SELECT student_name FROM class_students cs WHERE cs.student_id = es.student_id LIMIT 1) AS student_name,
                (SELECT confidence FROM wbl_exit_slip_verifications v
                  WHERE v.exit_slip_id = es.id ORDER BY v.verified_at DESC LIMIT 1) AS confidence,
+               (SELECT rating FROM wbl_exit_slip_verifications v
+                 WHERE v.exit_slip_id = es.id ORDER BY v.verified_at DESC LIMIT 1) AS rating,
                (SELECT reason FROM wbl_exit_slip_voids vo WHERE vo.exit_slip_id = es.id) AS void_reason
         FROM wbl_exit_slips es
         WHERE es.program_id = ? ${sid ? 'AND es.student_id = ?' : ''}
@@ -1693,11 +1763,25 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
         'SELECT student_id, student_name FROM class_students WHERE class_id = ? ORDER BY student_name'
     ).all(classId);
 
+    // Lazy auto-promotion: evaluated here, right before this data is read
+    // (viewing the sync panel or about to sync), rather than hooked into
+    // every assessment/skill-check write site — always fresh exactly when it
+    // matters, and credential/skill promotion can never drift out of sync
+    // with each other since both go through the same evaluator.
+    const promoteSkill = db.prepare(`
+        INSERT INTO wbl_credential_skill_sync(credential_id, skill_id, class_id, state) VALUES(?, ?, ?, 'in_progress')
+        ON CONFLICT(credential_id, skill_id, class_id) DO UPDATE SET state = 'in_progress'
+    `);
+    const promoteCredential = db.prepare(`
+        INSERT INTO wbl_credential_sync(credential_id, class_id, state) VALUES(?, ?, 'in_progress')
+        ON CONFLICT(credential_id, class_id) DO UPDATE SET state = 'in_progress'
+    `);
+
     const out = programs.map(p => ({
         program: { id: p.id, name: p.name },
         credentials: db.prepare(`
             SELECT c.id AS credential_id, c.name,
-                   s.ps_assignment_id, s.ps_assignmentsection_id, COALESCE(s.sync_enabled, 1) AS sync_enabled
+                   s.ps_assignment_id, s.ps_assignmentsection_id, COALESCE(s.state, 'not_started') AS state
             FROM wbl_credentials c
             LEFT JOIN wbl_credential_sync s ON s.credential_id = c.id AND s.class_id = ?
             WHERE c.program_id = ? AND c.archived_at IS NULL
@@ -1720,7 +1804,7 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
                 SELECT cs.skill_id, cs.required_demonstrations, cs.order_idx,
                        v.name AS skill_name,
                        s.ps_assignment_id, s.ps_assignmentsection_id,
-                       COALESCE(s.sync_enabled, 1) AS sync_enabled
+                       COALESCE(s.state, 'not_started') AS state
                 FROM wbl_credential_skills cs
                 LEFT JOIN wbl_skill_versions v ON v.skill_id = cs.skill_id AND v.is_current = 1
                 LEFT JOIN wbl_credential_skill_sync s
@@ -1728,6 +1812,17 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
                 WHERE cs.credential_id = ?
                 ORDER BY cs.order_idx
             `).all(classId, c.credential_id);
+
+            for (const r of reqs) {
+                if (r.state === 'not_started' && L.hasSkillEvidence(p.id, classId, r.skill_id)) {
+                    promoteSkill.run(c.credential_id, r.skill_id, classId);
+                    r.state = 'in_progress';
+                }
+            }
+            if (c.state === 'not_started' && reqs.some(r => r.state !== 'not_started')) {
+                promoteCredential.run(c.credential_id, classId);
+                c.state = 'in_progress';
+            }
 
             const perStudent = students.map(s => ({
                 student_id: s.student_id,
@@ -1744,7 +1839,7 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
                     required_demonstrations: r.required_demonstrations,
                     ps_assignment_id: r.ps_assignment_id,
                     ps_assignmentsection_id: r.ps_assignmentsection_id,
-                    sync_enabled: r.sync_enabled,
+                    state: r.state,
                     satisfied: perStudent
                         .filter(ps => ps.skills.find(x => x.skill_id === r.skill_id)?.satisfied)
                         .map(ps => ps.student_id),
@@ -1782,20 +1877,90 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
                 return { student_id: c.student_id, tier: c.tier, rank: c.rank, points_pct, attendance: att };
             }),
         })),
-        transfer: ['application', 'extension'].map(kind => ({
-            kind,
-            ...db.prepare('SELECT ps_assignment_id, ps_assignmentsection_id, sync_enabled FROM wbl_transfer_sync WHERE class_id = ? AND kind = ?')
-                .get(classId, kind) ?? { ps_assignment_id: null, ps_assignmentsection_id: null, sync_enabled: 1 },
-            scores: db.prepare(`
-                SELECT student_id, SUM(COALESCE(score, 0)) AS score, COUNT(*) AS claims
-                FROM wbl_transfer_claims
-                WHERE program_id = ? AND class_id = ? AND kind = ? AND verdict = 'verified'
-                GROUP BY student_id
-            `).all(p.id, classId, kind),
-        })),
+        // Transfer + dispositional soft skills sync via GET /sync/habits
+        // instead (needs the PS marking-period dates this route doesn't take,
+        // and Transfer is gated on Phase 2 — see that route for both).
     }));
 
     res.json({ class_id: classId, students, programs: out });
+});
+
+// Habits of Work: all 5 soft skills (3 dispositional + 2 transfer) in one
+// payload for the extension's single "Sync Habits of Work" click. Needs the
+// PS marking period's real start/end dates as input — the server never talks
+// to PS, so the extension resolves them via its own _termbins lookup and
+// passes them through; there is no teacher-picked date range for this sync,
+// it's always the active term.
+//
+// A transfer kind is omitted from the response ENTIRELY — not included with
+// an empty scores list — until at least one roster student has reached
+// Phase 2, so the extension never creates or touches its PS assignment
+// before then. A still-Phase-1 student never appears in a transfer kind's
+// scores even once it's unlocked for the class (matches the "leave blank,
+// not zero" convention used everywhere else in this sync layer).
+router.get('/sync/habits', requireTeacher, (req, res) => {
+    const classId   = int(req.query.class_id);
+    const termStart = str(req.query.term_start);
+    const termEnd   = str(req.query.term_end);
+    if (!classId) return bad(res, 'class_id required');
+    if (!L.isDate(termStart) || !L.isDate(termEnd)) return bad(res, 'term_start and term_end (YYYY-MM-DD) required');
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
+    if (!cls) return nf(res, 'class_not_found');
+
+    const programs = db.prepare(`
+        SELECT p.* FROM wbl_class_programs cp JOIN wbl_programs p ON p.id = cp.program_id
+        WHERE cp.class_id = ? AND p.teacher_key = ? AND p.archived_at IS NULL
+    `).all(classId, req.teacherKey);
+
+    // class_students carries the raw PS student number (what the extension
+    // needs to match against a live PS roster pull for scoring); every WBL
+    // table is keyed on normalizeStudentId(). Both directions are needed here.
+    const roster = db.prepare(
+        'SELECT student_id, student_name, enrolled_on, exited_on FROM class_students WHERE class_id = ? ORDER BY student_name'
+    ).all(classId);
+    const normToRaw = new Map(roster.map(r => [normalizeStudentId(r.student_id), r.student_id]));
+
+    const softSkills = db.prepare('SELECT code, name, category FROM wbl_soft_skills ORDER BY order_idx').all();
+    const syncIds = code => db.prepare(
+        'SELECT ps_assignment_id, ps_assignmentsection_id FROM wbl_habits_sync WHERE soft_skill_code = ? AND class_id = ?'
+    ).get(code, classId) ?? { ps_assignment_id: null, ps_assignmentsection_id: null };
+
+    const out = programs.map(p => {
+        const habits = [];
+
+        for (const skill of softSkills.filter(s => s.category === 'dispositional')) {
+            const scores = [];
+            for (const r of roster) {
+                const effStart = L.maxDate(termStart, r.enrolled_on || termStart);
+                const effEnd   = L.minDate(termEnd,   r.exited_on   || termEnd);
+                if (effStart > effEnd) continue;
+                const score = L.dispositionalScore(p.id, classId, normalizeStudentId(r.student_id), skill.code, effStart, effEnd);
+                if (score != null) scores.push({ student_id: r.student_id, score });
+            }
+            habits.push({ code: skill.code, name: skill.name, category: skill.category, ...syncIds(skill.code), scores });
+        }
+
+        for (const skill of softSkills.filter(s => s.category === 'transfer')) {
+            const phase2Reached = roster.some(r => L.effectivePhase(p.id, normalizeStudentId(r.student_id)) === 2);
+            if (!phase2Reached) continue;
+
+            const kind = skill.code === 'application_of_previous_knowledge' ? 'application' : 'extension';
+            const scores = db.prepare(`
+                SELECT student_id, SUM(COALESCE(score, 0)) AS score
+                FROM wbl_transfer_claims
+                WHERE program_id = ? AND class_id = ? AND kind = ? AND verdict = 'verified'
+                GROUP BY student_id
+            `).all(p.id, classId, kind)
+              .filter(s => L.effectivePhase(p.id, s.student_id) === 2 && normToRaw.has(s.student_id))
+              .map(s => ({ student_id: normToRaw.get(s.student_id), score: s.score }));
+
+            habits.push({ code: skill.code, name: skill.name, category: skill.category, ...syncIds(skill.code), scores });
+        }
+
+        return { program: { id: p.id, name: p.name }, habits };
+    });
+
+    res.json({ class_id: classId, students: roster, programs: out });
 });
 
 // Mirrors POST /api/teacher/microcredentials/:id/sync-ids: the extension tells
@@ -1808,15 +1973,26 @@ router.post('/sync/ids', requireTeacher, (req, res) => {
     if (!cls) return nf(res, 'class_not_found');
 
     let n = 0;
-    const cred = db.prepare(`INSERT OR REPLACE INTO wbl_credential_sync
-        (credential_id, class_id, ps_assignment_id, ps_assignmentsection_id) VALUES(?, ?, ?, ?)`);
+    // Upsert, not INSERT OR REPLACE: REPLACE deletes the row first, which would
+    // reset `state` back to its column default on every re-sync — silently
+    // un-staging a credential/skill the teacher had already set to Due.
+    const cred = db.prepare(`
+        INSERT INTO wbl_credential_sync(credential_id, class_id, ps_assignment_id, ps_assignmentsection_id)
+        VALUES(?, ?, ?, ?)
+        ON CONFLICT(credential_id, class_id) DO UPDATE SET
+            ps_assignment_id = excluded.ps_assignment_id, ps_assignmentsection_id = excluded.ps_assignmentsection_id
+    `);
     for (const c of req.body?.credentials || []) {
         if (!c.credential_id || !c.ps_assignment_id) continue;
         if (!L.ownerOf('credential', c.credential_id, req.teacherKey)) continue;
         cred.run(int(c.credential_id), classId, String(c.ps_assignment_id), str(c.ps_assignmentsection_id)); n++;
     }
-    const cskill = db.prepare(`INSERT OR REPLACE INTO wbl_credential_skill_sync
-        (credential_id, skill_id, class_id, ps_assignment_id, ps_assignmentsection_id) VALUES(?, ?, ?, ?, ?)`);
+    const cskill = db.prepare(`
+        INSERT INTO wbl_credential_skill_sync(credential_id, skill_id, class_id, ps_assignment_id, ps_assignmentsection_id)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(credential_id, skill_id, class_id) DO UPDATE SET
+            ps_assignment_id = excluded.ps_assignment_id, ps_assignmentsection_id = excluded.ps_assignmentsection_id
+    `);
     for (const s of req.body?.skills || []) {
         if (!s.credential_id || !s.skill_id || !s.ps_assignment_id) continue;
         if (!L.ownerOf('credential', s.credential_id, req.teacherKey)) continue;
@@ -1830,11 +2006,20 @@ router.post('/sync/ids', requireTeacher, (req, res) => {
         if (!L.ownerOf('workEvent', w.work_event_id, req.teacherKey)) continue;
         we.run(int(w.work_event_id), classId, String(w.ps_assignment_id), str(w.ps_assignmentsection_id)); n++;
     }
-    const tr = db.prepare(`INSERT OR REPLACE INTO wbl_transfer_sync
-        (class_id, kind, ps_assignment_id, ps_assignmentsection_id) VALUES(?, ?, ?, ?)`);
-    for (const t of req.body?.transfer || []) {
-        if (!['application', 'extension'].includes(t.kind) || !t.ps_assignment_id) continue;
-        tr.run(classId, t.kind, String(t.ps_assignment_id), str(t.ps_assignmentsection_id)); n++;
+    // Habits of Work — all 5 soft skills (POST /sync/habits' companion write-
+    // back). Superseded wbl_transfer_sync writes; that table stays in place
+    // as the migration source wbl_habits_sync was seeded from, unread going
+    // forward.
+    const habit = db.prepare(`
+        INSERT INTO wbl_habits_sync(soft_skill_code, class_id, ps_assignment_id, ps_assignmentsection_id)
+        VALUES(?, ?, ?, ?)
+        ON CONFLICT(soft_skill_code, class_id) DO UPDATE SET
+            ps_assignment_id = excluded.ps_assignment_id, ps_assignmentsection_id = excluded.ps_assignmentsection_id
+    `);
+    for (const h of req.body?.habits || []) {
+        if (!h.code || !h.ps_assignment_id) continue;
+        if (!db.prepare('SELECT 1 FROM wbl_soft_skills WHERE code = ?').get(h.code)) continue;
+        habit.run(h.code, classId, String(h.ps_assignment_id), str(h.ps_assignmentsection_id)); n++;
     }
     res.json({ ok: true, stored: n });
 });

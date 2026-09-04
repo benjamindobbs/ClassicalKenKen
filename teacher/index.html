@@ -643,7 +643,13 @@
                 <div id="classes-list-view">
                     <div class="classes-header">
                         <span class="section-title" style="margin:0">Classes</span>
-                        <button class="btn btn-outline btn-sm" onclick="toggleNewClassForm()">+ New Class</button>
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <!-- Chrome extension anchor: watches for this id and injects a
+                                 "Sync Attendance from PS" button that pulls for every class here,
+                                 not just ones linked to a WBL program. -->
+                            <span id="classes-attendance-sync"></span>
+                            <button class="btn btn-outline btn-sm" onclick="toggleNewClassForm()">+ New Class</button>
+                        </div>
                     </div>
                     <div id="new-class-form" style="display:none;margin-bottom:1rem">
                         <div class="search-row" style="margin-bottom:0">
@@ -2333,7 +2339,7 @@
                             <td>${s.void_reason
                                 ? `<span class="wbl-pill wbl-pill-bad">voided</span>`
                                 : s.confidence
-                                    ? `<span class="wbl-pill wbl-pill-good">${wblEsc(s.confidence.replace('instructor_', ''))}</span>`
+                                    ? `<span class="wbl-pill wbl-pill-good">${wblEsc(s.confidence.replace('instructor_', ''))}${s.rating != null ? ` · ${s.rating}/4` : ''}</span>`
                                     : `<span class="wbl-pill">student claimed</span>`}</td>
                             <td style="white-space:nowrap">
                                 ${!s.void_reason ? `
@@ -2350,14 +2356,37 @@
             wblOpenModal(`
                 <h3>Verify Reflection</h3>
                 <div class="wbl-tier-row">
-                    <button class="wbl-tier" onclick="wblDoVerify(${id}, 'instructor_verified')">Verified &mdash; I confirmed this happened</button>
-                    <button class="wbl-tier" onclick="wblDoVerify(${id}, 'instructor_witnessed')">Witnessed &mdash; I saw it firsthand</button>
+                    <button class="wbl-tier" onclick="wblPickVerifyTier(${id}, 'instructor_verified')">Verified &mdash; I confirmed this happened</button>
+                    <button class="wbl-tier" onclick="wblPickVerifyTier(${id}, 'instructor_witnessed')">Witnessed &mdash; I saw it firsthand</button>
                 </div>
                 <div class="wbl-modal-actions"><button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button></div>
             `);
         }
-        async function wblDoVerify(id, confidence) {
-            await wblApi('POST', `/exit-slips/${id}/verify`, { confidence });
+
+        // Required alongside the tier — feeds the Habits of Work dispositional
+        // average for this soft skill this marking period (server/wbl/logic.js:
+        // dispositionalScore). A verification with no rating is not a state this
+        // flow allows to be created, so this is a required second step, not an
+        // optional extra.
+        const WBL_RATING_LABELS = ['0 — Not evident', '1 — Minimal', '2 — Developing', '3 — Solid', '4 — Exceptional'];
+        function wblPickVerifyTier(id, confidence) {
+            wblOpenModal(`
+                <h3>Rate this reflection</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Feeds this student's Habits of Work average for this soft skill this marking period.
+                </p>
+                <div class="wbl-tier-row" style="flex-direction:column">
+                    ${WBL_RATING_LABELS.map((label, i) =>
+                        `<button class="wbl-tier" onclick="wblDoVerify(${id}, '${confidence}', ${i})">${label}</button>`).join('')}
+                </div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblVerifyExitSlip(${id})">&larr; Back</button>
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                </div>
+            `);
+        }
+        async function wblDoVerify(id, confidence, rating) {
+            await wblApi('POST', `/exit-slips/${id}/verify`, { confidence, rating });
             wblCloseModal();
             loadWblExitSlips();
         }
