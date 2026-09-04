@@ -882,6 +882,14 @@ db.exec(`
 // One-time migrations
 try { db.prepare('ALTER TABLE classes ADD COLUMN ps_section_id TEXT').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE class_students ADD COLUMN ps_dcid TEXT').run(); } catch { /* already exists */ }
+// Enrollment span on the class roster, mirroring wbl_program_enrollments
+// (WBL_Schema_Design.md decision 16). Nullable YYYY-MM-DD; exited_on IS NULL =
+// active. No backfill — an existing row with enrolled_on NULL is treated as
+// "enrolled for the whole of any grading window", so grade output is unchanged
+// until a roster re-sync starts stamping real dates.
+try { db.prepare('ALTER TABLE class_students ADD COLUMN enrolled_on TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE class_students ADD COLUMN exited_on TEXT').run(); } catch { /* already exists */ }
+try { db.prepare("ALTER TABLE class_students ADD COLUMN exit_reason TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
 try { db.prepare("ALTER TABLE mc_checkpoints ADD COLUMN description TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_subtask_max_score REAL NOT NULL DEFAULT 10').run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE gradebook_settings ADD COLUMN mc_credential_max_score REAL NOT NULL DEFAULT 50').run(); } catch { /* already exists */ }

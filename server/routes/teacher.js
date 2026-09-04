@@ -6,6 +6,14 @@ const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 
 const router = Router();
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const isDateStr = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+// Inclusive count of calendar days between two YYYY-MM-DD strings.
+const dayCount = (a, b) =>
+    Math.round((Date.parse(b + 'T00:00:00') - Date.parse(a + 'T00:00:00')) / 86400000) + 1;
+const maxDate = (a, b) => (a > b ? a : b);
+const minDate = (a, b) => (a < b ? a : b);
+
 // Exchange a short-lived Google access token for a persistent session token
 router.post('/login', async (req, res) => {
     const { token } = req.body;
@@ -136,6 +144,88 @@ router.post('/classes/import-roster', requireTeacher, (req, res) => {
     res.json({ id: classId, name: name.trim(), ps_section_id: String(ps_section_id), student_count: added });
 });
 
+// Reconcile an already-imported roster against a fresh PowerSchool pull (used by
+// the Chrome extension's "Re-sync Roster" flow). Non-destructive: students who
+// have left the PS section are soft-withdrawn (exited_on set, every row and all
+// history kept), and a student who reappears is reactivated. New arrivals are
+// stamped with the PS section entry date when the extension can read it, else
+// today — which is what lets GET /grades prorate their do-now score.
+router.post('/classes/:id/sync-roster', requireTeacher, (req, res) => {
+    const classId = Number(req.params.id);
+    const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(classId, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Not found' });
+
+    const { students } = req.body;
+    if (!Array.isArray(students)) return res.status(400).json({ error: 'students array required' });
+
+    // Raw trimmed IDs, matching import-roster and the UNIQUE(class_id, student_id)
+    // rows already on disk — normalization happens in the WBL layer, not here.
+    const incoming = new Map();
+    for (const s of students) {
+        if (!s || !s.student_id || !s.student_name) continue;
+        incoming.set(String(s.student_id).trim(), {
+            name:    String(s.student_name).trim(),
+            ps_dcid: s.ps_dcid ? String(s.ps_dcid) : null,
+            entry:   isDateStr(s.entry_date) ? s.entry_date : null,
+        });
+    }
+
+    const existing = new Map(
+        db.prepare('SELECT student_id, student_name, ps_dcid, exited_on, enrolled_on FROM class_students WHERE class_id = ?')
+          .all(classId).map(r => [r.student_id, r])
+    );
+
+    const today = todayStr();
+    const insert = db.prepare(
+        'INSERT OR IGNORE INTO class_students(class_id, student_id, student_name, ps_dcid, enrolled_on) VALUES(?, ?, ?, ?, ?)'
+    );
+    const reactivate = db.prepare(`
+        UPDATE class_students
+        SET exited_on = NULL, exit_reason = '', student_name = ?, ps_dcid = COALESCE(?, ps_dcid),
+            enrolled_on = COALESCE(?, enrolled_on)
+        WHERE class_id = ? AND student_id = ?
+    `);
+    const touch = db.prepare(
+        'UPDATE class_students SET student_name = ?, ps_dcid = COALESCE(?, ps_dcid) WHERE class_id = ? AND student_id = ?'
+    );
+    const withdraw = db.prepare(`
+        UPDATE class_students SET exited_on = ?, exit_reason = 'not on PS roster'
+        WHERE class_id = ? AND student_id = ? AND exited_on IS NULL
+    `);
+
+    const added = [], reactivated = [], withdrawn = [];
+    let unchanged = 0;
+
+    db.exec('BEGIN');
+    try {
+        for (const [sid, s] of incoming) {
+            const prev = existing.get(sid);
+            if (!prev) {
+                insert.run(classId, sid, s.name, s.ps_dcid, s.entry || today);
+                added.push(s.name);
+            } else if (prev.exited_on) {
+                reactivate.run(s.name, s.ps_dcid, s.entry, classId, sid);
+                reactivated.push(s.name);
+            } else {
+                touch.run(s.name, s.ps_dcid, classId, sid);
+                unchanged++;
+            }
+        }
+        for (const [sid, r] of existing) {
+            if (incoming.has(sid) || r.exited_on) continue;
+            withdraw.run(today, classId, sid);
+            withdrawn.push(r.student_name);
+        }
+        db.exec('COMMIT');
+    } catch (e) {
+        db.exec('ROLLBACK');
+        return res.status(400).json({ error: e.message });
+    }
+
+    res.json({ ok: true, added, reactivated, withdrawn, unchanged });
+});
+
 router.delete('/classes/:id', requireTeacher, (req, res) => {
     db.prepare('DELETE FROM classes WHERE id = ? AND teacher_key = ?').run(Number(req.params.id), req.teacherKey);
     res.json({ ok: true });
@@ -244,9 +334,34 @@ router.patch('/classes/:classId/students/:studentId', requireTeacher, (req, res)
     const classId = Number(req.params.classId);
     const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND teacher_key = ?').get(classId, req.teacherKey);
     if (!cls) return res.status(404).json({ error: 'Not found' });
-    const { user_key } = req.body;
-    db.prepare('UPDATE class_students SET user_key = ? WHERE class_id = ? AND student_id = ?')
-        .run(user_key || null, classId, req.params.studentId);
+    const row = db.prepare('SELECT student_id FROM class_students WHERE class_id = ? AND student_id = ?')
+        .get(classId, req.params.studentId);
+    if (!row) return res.status(404).json({ error: 'Student not found' });
+
+    const updates = [];
+    const params  = [];
+
+    if ('user_key' in req.body) {
+        updates.push('user_key = ?');
+        params.push(req.body.user_key || null);
+    }
+    // enrolled_on / exited_on: a YYYY-MM-DD string sets the date, null clears it.
+    // Clearing exited_on is how the portal reactivates a withdrawn student.
+    for (const field of ['enrolled_on', 'exited_on']) {
+        if (!(field in req.body)) continue;
+        const v = req.body[field];
+        if (v !== null && !isDateStr(v))
+            return res.status(400).json({ error: `${field} must be YYYY-MM-DD or null` });
+        updates.push(`${field} = ?`);
+        params.push(v);
+        if (field === 'exited_on' && v === null) updates.push("exit_reason = ''");
+    }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+
+    params.push(classId, req.params.studentId);
+    db.prepare(`UPDATE class_students SET ${updates.join(', ')} WHERE class_id = ? AND student_id = ?`)
+        .run(...params);
     res.json({ ok: true });
 });
 
@@ -292,15 +407,40 @@ router.get('/grades', requireTeacher, (req, res) => {
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
     ).all(Number(class_id));
 
-    const startMs = new Date(start + 'T00:00:00').getTime();
-    const endMs   = new Date(end   + 'T23:59:59').getTime();
-
     const maxScore   = settings.assignment_max_score;
     const noSubGrade = Math.round(maxScore * settings.no_submission_score_pct / 100);
 
+    const windowDays = dayCount(start, end);
+
     const results = students.map(student => {
+        // Clamp the grading window to the student's enrollment span. enrolled_on
+        // NULL means "enrolled since before we tracked dates" → whole window.
+        const effStart = maxDate(start, student.enrolled_on || start);
+        const effEnd   = minDate(end,   student.exited_on   || end);
+        if (effStart > effEnd) {
+            // Enrollment span doesn't overlap the window — exempt entirely.
+            // The extension skips students whose grade is null.
+            return {
+                student_id: student.student_id, student_name: student.student_name,
+                grade: null, exempt: true,
+                enrolled_on: student.enrolled_on, exited_on: student.exited_on,
+            };
+        }
+
+        const enrolledDays = dayCount(effStart, effEnd);
+        const prorate = r => enrolledDays < windowDays
+            ? Math.max(1, Math.round(r * enrolledDays / windowDays))
+            : r;
+
         if (!student.user_key)
-            return { student_id: student.student_id, student_name: student.student_name, grade: noSubGrade, unlinked: true };
+            return {
+                student_id: student.student_id, student_name: student.student_name,
+                grade: noSubGrade, unlinked: true,
+                enrolled_on: student.enrolled_on, exited_on: student.exited_on,
+            };
+
+        const sMs = new Date(effStart + 'T00:00:00').getTime();
+        const eMs = new Date(effEnd   + 'T23:59:59').getTime();
 
         // All-time average determines qualifying threshold for KenKen submissions
         const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
@@ -308,26 +448,31 @@ router.get('/grades', requireTeacher, (req, res) => {
 
         const kenkenCount = db.prepare(
             'SELECT COUNT(*) AS cnt FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND score >= ?'
-        ).get(student.user_key, startMs, endMs, threshold)?.cnt ?? 0;
+        ).get(student.user_key, sMs, eMs, threshold)?.cnt ?? 0;
 
         const satCount = db.prepare(
             'SELECT COUNT(*) AS cnt FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
-        ).get(student.user_key, startMs, endMs)?.cnt ?? 0;
+        ).get(student.user_key, sMs, eMs)?.cnt ?? 0;
 
         const satMathCount = db.prepare(
             'SELECT COUNT(*) AS cnt FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
-        ).get(student.user_key, startMs, endMs)?.cnt ?? 0;
+        ).get(student.user_key, sMs, eMs)?.cnt ?? 0;
 
         const ra = asgn.required_activity;
         const smReq = asgn.required_sat_math_count ?? 1;
-        let required, actual;
-        if      (ra === 'kenken')   { required = asgn.required_kenken_count; actual = kenkenCount; }
-        else if (ra === 'sat')      { required = asgn.required_sat_count;    actual = satCount; }
-        else if (ra === 'sat-math') { required = smReq;                      actual = satMathCount; }
-        else if (ra === 'both')     { required = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
-        else if (ra === 'sat-both') { required = asgn.required_sat_count + smReq;                     actual = satCount + satMathCount; }
-        else if (ra === 'all')      { required = asgn.required_kenken_count + asgn.required_sat_count + smReq; actual = kenkenCount + satCount + satMathCount; }
-        else /* either */           { required = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
+        let baseRequired, actual;
+        if      (ra === 'kenken')   { baseRequired = asgn.required_kenken_count; actual = kenkenCount; }
+        else if (ra === 'sat')      { baseRequired = asgn.required_sat_count;    actual = satCount; }
+        else if (ra === 'sat-math') { baseRequired = smReq;                      actual = satMathCount; }
+        else if (ra === 'both')     { baseRequired = asgn.required_kenken_count + asgn.required_sat_count; actual = kenkenCount + satCount; }
+        else if (ra === 'sat-both') { baseRequired = asgn.required_sat_count + smReq;                     actual = satCount + satMathCount; }
+        else if (ra === 'all')      { baseRequired = asgn.required_kenken_count + asgn.required_sat_count + smReq; actual = kenkenCount + satCount + satMathCount; }
+        else /* either */           { baseRequired = Math.max(asgn.required_kenken_count, asgn.required_sat_count); actual = Math.max(kenkenCount, satCount); }
+
+        // Prorate the requirement to the fraction of the window the student was
+        // actually enrolled — a mid-window arrival isn't expected to have done
+        // the do-now on days they weren't on the roster.
+        const required = prorate(baseRequired);
 
         let grade;
         if (actual === 0) {
@@ -348,7 +493,13 @@ router.get('/grades', requireTeacher, (req, res) => {
             sat_count:       satCount,
             sat_math_count:  satMathCount,
             required,
-            actual
+            base_required:   baseRequired,
+            actual,
+            enrolled_on:     student.enrolled_on,
+            exited_on:       student.exited_on,
+            window_days:     windowDays,
+            enrolled_days:   enrolledDays,
+            prorated:        required !== baseRequired,
         };
     });
 

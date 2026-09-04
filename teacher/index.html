@@ -1297,6 +1297,7 @@
 
         // ── Classes ───────────────────────────────────────────────────────────
         let classStudents = [];
+        let showWithdrawn = false;
         let currentClassId = null;
         let gradebookSettings = null;
 
@@ -1459,6 +1460,7 @@
             ['class-kenken-chart','class-line-chart','class-bar-chart','class-math-line-chart','class-math-bar-chart'].forEach(destroyChart);
             currentClassId = null;
             classStudents  = [];
+            showWithdrawn  = false;
             document.getElementById('class-detail-view').style.display = 'none';
             document.getElementById('classes-list-view').style.display = '';
             loadClasses();
@@ -1495,18 +1497,33 @@
             const reqSatMath = ['sat-math','sat-both','kenken-math','all'].includes(reqAct);
             const reqSatEnglish = ['sat','both','sat-both','all','either'].includes(reqAct);
 
-            const rosterRows = cls.students.map(s => {
+            const activeStudents    = cls.students.filter(s => !s.exited_on);
+            const withdrawnCount    = cls.students.length - activeStudents.length;
+            const visibleStudents   = showWithdrawn ? cls.students : activeStudents;
+
+            const rosterRows = visibleStudents.map(s => {
                 const selected = s.user_key ? `value="${esc(s.user_key)}" ` : '';
+                const statusCell = s.exited_on
+                    ? `<span style="color:#dc2626;font-size:0.75rem;font-weight:600">Withdrawn ${esc(s.exited_on)}</span>`
+                    : `<span style="color:#16a34a;font-size:0.75rem;font-weight:600">Active</span>`;
+                const toggleBtn = s.exited_on
+                    ? `<button class="btn btn-outline btn-sm" onclick="reactivateStudent(${cls.id}, '${esc(s.student_id)}')">Reactivate</button>`
+                    : `<button class="btn btn-outline btn-sm" style="color:#d97706" onclick="withdrawStudent(${cls.id}, '${esc(s.student_id)}')">Withdraw</button>`;
                 return `<tr>
                     <td>${esc(s.student_id)}</td>
                     <td>${esc(s.student_name)}</td>
+                    <td><input type="date" value="${esc(s.enrolled_on || '')}"
+                        onchange="setEnrolledOn(${cls.id}, '${esc(s.student_id)}', this.value)"
+                        style="padding:0.25rem 0.375rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.8125rem"></td>
+                    <td>${statusCell}</td>
                     <td>
                         <select onchange="linkStudent(${cls.id}, '${esc(s.student_id)}', this.value)">
                             <option value="">&#8212; Not linked &#8212;</option>
                             ${userOptions.replace(`value="${esc(s.user_key || '')}"`, `value="${esc(s.user_key || '')}" selected`)}
                         </select>
                     </td>
-                    <td>
+                    <td style="white-space:nowrap">
+                        ${toggleBtn}
                         <button class="btn btn-outline btn-sm" style="color:#dc2626"
                             onclick="removeStudent(${cls.id}, '${esc(s.student_id)}', this)">Remove</button>
                     </td>
@@ -1689,11 +1706,16 @@
                     </div>
                 </div>
 
-                <div class="section-title">Roster <span class="section-count">(${cls.students.length} students)</span></div>
+                <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+                    <span>Roster <span class="section-count">(${activeStudents.length} students${withdrawnCount ? `, ${withdrawnCount} withdrawn` : ''})</span></span>
+                    ${withdrawnCount ? `<label style="font-size:0.8125rem;font-weight:400;color:var(--muted)">
+                        <input type="checkbox" id="show-withdrawn" ${showWithdrawn ? 'checked' : ''} onchange="toggleShowWithdrawn(${cls.id})"> Show withdrawn
+                    </label>` : ''}
+                </div>
                 ${cls.students.length > 0 ? `
                 <div class="roster-wrap">
                     <table class="roster-table">
-                        <thead><tr><th>Student ID</th><th>Name</th><th>Linked Account</th><th></th></tr></thead>
+                        <thead><tr><th>Student ID</th><th>Name</th><th>Enrolled</th><th>Status</th><th>Linked Account</th><th></th></tr></thead>
                         <tbody>${rosterRows}</tbody>
                     </table>
                 </div>` : '<p class="classes-empty" style="margin-bottom:1rem">No students yet.</p>'}
@@ -1815,6 +1837,42 @@
             });
             classStudents = classStudents.filter(s => s.student_id !== studentId);
             btn.closest('tr').remove();
+        }
+
+        // ── Enrollment / withdrawal ──────────────────────────────────────────────
+        // Soft operations — unlike removeStudent (a hard delete), these keep the
+        // row and all of the student's history. Set by a PS roster re-sync from
+        // the Chrome extension, or by hand here.
+
+        async function setEnrolledOn(classId, studentId, value) {
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ enrolled_on: value || null }),
+            });
+            const s = classStudents.find(s => s.student_id === studentId);
+            if (s) s.enrolled_on = value || null;
+        }
+
+        async function withdrawStudent(classId, studentId) {
+            if (!confirm('Withdraw this student? Their scores and history are kept, and they can be reactivated later.')) return;
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ exited_on: new Date().toISOString().slice(0, 10) }),
+            });
+            viewClass(classId);
+        }
+
+        async function reactivateStudent(classId, studentId) {
+            await teacherFetch(`/api/teacher/classes/${classId}/students/${encodeURIComponent(studentId)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ exited_on: null }),
+            });
+            viewClass(classId);
+        }
+
+        function toggleShowWithdrawn(classId) {
+            showWithdrawn = document.getElementById('show-withdrawn').checked;
+            viewClass(classId);
         }
 
         // ── CSV import ────────────────────────────────────────────────────────

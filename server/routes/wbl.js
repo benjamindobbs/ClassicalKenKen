@@ -141,7 +141,11 @@ router.get('/programs/:id/classes', requireTeacher, (req, res) => {
 // is reactivated if a re-link brings them back — a deliberate manual exit
 // (any other reason) is never touched here.
 function syncClassEnrollment(programId, classId) {
-    const students = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId);
+    // Withdrawn roster rows (exited_on set) do not re-enroll — a student still
+    // active on another linked class is picked up when that class is synced.
+    const students = db.prepare(
+        'SELECT student_id, enrolled_on FROM class_students WHERE class_id = ? AND exited_on IS NULL'
+    ).all(classId);
     const ins = db.prepare(`
         INSERT OR IGNORE INTO wbl_program_enrollments(program_id, student_id, enrolled_on, updated_at)
         VALUES(?, ?, ?, ?)
@@ -151,10 +155,11 @@ function syncClassEnrollment(programId, classId) {
         WHERE program_id = ? AND student_id = ? AND exit_reason = 'class unlinked'
     `);
     let added = 0;
-    for (const { student_id } of students) {
+    for (const { student_id, enrolled_on } of students) {
         const sid = normalizeStudentId(student_id);
         if (!sid) continue;
-        const info = ins.run(programId, sid, L.today(), now());
+        // Real roster entry date when the extension captured it; else today.
+        const info = ins.run(programId, sid, L.isDate(enrolled_on) ? enrolled_on : L.today(), now());
         if (info.changes) { L.ensurePhaseRow(programId, sid); added++; }
         else reactivate.run(now(), programId, sid);
     }
@@ -191,9 +196,20 @@ router.post('/programs/:id/roster/sync', requireTeacher, (req, res) => {
         db.prepare(`
             SELECT DISTINCT cs.student_id FROM class_students cs
             JOIN wbl_class_programs cp ON cp.class_id = cs.class_id
-            WHERE cp.program_id = ?
+            WHERE cp.program_id = ? AND cs.exited_on IS NULL
         `).all(p.id).map(r => normalizeStudentId(r.student_id))
     );
+    // Real withdrawal date from the class roster, when one was recorded — so a
+    // program exit lines up with the day the student actually left the section
+    // rather than the day this sync happened to run.
+    const withdrawnOn = new Map();
+    for (const r of db.prepare(`
+        SELECT cs.student_id, MAX(cs.exited_on) AS exited_on FROM class_students cs
+        JOIN wbl_class_programs cp ON cp.class_id = cs.class_id
+        WHERE cp.program_id = ? AND cs.exited_on IS NOT NULL
+        GROUP BY cs.student_id
+    `).all(p.id)) withdrawnOn.set(normalizeStudentId(r.student_id), r.exited_on);
+
     const active = db.prepare(
         'SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL'
     ).all(p.id);
@@ -204,7 +220,7 @@ router.post('/programs/:id/roster/sync', requireTeacher, (req, res) => {
     let exited = 0;
     for (const { student_id } of active) {
         if (stillLinked.has(student_id)) continue;
-        exited += exit.run(L.today(), now(), p.id, student_id).changes;
+        exited += exit.run(withdrawnOn.get(student_id) || L.today(), now(), p.id, student_id).changes;
     }
 
     res.json({ ok: true, enrolled, exited, classes: classes.length });
