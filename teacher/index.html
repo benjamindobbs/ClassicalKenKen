@@ -2493,10 +2493,11 @@
 
         async function loadWblSkillChecks() {
             const pid = wblProgramId();
-            const [roster, skills, checks] = await Promise.all([
+            const [roster, skills, checks, credentials] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/roster`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/skill-checks`),
+                wblApi('GET', `/programs/${pid}/credentials`),
             ]);
             wblScRoster = roster;
             wblScSkills = skills.filter(s => s.status === 'published');
@@ -2504,9 +2505,33 @@
 
             const sel = document.getElementById('wbl-sc-skill-select');
             const prev = sel.value;
-            sel.innerHTML = wblScSkills.map(s => `<option value="${s.id}">${wblEsc(s.name)}</option>`).join('');
+            sel.innerHTML = wblSkillCheckOptions(credentials, wblScSkills);
             if (prev && wblScSkills.some(s => String(s.id) === prev)) sel.value = prev;
             renderWblSkillChecks();
+        }
+
+        // Groups the published-skill dropdown by micro-credential — one <optgroup>
+        // per credential, its skills (the credential's "checkpoints") in the same
+        // order shown under Catalog. A skill required by more than one credential
+        // appears under each; a skill required by none falls into a trailing
+        // "Other Skills" group so it stays reachable.
+        function wblSkillCheckOptions(credentials, skills) {
+            const skillById = new Map(skills.map(s => [s.id, s]));
+            const opt = s => `<option value="${s.id}">${wblEsc(s.name)}</option>`;
+            const grouped = new Set();
+
+            const groups = credentials.map(c => {
+                const inGroup = c.skills.map(cs => skillById.get(cs.skill_id)).filter(Boolean);
+                inGroup.forEach(s => grouped.add(s.id));
+                return inGroup.length
+                    ? `<optgroup label="${wblEsc(c.name)}">${inGroup.map(opt).join('')}</optgroup>`
+                    : '';
+            }).filter(Boolean);
+
+            const ungrouped = skills.filter(s => !grouped.has(s.id));
+            if (ungrouped.length) groups.push(`<optgroup label="Other Skills">${ungrouped.map(opt).join('')}</optgroup>`);
+
+            return groups.join('');
         }
 
         function renderWblSkillChecks() {
