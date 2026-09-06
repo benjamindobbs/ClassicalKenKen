@@ -23,16 +23,21 @@
 
     <div class="page-header">
         <h1>ReadMe</h1>
-        <p>Project documentation, research data, and privacy policy</p>
+        <p>An overview of what's on the site, how it works, the research behind it, and the privacy policy</p>
     </div>
 
     <nav class="toc">
         <div class="toc-inner">
             <a href="#about">About</a>
+            <a href="#whats-here">What's on the Site</a>
             <a href="#research">Research &amp; Data</a>
             <a href="#how-it-works">How It Works</a>
-            <a href="#scoring">Scoring</a>
+            <a href="#sat">SAT Practice</a>
+            <a href="#skill-maps">Skill Maps</a>
+            <a href="#wbl">Work-Based Learning</a>
+            <a href="#scoring">KenKen Scoring</a>
             <a href="#rank-table">Rank Table</a>
+            <a href="#grades">Grades</a>
             <a href="#privacy">Privacy Policy</a>
         </div>
     </nav>
@@ -44,15 +49,23 @@
             <span class="section-tag">Background</span>
             <h2>About the Project</h2>
             <p>
-                This is a fork of the <a href="https://github.com/msakuta/WebKenKen">WebKenKen</a> project by msakuta.
-                Special thanks to Sid Challa for helping set up the Google Cloud application.
+                <strong>Classical Technology</strong> is a set of learning tools built by and for a
+                Career &amp; Technical Education technology program. It started as one thing &mdash; a
+                digital version of a daily KenKen "Do Now" &mdash; and has grown into a small suite:
+                adaptive KenKen and SAT practice, visual course skill maps, and a system for grading
+                real work students do in the program's school-based enterprise. Everything is tied
+                together by school-account sign-in so progress follows the student.
             </p>
             <p>
-                Classical KenKen started as a digital version of a daily Do Now activity done on paper.
-                Our team was manually creating puzzles, converting them to PDFs, printing, cutting, and grading
-                100+ KenKen puzzles a day. Over the course of a year we graded over 6,000 individual puzzles.
-                After reviewing the data, we decided to build this online version to handle scoring automatically
-                and serve puzzles based on each student's current level.
+                The KenKen app began because our team was making the puzzles by hand: creating them,
+                converting to PDFs, printing, cutting, and grading 100+ a day &mdash; over 6,000 in a
+                single year. After reviewing the results (below), we built this online version to
+                generate and score puzzles automatically and serve them at each student's level.
+            </p>
+            <p>
+                The KenKen puzzle engine is a fork of the
+                <a href="https://github.com/msakuta/WebKenKen">WebKenKen</a> project by msakuta.
+                Special thanks to Sid Challa for helping set up the Google Cloud application.
             </p>
 
             <div class="stat-row">
@@ -78,6 +91,54 @@
                 <li>Puzzles are served based on student ability (rank)</li>
                 <li>Scores determine a grade relative to puzzle difficulty</li>
             </ul>
+        </div>
+
+        <hr class="divider">
+
+        <!-- WHAT'S HERE -->
+        <div class="section" id="whats-here">
+            <span class="section-tag">Overview</span>
+            <h2>What's on the Site</h2>
+            <p>Everything below lives at one address and shares a single sign-in.</p>
+
+            <div class="app-grid" style="max-width:none">
+                <a class="app-card" href="../KenKen/">
+                    <span class="app-card-label">Math &amp; Logic</span>
+                    <h2>KenKen Puzzles</h2>
+                    <p>Number-logic puzzles that grow with you &mdash; the grid gets bigger and the hints
+                       fewer as your average score climbs.</p>
+                </a>
+                <a class="app-card" href="../SAT-Questions/">
+                    <span class="app-card-label">Test Prep</span>
+                    <h2>SAT English</h2>
+                    <p>Official-style Reading &amp; Writing questions that adjust to the skills you're
+                       still working on.</p>
+                </a>
+                <a class="app-card" href="../SAT-Math/">
+                    <span class="app-card-label">Test Prep</span>
+                    <h2>SAT Math</h2>
+                    <p>Algebra, advanced math, data analysis, and geometry &mdash; matched to your level
+                       in each area.</p>
+                </a>
+                <a class="app-card" href="../Skill-Maps/">
+                    <span class="app-card-label">Course Tools</span>
+                    <h2>Skill Maps</h2>
+                    <p>Interactive maps of what each CTE course teaches and how those skills connect to
+                       careers.</p>
+                </a>
+                <a class="app-card" href="../student/">
+                    <span class="app-card-label">For Students</span>
+                    <h2>My Progress</h2>
+                    <p>Your scores, your daily practice goals, and your progress toward course
+                       micro-credentials in one place.</p>
+                </a>
+                <a class="app-card" href="../teacher/">
+                    <span class="app-card-label">For Staff</span>
+                    <h2>Teacher Portal</h2>
+                    <p>Rosters, daily-practice settings, score tables, and the full Work-Based Learning
+                       assessment tools.</p>
+                </a>
+            </div>
         </div>
 
         <hr class="divider">
@@ -131,25 +192,112 @@
 
         <!-- HOW IT WORKS -->
         <div class="section" id="how-it-works">
-            <span class="section-tag">Functionality</span>
-            <h2>How It Works</h2>
+            <span class="section-tag">How It Works</span>
+            <h2>Signing In &amp; Adapting to You</h2>
             <ol>
-                <li>Student signs in using their school-issued Google account via Google Identity Services (OAuth 2.0)</li>
-                <li>The server validates the Google access token using the Google OAuth2 tokeninfo API, then issues a persistent session token</li>
-                <li>The session token is stored in the browser's <code>localStorage</code> so the student stays signed in across page loads and return visits</li>
-                <li>A puzzle is generated with difficulty determined by the student's current rank</li>
-                <li>Upon completion, the score is stored in the server-side database with a timestamp and the student's email</li>
-                <li>Teachers access the Teacher portal to view all stored student scores, filterable and sortable by name or ID</li>
+                <li>You sign in once with your school Google account. That keeps you signed in on this
+                    device, and it links your work to you so your progress is saved.</li>
+                <li>Each practice app looks at how you've been doing recently and picks what to serve
+                    next &mdash; a puzzle at your level, or a question in a skill you're still building.</li>
+                <li>Every result is saved with the date. Your teacher sees your scores in the Teacher
+                    Portal; you see your own on the <a href="../student/">My Progress</a> page.</li>
+                <li>You can also use the practice apps without an account by choosing "Play Locally" &mdash;
+                    nothing is saved in that mode.</li>
             </ol>
-
-            <h3 style="margin-top: 1.5rem;">Determining Difficulty</h3>
             <p>
-                Difficulty is controlled by two variables: grid size and hint count.
-                The grid size is <code>floor(rank) + 2</code>, maxing out at 9×9.
-                Rank is a floating-point number — the integer part sets the grid size, and the fractional part
-                (sub-rank) controls how many cells are pre-filled as hints. Hints decrease as sub-rank rises,
-                so students are gradually challenged to solve more of the puzzle on their own before advancing
-                to the next grid size. The rank is derived from the student's cumulative average score.
+                Only accounts on the school's domain can save data. See the
+                <a href="#privacy">Privacy Policy</a> for exactly what is stored.
+            </p>
+
+            <h3 style="margin-top: 1.5rem;">How KenKen Picks a Puzzle</h3>
+            <p>
+                A puzzle's difficulty comes from two things: how big the grid is and how many cells are
+                filled in for you as hints. Both are set by your <strong>rank</strong> &mdash; a number
+                that rises with your average score. A higher rank means a bigger grid; as you move up
+                <em>within</em> a rank you get fewer hints, so you're solving more of the puzzle
+                yourself before it grows. See <a href="#rank-table">Rank Structure</a> below.
+            </p>
+        </div>
+
+        <hr class="divider">
+
+        <!-- SAT -->
+        <div class="section" id="sat">
+            <span class="section-tag">Test Prep</span>
+            <h2>SAT &amp; PSAT Practice</h2>
+            <p>
+                The <a href="../SAT-Questions/">SAT English</a> and <a href="../SAT-Math/">SAT Math</a>
+                apps use real practice questions from the College Board's official question bank &mdash;
+                the same source as the tests themselves &mdash; each tagged with its topic, skill, and
+                difficulty. Depending on your grade, you'll see SAT, PSAT/NMSQT &amp; PSAT&nbsp;10, or
+                PSAT&nbsp;8/9 questions.
+            </p>
+            <p>
+                The practice adapts as you go. It keeps track of your recent accuracy in each skill and
+                difficulty level, and leans toward the areas where you're missing more &mdash; a skill
+                you've mastered still shows up now and then, but not as often. You move from Easy to
+                Medium to Hard in a skill only after you've answered enough questions there and kept
+                your accuracy above about 70%. Areas you haven't touched yet start at Easy.
+            </p>
+            <p>
+                Every question comes with an explanation after you answer, and there's a
+                <strong>Report</strong> button if a question looks wrong &mdash; reported questions are
+                pulled from circulation while they're reviewed.
+            </p>
+        </div>
+
+        <hr class="divider">
+
+        <!-- SKILL MAPS -->
+        <div class="section" id="skill-maps">
+            <span class="section-tag">Course Tools</span>
+            <h2>Skill Maps</h2>
+            <p>
+                <a href="../Skill-Maps/">Skill Maps</a> are interactive, orbit-style diagrams &mdash;
+                one per CTE course &mdash; that lay out what the course covers. Each major topic is a
+                "planet," the individual skills under it are "moons," and each is tagged with the career
+                clusters it connects to. They're meant to give students, families, and staff a clear
+                picture of a course's content and where it leads.
+            </p>
+            <p>
+                Current maps: Graphics &amp; Printing Technology, Computer Aided Manufacturing
+                Technology, and Intro to Robotics. The same list of topics and skills also feeds the
+                micro-credential checklist used in Work-Based Learning.
+            </p>
+        </div>
+
+        <hr class="divider">
+
+        <!-- WBL -->
+        <div class="section" id="wbl">
+            <span class="section-tag">Program</span>
+            <h2>Work-Based Learning</h2>
+            <p>
+                Students in the program do real work in a school-based enterprise &mdash; actual orders,
+                builds, and print jobs. Work-Based Learning is how that work is assessed. Instead of
+                grading technique on a worksheet, it looks at each real job through a few lenses at once:
+            </p>
+            <ul>
+                <li><strong>Hard skills</strong> &mdash; specific techniques, checked off as they're
+                    shown across several jobs under different conditions. Enough of them add up to a
+                    <strong>micro-credential</strong>.</li>
+                <li><strong>Quality of the finished work</strong> &mdash; quick weekly spot checks plus
+                    an overall judgment call when a job is done, the way a shop supervisor would review
+                    it.</li>
+                <li><strong>Professional habits</strong> &mdash; persistence, holding to a standard,
+                    curiosity, and applying or extending what you've learned before. These are rated
+                    through the work itself, not as a separate quiz.</li>
+            </ul>
+            <p>
+                The program runs in two phases. In <strong>Phase&nbsp;1</strong> students build
+                foundational skills through structured units. Once they've earned the micro-credentials
+                needed to work independently, they move to <strong>Phase&nbsp;2</strong> and are
+                assigned open jobs, where the professional-habits ratings start counting more directly.
+            </p>
+            <p>
+                Micro-credential progress shows up on each student's
+                <a href="../student/">My Progress</a> page, and teachers manage the whole system from
+                the <a href="../teacher/">Teacher Portal</a>.
             </p>
         </div>
 
@@ -158,7 +306,7 @@
         <!-- SCORING -->
         <div class="section" id="scoring">
             <span class="section-tag">Methodology</span>
-            <h2>Scoring</h2>
+            <h2>KenKen Scoring</h2>
 
             <div class="callout">
                 <p>Score = (Unsolved / Guesses + 2.5 &times; Unsolved / Time) &times; Grid Size &times; 10</p>
@@ -252,6 +400,34 @@
                     <tr><td>Rank 7</td><td>0 (no hints)</td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <hr class="divider">
+
+        <!-- GRADES -->
+        <div class="section" id="grades">
+            <span class="section-tag">Grades</span>
+            <h2>How Practice Becomes a Grade</h2>
+            <p>
+                For the daily practice apps, teachers set a target &mdash; how many puzzles or questions
+                count as "done" for a day &mdash; along with a full-credit score and a score for days
+                with nothing turned in. Your grade for the assignment is based on how many of those
+                daily targets you hit over the marking period. A KenKen game only counts toward the
+                target if its score is at or above your own running average, so finishing has to mean
+                real effort.
+            </p>
+            <p>
+                Teachers push these grades into PowerSchool with a companion browser tool
+                (<a href="https://github.com/benjamindobbs/DobbsCore">DobbsCore</a>). It reads the
+                totals from this site and creates the matching PowerSchool assignment, so nothing is
+                copied by hand. The same tool posts Work-Based Learning results &mdash; micro-credentials,
+                job quality scores, and the professional-habits ratings &mdash; each as its own
+                assignment.
+            </p>
+            <p>
+                You can always see the numbers behind your grade on the
+                <a href="../student/">My Progress</a> page.
+            </p>
         </div>
 
         <hr class="divider">
