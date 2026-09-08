@@ -174,7 +174,10 @@
             <!-- Daily progress -->
             <div id="daily-section" style="display:none">
                 <div class="daily-card">
-                    <p class="daily-title">Today&rsquo;s Assignment</p>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem">
+                        <p class="daily-title" style="margin:0">Today&rsquo;s Assignment</p>
+                        <select id="daily-class-select" class="class-picker-select" onchange="onDailyClassChange()" style="display:none"></select>
+                    </div>
                     <div id="daily-content"></div>
                 </div>
             </div>
@@ -308,18 +311,56 @@
         // Called by auth.js after successful sign-in
         async function onSignedIn() {
             await Promise.all([
-                loadDailyProgress(),
+                initDailyClasses().then(() => loadDailyProgress()),
                 loadScores(),
                 loadWbl(),
             ]);
         }
 
         // ── Daily progress ────────────────────────────────────────────────────
+        // A student on more than one roster picks which class's assignment to
+        // view; the choice shares localStorage['classtech_active_class'] with
+        // the practice apps' class picker.
+        const DAILY_CLASS_KEY = 'classtech_active_class';
+        let _dailyClasses = [];
+
+        function _dailyClassId() {
+            const sel = document.getElementById('daily-class-select');
+            if (sel && sel.value) return Number(sel.value);
+            if (_dailyClasses.length === 1) return _dailyClasses[0].class_id;
+            return undefined;
+        }
+
+        async function initDailyClasses() {
+            try {
+                const res = await authFetch('/api/student/classes');
+                if (!res.ok) return;
+                _dailyClasses = (await res.json()).classes || [];
+            } catch (_) { _dailyClasses = []; }
+
+            const sel = document.getElementById('daily-class-select');
+            if (!sel || _dailyClasses.length < 2) return;
+
+            let stored = Number(localStorage.getItem(DAILY_CLASS_KEY));
+            if (!_dailyClasses.some(c => c.class_id === stored)) stored = _dailyClasses[0].class_id;
+            sel.innerHTML = _dailyClasses
+                .map(c => `<option value="${c.class_id}"${c.class_id === stored ? ' selected' : ''}>${c.name}</option>`)
+                .join('');
+            sel.style.display = '';
+        }
+
+        function onDailyClassChange() {
+            const v = document.getElementById('daily-class-select').value;
+            try { localStorage.setItem(DAILY_CLASS_KEY, v); } catch (_) {}
+            loadDailyProgress();
+        }
+
         async function loadDailyProgress() {
-            const res  = await authFetch('/api/student/daily-progress');
+            const cid = _dailyClassId();
+            const res  = await authFetch('/api/student/daily-progress' + (cid != null ? '?class_id=' + cid : ''));
             if (!res.ok) return;
             const data = await res.json();
-            if (!data.settings) return;
+            if (!data.settings) { document.getElementById('daily-section').style.display = 'none'; return; }
 
             const act      = data.settings.required_activity;
             const today    = data.today;

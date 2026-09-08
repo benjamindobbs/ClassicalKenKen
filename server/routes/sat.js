@@ -10,39 +10,47 @@ const ACCURACY_THRESHOLD = 0.70;
 const MIN_ATTEMPTS = 5; // require this many attempts before advancing difficulty
 const VALID_ASSESSMENTS = new Set(['sat', 'psat-nmsqt', 'psat89']);
 
-// POST /api/sat/score  { correct, domainIdx, skill, difficulty, assessment }
+// Validates that the student is actively enrolled in the given class_id.
+// Returns the numeric id, or null when it's absent/invalid — a stale tab must
+// never lose a submission over a bad class_id, so this degrades to
+// "not for a class" (class_id NULL) rather than rejecting.
+function enrolledClassId(userKey, raw) {
+    const n = Number(raw);
+    if (raw == null || raw === '' || !Number.isInteger(n)) return null;
+    const row = db.prepare(
+        'SELECT 1 FROM class_students WHERE user_key = ? AND class_id = ? AND exited_on IS NULL'
+    ).get(userKey, n);
+    if (!row) { console.warn(`sat: user ${userKey} not enrolled in class ${n}, storing/ignoring`); return null; }
+    return n;
+}
+
+// POST /api/sat/score  { correct, domainIdx, skill, difficulty, assessment, class_id }
 router.post('/score', (req, res) => {
-    const { correct, domainIdx, skill = '', difficulty, assessment } = req.body;
+    const { correct, domainIdx, skill = '', difficulty, assessment, class_id } = req.body;
     if (correct == null || domainIdx == null || !difficulty) {
         return res.status(400).json({ error: 'correct, domainIdx, and difficulty required' });
     }
     const asmt = VALID_ASSESSMENTS.has(assessment) ? assessment : 'unknown';
+    const classId = enrolledClassId(req.userKey, class_id);
 
     db.prepare(
-        `INSERT INTO sat_scores(user_key, correct, domain_idx, skill, difficulty, assessment, submitted_at)
-         VALUES(?, ?, ?, ?, ?, ?, ?)`
-    ).run(req.userKey, correct ? 1 : 0, Number(domainIdx), skill, difficulty, asmt, Date.now());
+        `INSERT INTO sat_scores(user_key, correct, domain_idx, skill, difficulty, assessment, class_id, submitted_at)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(req.userKey, correct ? 1 : 0, Number(domainIdx), skill, difficulty, asmt, classId, Date.now());
 
     res.json({ ok: true });
 });
 
-// GET /api/sat/next  → { domainIdx, skill, difficulty }
+// GET /api/sat/next[?class_id=<id>]  → { domainIdx, skill, difficulty }
 router.get('/next', (req, res) => {
-    // Resolve per-class domain restrictions for this student
-    const classRows = db.prepare(`
-        SELECT c.sat_english_domains
-        FROM class_students cs
-        JOIN classes c ON c.id = cs.class_id
-        WHERE cs.user_key = ? AND c.sat_english_domains IS NOT NULL
-    `).all(req.userKey);
-
+    // Domain restrictions come from the one class the student is working for.
+    // No class_id (free practice) => all four domains. History is always global
+    // per student — only the eligible-domain filter is per-class.
+    const classId = enrolledClassId(req.userKey, req.query.class_id);
     let allowedDomains = null; // null = all four allowed
-    if (classRows.length > 0) {
-        const allowed = new Set();
-        for (const { sat_english_domains } of classRows) {
-            sat_english_domains.split(',').map(Number).forEach(d => allowed.add(d));
-        }
-        allowedDomains = allowed;
+    if (classId) {
+        const row = db.prepare('SELECT sat_english_domains AS d FROM classes WHERE id = ?').get(classId);
+        if (row && row.d) allowedDomains = new Set(row.d.split(',').map(Number));
     }
     const ALL_DOMAINS = [0, 1, 2, 3];
     const activeDomains = allowedDomains ? ALL_DOMAINS.filter(d => allowedDomains.has(d)) : ALL_DOMAINS;
@@ -127,11 +135,13 @@ router.get('/next', (req, res) => {
     res.json({ domainIdx: pick.domainIdx, skill: pick.skill, difficulty: pick.difficulty });
 });
 
-// GET /api/sat/session?since=<ms>  — today's answers grouped by domain → skill → difficulty
+// GET /api/sat/session?since=<ms>[&class_id=<id>]  — answers grouped by domain → skill → difficulty.
+// With class_id, only that class's attributed answers (matches the daily pill).
 router.get('/session', (req, res) => {
     const since = Number(req.query.since) || (() => {
         const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime();
     })();
+    const classId = enrolledClassId(req.userKey, req.query.class_id);
 
     const DOMAIN_NAMES = [
         'Information and Ideas',
@@ -143,9 +153,9 @@ router.get('/session', (req, res) => {
     const rows = db.prepare(`
         SELECT domain_idx, skill, difficulty, correct
         FROM sat_scores
-        WHERE user_key = ? AND submitted_at >= ?
+        WHERE user_key = ? AND submitted_at >= ?${classId ? ' AND class_id = ?' : ''}
         ORDER BY submitted_at
-    `).all(req.userKey, since);
+    `).all(req.userKey, since, ...(classId ? [classId] : []));
 
     // Build: domainIdx → skill → difficulty → { total, correct }
     const domainMap = {};

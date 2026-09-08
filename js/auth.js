@@ -60,6 +60,7 @@ function handleAuthClick() {
 function handleSignoutClick() {
     sessionToken = null;
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('classtech_active_class');
     document.getElementById('game-ui').style.display = 'none';
     document.getElementById('landing').style.display = 'flex';
     document.getElementById('signout_button').style.display = 'none';

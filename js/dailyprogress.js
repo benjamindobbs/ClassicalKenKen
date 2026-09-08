@@ -1,25 +1,33 @@
 // Daily progress pill — tracks done/required for today's assignment.
-// Call initDailyProgress(type) after sign-in. type: 'kenken' | 'sat' | 'sat-math'
+// Call initDailyProgress(type, classId) after sign-in. type: 'kenken' | 'sat' | 'sat-math'
+// classId: a class id to scope to, null for "not for a class" (pill hidden),
+// or undefined for the legacy first-class behaviour.
 // Renders into #daily-pill; triggers +1 float on qualifying submissions.
 
 let _dpData = null;
 
-async function initDailyProgress(type) {
+function _dpUrl(classId) {
+    if (classId === null)      return '/api/student/daily-progress?class_id=none';
+    if (classId === undefined) return '/api/student/daily-progress';
+    return '/api/student/daily-progress?class_id=' + encodeURIComponent(classId);
+}
+
+async function initDailyProgress(type, classId) {
     if (typeof localMode !== 'undefined' && localMode) return;
     try {
-        const res = await authFetch('/api/student/daily-progress');
+        const res = await authFetch(_dpUrl(classId));
         if (!res.ok) return;
         _dpData = await res.json();
         _renderPill(type);
     } catch (_) {}
 }
 
-async function refreshDailyProgress(type) {
+async function refreshDailyProgress(type, classId) {
     if (typeof localMode !== 'undefined' && localMode) return;
     const todayKey = type === 'sat-math' ? 'sat_math' : type;
     const prevCount = _dpData?.today?.[todayKey] ?? 0;
     try {
-        const res = await authFetch('/api/student/daily-progress');
+        const res = await authFetch(_dpUrl(classId));
         if (!res.ok) return;
         _dpData = await res.json();
         const newCount = _dpData?.today?.[todayKey] ?? 0;

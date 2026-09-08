@@ -29,10 +29,14 @@ const MATH_QUESTION_FILES = {
 };
 
 async function _doLoadMathQuestions() {
-    // Determine assessment type from server for logged-in users
+    // Determine assessment type from server for logged-in users, scoped to the
+    // picked class so the right bank (SAT / PSAT 10 / PSAT 8/9) loads.
     if (!localMode) {
         try {
-            const prog = await authFetch('/api/student/daily-progress').then(r => r.json());
+            if (typeof ClassPicker !== 'undefined') await ClassPicker.ready();
+            const cid = (typeof ClassPicker !== 'undefined') ? ClassPicker.activeClassId() : null;
+            const prog = await authFetch('/api/student/daily-progress' + (cid != null ? '?class_id=' + cid : ''))
+                .then(r => r.json());
             if (prog && prog.assessment_type) assessmentType = prog.assessment_type;
         } catch {}
     }
@@ -65,6 +69,16 @@ async function ensureQuestionsLoaded() {
     if (questionTypes) return;
     if (!loadingPromise) loadingPromise = _doLoadMathQuestions();
     return loadingPromise;
+}
+
+// The class picker calls this when the student switches class. A different class
+// may use a different question bank (SAT vs PSAT), so drop the cache; if a
+// question is on screen, pull a fresh one for the new class.
+async function onActiveClassChange() {
+    questionTypes = null;
+    loadingPromise = null;
+    const quiz = document.getElementById('sat-quiz-area');
+    if (quiz && quiz.style.display !== 'none') await nextQuestion();
 }
 
 function pickQuestion(pool, skill, difficulty) {

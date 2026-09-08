@@ -1015,6 +1015,30 @@ try {
     `);
 } catch { /* wbl_transfer_sync not present yet on a brand-new DB */ }
 
+// Each practice submission is attributed to the class it was done for, so a
+// student on multiple rosters can complete each class's Do Now separately and
+// be served that class's domains. Nullable: NULL = "not for a class" (free
+// practice, local mode) or a pre-feature row for a multi-class student.
+// One-time backfill (gated on the first ALTER): rows for a student who is on
+// exactly one roster are safely attributed to it — nothing about their grades
+// changes. Multi-class students' historical rows stay NULL and count toward no
+// class; their teachers may need a one-time grade adjustment.
+try {
+    for (const tbl of ['kenken_scores', 'sat_scores', 'sat_math_scores']) {
+        db.prepare(`ALTER TABLE ${tbl} ADD COLUMN class_id INTEGER REFERENCES classes(id)`).run();
+        db.prepare(`CREATE INDEX IF NOT EXISTS idx_${tbl}_class ON ${tbl}(class_id, submitted_at)`).run();
+        db.prepare(`
+            UPDATE ${tbl} SET class_id = (
+                SELECT cs.class_id FROM class_students cs
+                WHERE cs.user_key = ${tbl}.user_key
+                GROUP BY cs.user_key
+                HAVING COUNT(DISTINCT cs.class_id) = 1
+            )
+            WHERE class_id IS NULL
+        `).run();
+    }
+} catch { /* already migrated */ }
+
 function upsertUser(userKey, email) {
     db.prepare(
         'INSERT OR IGNORE INTO users(user_key, email, first_seen) VALUES(?, ?, ?)'

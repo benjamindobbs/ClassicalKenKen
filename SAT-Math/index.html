@@ -41,6 +41,7 @@
         <div class="game-header">
             <span class="game-title">SAT Math Practice</span>
             <div class="auth-controls">
+                <span id="class-picker-slot" class="class-picker-slot" style="display:none"></span>
                 <span id="daily-pill" class="daily-pill" style="display:none"><span class="dp-count"></span></span>
                 <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
             </div>
@@ -130,6 +131,10 @@
     }
 
     function launchSATMath() {
+        if (typeof ClassPicker !== 'undefined' && ClassPicker.needsChoice()) {
+            ClassPicker.flash();
+            return;
+        }
         document.getElementById('sat-start-screen').style.display = 'none';
         document.getElementById('sat-quiz-area').style.display = '';
         nextQuestion();
@@ -137,6 +142,7 @@
     </script>
 
     <script src="../js/auth.js"></script>
+    <script src="../js/classpicker.js"></script>
     <script src="../js/dailyprogress.js"></script>
     <script src="../js/SATmathsubmit.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>

@@ -239,6 +239,31 @@ tbody tr:nth-child(even) { background: #f8fafc; }
 .daily-pill--active { background: #fef3c7; color: #92400e; }
 .daily-pill--done   { background: #d1fae5; color: #065f46; }
 
+/* Class picker — which class a Do Now is being completed for */
+.class-picker-slot { display: inline-flex; align-items: center; }
+.class-picker-select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    padding: 0.25rem 1.75rem 0.25rem 0.75rem;
+    max-width: 12rem;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2364748b' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+}
+.class-picker-select:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.class-picker-select--needed {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+    transition: box-shadow 0.15s;
+}
+
 .daily-pill-floater {
     position: absolute;
     top: -6px;

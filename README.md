@@ -182,7 +182,7 @@ The client asks the server *what* to serve next (`GET /api/sat/next` or `/api/sa
 server returns `{ domainIdx, skill, difficulty }` and the client pulls a matching question from the
 loaded bank. Attempts are logged back to the server (`domainIdx`, `skill`, `difficulty`, correct?).
 
-1. **Allowed domains.** Class settings may restrict which of the four domains are active; otherwise all four.
+1. **Allowed domains.** A student enrolled in more than one class picks which class they're practicing for; `next`/`score`/`daily-progress` carry that `class_id`, so the student is served *that* class's active domains and the submission is attributed to it (a `class_id` column on the score tables). "Not for a class" serves all four domains and counts toward nothing. The adaptive history below stays global per student — only the eligible-domain filter is per class.
 2. **Recent history only.** A SQL window function takes the last 25 attempts per `(domain, skill, difficulty)`, so old struggles don't permanently hold a student down.
 3. **Accuracy map.** Those rows are aggregated in JS into `{ "domain|skill|difficulty": { attempts, accuracy } }`.
 4. **Candidate list.**
@@ -192,7 +192,9 @@ loaded bank. Attempts are logged back to the server (`domainIdx`, `skill`, `diff
 5. **Weighted random pick** across the candidate list — lower-accuracy areas occupy proportionally more of the range.
 
 Grades for SAT/PSAT practice use the same daily-count model as KenKen (see above), with a required
-count per day set by the teacher.
+count per day set by the teacher. `/api/teacher/grades` counts only submissions attributed to the
+class being graded; a one-time migration backfilled `class_id` on existing rows for students who are
+in exactly one class.
 
 ---
 

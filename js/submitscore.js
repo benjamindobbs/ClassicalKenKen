@@ -4,7 +4,12 @@ async function onSignedIn() {
         const pd = document.getElementById('playerData');
         if (pd) pd.innerHTML = 'Current Rank ' + Math.floor(data.rank);
     } catch (e) {}
-    initDailyProgress('kenken');
+
+    await ClassPicker.init('kenken');
+    const slot = document.getElementById('class-picker-slot');
+    if (slot) ClassPicker.render(slot);
+    ClassPicker.onChange(cid => initDailyProgress('kenken', cid));
+    initDailyProgress('kenken', ClassPicker.activeClassId());
 }
 
 // Returns the player's new avg score after submitting, or null in local/error cases.
@@ -16,7 +21,7 @@ async function writeScore(score, size) {
     try {
         const res = await authFetch('/api/kenken/score', {
             method: 'POST',
-            body: JSON.stringify({ score, size }),
+            body: JSON.stringify({ score, size, class_id: ClassPicker.activeClassId() }),
         });
         const data = await res.json();
         document.getElementById('submitMessage').innerHTML = 'Score submitted';

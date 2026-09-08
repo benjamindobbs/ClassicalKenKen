@@ -459,17 +459,21 @@ router.get('/grades', requireTeacher, (req, res) => {
         const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
         const threshold = avgRow?.avg ?? 0;
 
+        // Only submissions attributed to this class count toward its grade.
+        // Pre-feature rows for single-class students were backfilled (server/db.js);
+        // genuinely multi-class students' historical rows stay NULL and don't count.
+        const cid = Number(class_id);
         const kenkenCount = db.prepare(
-            'SELECT COUNT(*) AS cnt FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND score >= ?'
-        ).get(student.user_key, sMs, eMs, threshold)?.cnt ?? 0;
+            'SELECT COUNT(*) AS cnt FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND score >= ? AND class_id = ?'
+        ).get(student.user_key, sMs, eMs, threshold, cid)?.cnt ?? 0;
 
         const satCount = db.prepare(
-            'SELECT COUNT(*) AS cnt FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
-        ).get(student.user_key, sMs, eMs)?.cnt ?? 0;
+            'SELECT COUNT(*) AS cnt FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND class_id = ?'
+        ).get(student.user_key, sMs, eMs, cid)?.cnt ?? 0;
 
         const satMathCount = db.prepare(
-            'SELECT COUNT(*) AS cnt FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?'
-        ).get(student.user_key, sMs, eMs)?.cnt ?? 0;
+            'SELECT COUNT(*) AS cnt FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND class_id = ?'
+        ).get(student.user_key, sMs, eMs, cid)?.cnt ?? 0;
 
         const ra = asgn.required_activity;
         const smReq = asgn.required_sat_math_count ?? 1;

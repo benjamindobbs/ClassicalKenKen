@@ -6,22 +6,65 @@ const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 const router = Router();
 router.use(requireAuth);
 
-// GET /api/student/daily-progress
-// Returns today's submission counts, remaining requirements, and the activity mode.
-// Returns 401 (via requireAuth) if the student is not signed in.
-router.get('/daily-progress', (req, res) => {
-    // Find this student's class — requirements are per-class now, so no
-    // separate teacher-wide lookup is needed.
-    const classRow = db.prepare(`
-        SELECT c.assessment_type,
-               c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count
+// GET /api/student/classes
+// Active enrollments for the signed-in student, with everything the client's
+// class picker and daily-progress pill need. One row per class.
+router.get('/classes', (req, res) => {
+    const classes = db.prepare(`
+        SELECT c.id AS class_id, c.name, c.assessment_type,
+               c.required_activity, c.required_kenken_count,
+               c.required_sat_count, c.required_sat_math_count,
+               c.sat_english_domains, c.sat_math_domains
         FROM class_students cs
-        JOIN classes c ON cs.class_id = c.id
+        JOIN classes c ON c.id = cs.class_id
+        WHERE cs.user_key = ? AND cs.exited_on IS NULL
+        ORDER BY c.name
+    `).all(req.userKey);
+    res.json({ classes });
+});
+
+// Resolves the class a daily-progress / session request is scoped to.
+// Returns { classRow, scoped } — classRow null when the student has no class.
+// Throws { status, error } for a class_id the student isn't actively enrolled in.
+function resolveScopeClass(userKey, qClass) {
+    const cols = `c.id AS class_id, c.assessment_type,
+                  c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count`;
+    if (qClass != null && qClass !== '' && qClass !== 'none') {
+        const row = db.prepare(`
+            SELECT ${cols}
+            FROM class_students cs JOIN classes c ON cs.class_id = c.id
+            WHERE cs.user_key = ? AND cs.class_id = ? AND cs.exited_on IS NULL
+        `).get(userKey, Number(qClass));
+        if (!row) throw { status: 400, error: 'not enrolled in class_id' };
+        return { classRow: row, scoped: true };
+    }
+    // Legacy / unscoped: keep the historical "pick one" behaviour.
+    const row = db.prepare(`
+        SELECT ${cols}
+        FROM class_students cs JOIN classes c ON cs.class_id = c.id
         WHERE cs.user_key = ?
         LIMIT 1
-    `).get(req.userKey);
+    `).get(userKey);
+    return { classRow: row || null, scoped: false };
+}
 
-    if (!classRow) return res.json({ settings: null, assessment_type: 'sat' });
+// GET /api/student/daily-progress[?class_id=<id>|none]
+// Returns today's submission counts, remaining requirements, and the activity mode.
+// With class_id: scoped to that class (settings + counts). "none" => free
+// practice, no assignment. Without it: legacy first-class behaviour.
+// Returns 401 (via requireAuth) if the student is not signed in.
+router.get('/daily-progress', (req, res) => {
+    const qClass = req.query.class_id;
+    if (qClass === 'none') return res.json({ settings: null, assessment_type: 'sat', class_id: null });
+
+    let classRow, scoped;
+    try {
+        ({ classRow, scoped } = resolveScopeClass(req.userKey, qClass));
+    } catch (e) {
+        return res.status(e.status || 400).json({ error: e.error || 'bad request' });
+    }
+
+    if (!classRow) return res.json({ settings: null, assessment_type: 'sat', class_id: null });
 
     const settings = {
         required_activity: classRow.required_activity,
@@ -34,22 +77,27 @@ router.get('/daily-progress', (req, res) => {
     const now        = new Date();
     const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
+    // When scoped to a class, only submissions attributed to it count toward
+    // that class's Do Now (server/db.js: kenken_scores.class_id et al.).
+    const cf   = scoped ? ' AND class_id = ?' : '';
+    const cArg = scoped ? [classRow.class_id] : [];
+
     // KenKen: only count today's puzzles that score >= the student's all-time average
     const avgRow   = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(req.userKey);
     const avgScore = avgRow?.avg ?? 0;
     const kenkenToday = db.prepare(
-        'SELECT COUNT(*) AS n FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND score >= ?'
-    ).get(req.userKey, todayStart, avgScore).n;
+        'SELECT COUNT(*) AS n FROM kenken_scores WHERE user_key = ? AND submitted_at >= ? AND score >= ?' + cf
+    ).get(req.userKey, todayStart, avgScore, ...cArg).n;
 
     // SAT English: only count correct answers
     const satToday = db.prepare(
-        'SELECT COUNT(*) AS n FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1'
-    ).get(req.userKey, todayStart).n;
+        'SELECT COUNT(*) AS n FROM sat_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
+    ).get(req.userKey, todayStart, ...cArg).n;
 
     // SAT Math: only count correct answers
     const satMathToday = db.prepare(
-        'SELECT COUNT(*) AS n FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1'
-    ).get(req.userKey, todayStart).n;
+        'SELECT COUNT(*) AS n FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
+    ).get(req.userKey, todayStart, ...cArg).n;
 
     const act       = settings.required_activity;
     const remaining = { kenken: 0, sat: 0, sat_math: 0 };
@@ -83,6 +131,7 @@ router.get('/daily-progress', (req, res) => {
         today:           { kenken: kenkenToday, sat: satToday, sat_math: satMathToday },
         remaining,
         assessment_type: classRow.assessment_type || 'sat',
+        class_id:        scoped ? classRow.class_id : null,
     });
 });
 
