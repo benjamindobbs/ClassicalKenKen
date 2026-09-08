@@ -18,6 +18,8 @@ Follow it top to bottom. It should take about 15 minutes, and you only do most o
 In **Google Chrome**, go to **[classicaltech.org](https://classicaltech.org)**. Use Chrome
 specifically — the companion extension in Part 2 only runs in Chrome.
 
+![The DobbsCore homepage at classicaltech.org](assets/quickstart-screenshots/quickstart-homepage.png)
+
 ### Step 2. Go to the Teacher Portal
 
 In the top navigation bar, click **Sign In**. A Google sign-in window opens. If you don't see "Sign
@@ -36,6 +38,8 @@ Pick your **@hartfordschools.org** staff account.
 
 You land on the **Teacher Portal**, which shows a short **Getting Started** checklist the first time.
 Your session stays signed in on this browser until you click **Sign Out**.
+
+![The Teacher Portal "Getting Started" checklist](assets/quickstart-screenshots/quickstart-getting-started.png)
 
 ### Step 5. Enter your name
 
@@ -66,6 +70,8 @@ green **Code** button → **Download ZIP**. Unzip it somewhere permanent (e.g. `
 3. Click **Load unpacked** and select the unzipped folder (the one containing `manifest.json`).
 4. The card **"DobbsCore Gradebook Sync"** appears.
 
+![chrome://extensions with Developer mode on and the DobbsCore card loaded](assets/quickstart-screenshots/quickstart-chrome-extensions.png)
+
 ### Step 3. Pin it
 
 Click the puzzle-piece icon near Chrome's address bar and pin **DobbsCore Gradebook Sync**.
@@ -77,6 +83,8 @@ Click the puzzle-piece icon near Chrome's address bar and pin **DobbsCore Gradeb
 3. Set **DobbsCore Server URL** to exactly `https://classicaltech.org`.
 4. Paste your token into **Teacher Token**.
 5. **Save.**
+
+![The extension popup with Server URL and Teacher Token filled in](assets/quickstart-screenshots/quickstart-extension-popup.png)
 
 > If you sign out of the portal and back in later, copy the token again and re-paste it. An
 > authorization error on a sync means the token is stale — that's the fix.
@@ -94,6 +102,8 @@ Click the puzzle-piece icon near Chrome's address bar and pin **DobbsCore Gradeb
 4. It pulls the live roster — names, district **Student Numbers**, and an internal PowerSchool ID for
    later attendance matching — and creates the class in DobbsCore.
 5. Back in the Teacher Portal → **Classes** tab → refresh. Your class is listed.
+
+![A PowerSchool section page with the "Import Roster to DobbsCore" button](assets/quickstart-screenshots/quickstart-import-roster.png)
 
 Repeat per section. When enrollment changes later, use **Re-sync Roster** (not re-import) — see the
 wiki's [Managing Classes & Rosters](https://github.com/benjamindobbs/ClassicalKenKen/wiki/Managing-Classes-and-Rosters).
@@ -121,6 +131,8 @@ linked students** — an unlinked student always gets the "No Submission" grade.
    linked.
 3. Re-run **Link Accounts** whenever more students have signed in.
 
+![A class roster showing the "Linked Account" column](assets/quickstart-screenshots/quickstart-linked-accounts.png)
+
 ---
 
 ## Part 5 — Set what students must do each day
@@ -132,6 +144,8 @@ Open the class → **Assignment Requirements**.
 - For each checked activity, set the **"… / Day"** count. KenKen games only count if at or above the
   student's own average; SAT items only count if **correct**.
 - **Save Requirements.**
+
+![The Assignment Requirements card with activities checked and counts entered](assets/quickstart-screenshots/quickstart-assignment-requirements.png)
 
 Above that: **Assessment** (SAT / PSAT 10 / PSAT 8/9) and **SAT English / Math Domains** (check a
 subset to restrict practice, or leave all checked for all domains) → **Save Domains.**
