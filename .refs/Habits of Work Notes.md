@@ -1,0 +1,9 @@
+
+
+|  *Preparation for Learning (Gravitas)* | I am on time and seated when the bell rings.  I am prepared with all materials, prior learning needed to engage with today’s tasks.  I start the Do Now/Warm Up activity without prompting at the start of the lesson.  I attend this class regularly (over 95%) and complete missing tasks when absent.  | Teacher Notes |
+| ----- | :---- | :---- |
+| **Habits of Work Daily/WeeklyTargets** *Underline or hi-lite a personal goal to focus on in class this week from the Habits of Work listed below.* |  |  |
+|  ***Engagement with Learning (Gravitas)*** | I can do my very best work with 100% effort.  I can use resources and/or seek help when needed to complete tasks.  I can stay on task  in order to thoroughly complete all parts of the assignments/assessments (i.e. avoid any distractions from technology, off-task conversations, disruptive behavior, etc.)  I can show interest and curiosity for the learning by posing questions, engaging in discourse, and/or seeking alternate solutions or perspectives. I can use feedback to improve my work & resubmit and/or schedule retakes when needed.  | Teacher Notes |
+|  ***Interaction with Others*** | I can use respectful language, volume & tone with others during class. ([volume levels](https://docs.google.com/document/d/1XEVnXsbmG9tgR61FPY-ySb-Bw9j4i6zCTutCbYFPQKE/edit)) ***Dignitas*** I can actively listen while others are speaking. ***Dignitas*** I can positively contribute to our learning community by collaborating with peers and supporting others. ***Pietas*** I can keep my community safe by calmly communicating to an adult when I am upset, frustrated, or need support. ***Pietas*** | Teacher Notes |
+| **Debrief:** Put a check in the boxes of the Habits that you met today (or this week).  *Did you meet your personal goal? Why or why not? Explain with evidence*.  *Which area still needs improvement? Why? What will you do to improve? Be specific.*   |  |  |
+

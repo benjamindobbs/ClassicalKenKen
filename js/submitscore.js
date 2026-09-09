@@ -18,6 +18,11 @@ async function writeScore(score, size) {
         document.getElementById('submitMessage').innerHTML = 'Local mode — score not saved';
         return null;
     }
+    if (!Number.isFinite(score) || !Number.isFinite(size)) {
+        console.error('writeScore: refusing to submit non-finite score/size', { score, size });
+        document.getElementById('submitMessage').innerHTML = 'Error calculating score — not saved';
+        return null;
+    }
     try {
         const res = await authFetch('/api/kenken/score', {
             method: 'POST',

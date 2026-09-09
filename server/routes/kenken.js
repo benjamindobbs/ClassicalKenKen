@@ -30,11 +30,16 @@ function enrolledClassId(userKey, raw) {
 router.post('/score', (req, res) => {
     const { score, size, class_id } = req.body;
     if (score == null || size == null) return res.status(400).json({ error: 'score and size required' });
+    const scoreNum = Number(score);
+    const sizeNum = Number(size);
+    if (!Number.isFinite(scoreNum) || !Number.isFinite(sizeNum)) {
+        return res.status(400).json({ error: 'score and size must be finite numbers' });
+    }
     const classId = enrolledClassId(req.userKey, class_id);
 
     db.prepare(
         'INSERT INTO kenken_scores(user_key, score, size, class_id, submitted_at) VALUES(?, ?, ?, ?, ?)'
-    ).run(req.userKey, Number(score), Number(size), classId, Date.now());
+    ).run(req.userKey, scoreNum, sizeNum, classId, Date.now());
 
     res.json(getRankDataForUser(req.userKey));
 });

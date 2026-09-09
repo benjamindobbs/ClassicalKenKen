@@ -132,7 +132,7 @@ function checkAnswer() {
       gameOver = true;
       finishTime = Date.now();
       var time = (finishTime - startTime) / 1000;
-      var unsolved = (size * size) - hintsGiven;
+      var unsolved = (size * size) - (hintsGiven || 0);
       score = Math.round(((unsolved / guesses) + (2.5 * unsolved / time)) * size * 10);
       var currentLevel = Math.floor(rank);
       var nextThreshold = LEVEL_STARTS[Math.min(currentLevel, LEVEL_STARTS.length - 1)];
@@ -1228,7 +1228,7 @@ function giveHints(numHints){
           else if(partialRank<.8){
               return Math.floor(size*size/6);
             }
-          else if(partialRank>.8){
+          else {
           return Math.floor(size*size/7);
           }
     }else{
