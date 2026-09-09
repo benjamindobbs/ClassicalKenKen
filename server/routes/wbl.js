@@ -320,7 +320,10 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
 });
 
 // Enrolled, active students with no work-event participation covering the
-// given date — backs the "no job today" panel on the Work Events tab.
+// given date — backs the "no job today" panel on the Work Events tab,
+// grouped by class period. Classes are joined in JS, not SQL, for the same
+// reason as roster-by-class: class_students carries the raw PowerSchool
+// student number while enrollment keys off normalizeStudentId().
 router.get('/programs/:id/unassigned', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
@@ -339,7 +342,27 @@ router.get('/programs/:id/unassigned', requireTeacher, (req, res) => {
           )
         ORDER BY student_name
     `).all(p.id, date, date);
-    res.json({ date, students: rows });
+
+    const classes = db.prepare(`
+        SELECT c.id, c.name FROM wbl_class_programs cp JOIN classes c ON c.id = cp.class_id
+        WHERE cp.program_id = ? ORDER BY c.name
+    `).all(p.id);
+    const studentsFor = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?');
+    const noJob = new Set(rows.map(r => r.student_id));
+    const grouped = classes.map(c => ({
+        class_id: c.id, class_name: c.name,
+        students: studentsFor.all(c.id)
+            .map(s => normalizeStudentId(s.student_id))
+            .filter(id => noJob.has(id))
+            .map(id => rows.find(r => r.student_id === id))
+            .sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '')),
+    }));
+    // A student reachable only through a class no longer linked to the program
+    // still shows here rather than vanishing from the list.
+    const placed = new Set(grouped.flatMap(g => g.students.map(s => s.student_id)));
+    const ungrouped = rows.filter(r => !placed.has(r.student_id));
+
+    res.json({ date, students: rows, classes: grouped, ungrouped });
 });
 
 // ── Called Out (voids a UNV pulled from PS on this date) ────────────────────

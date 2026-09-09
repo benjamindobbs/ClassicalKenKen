@@ -2608,12 +2608,29 @@
             const body = document.getElementById('wbl-unassigned-body');
             if (wblUnassignedHidden) { body.innerHTML = ''; return; }
             const r = await wblApi('GET', `/programs/${wblProgramId()}/unassigned?date=${dateInput.value}`);
-            body.innerHTML = r.students.length
-                ? `<div class="portal-table-wrap"><table class="portal-table">
+            if (!r.students.length) {
+                body.innerHTML = '<div class="wbl-empty">Everyone has a job on this date.</div>';
+                return;
+            }
+            const groups = [
+                ...(r.classes || []).filter(g => g.students.length),
+                ...((r.ungrouped && r.ungrouped.length)
+                    ? [{ class_name: 'No linked class', students: r.ungrouped }] : []),
+            ];
+            const section = g => `
+                <div class="section-title" style="font-size:0.9375rem;margin:1rem 0 0.25rem">
+                    ${wblEsc(g.class_name)} <span style="color:#94a3b8;font-weight:400">(${g.students.length})</span>
+                </div>
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th></tr></thead>
+                    <tbody>${g.students.map(s => `<tr><td>${wblEsc(s.student_name || s.student_id)}</td></tr>`).join('')}</tbody>
+                </table></div>`;
+            body.innerHTML = groups.length
+                ? groups.map(section).join('')
+                : `<div class="portal-table-wrap"><table class="portal-table">
                        <thead><tr><th>Student</th></tr></thead>
                        <tbody>${r.students.map(s => `<tr><td>${wblEsc(s.student_name || s.student_id)}</td></tr>`).join('')}</tbody>
-                   </table></div>`
-                : '<div class="wbl-empty">Everyone has a job on this date.</div>';
+                   </table></div>`;
         }
 
         function wblToggleUnassigned() {
