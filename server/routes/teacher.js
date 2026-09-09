@@ -309,7 +309,11 @@ router.get('/classes/:id', requireTeacher, (req, res) => {
     const students = db.prepare(
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
     ).all(Number(req.params.id));
-    res.json({ ...cls, students });
+    // Linked to a WBL program? The Habits of Work (Do Now / Exit Slip) flow is
+    // for non-WBL classes only; the teacher UI keys its panel off this.
+    const wblLinked = !!db.prepare('SELECT 1 FROM wbl_class_programs WHERE class_id = ?')
+        .get(Number(req.params.id));
+    res.json({ ...cls, students, wbl_linked: wblLinked });
 });
 
 router.post('/classes/:id/students', requireTeacher, (req, res) => {

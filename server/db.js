@@ -1015,6 +1015,184 @@ try {
     `);
 } catch { /* wbl_transfer_sync not present yet on a brand-new DB */ }
 
+// ---------------------------------------------------------------------------
+// Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
+// Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed
+// straight to a class (no program), and carrying the district Dignitas /
+// Pietas / Gravitas catalogue (server/how/catalog.js) rather than the WBL
+// soft-skill vocabulary. Enabled automatically for any class not linked to a
+// WBL program.
+//
+// A class runs HoW on one of two cadences (classes.how_cadence):
+//   'daily'  — one Do Now per calendar day; the student picks ONE category and
+//              one bullet, and the teacher rates that one exit slip 1-4.
+//   'weekly' — one Do Now per ISO week (how_do_nows.date holds the week's
+//              Monday); the student picks one bullet in EACH of the 3
+//              categories, and the teacher rates all 3 from one review point.
+// Both cadences share the same tables — 'daily' is just the 1-category case.
+// how_do_nows.cadence snapshots what a row was created as, so flipping the
+// class setting never re-interprets existing entries.
+
+// Pre-release cleanup: the first cut of this feature shipped a flatter schema
+// (category/goal_rating/evidence columns directly on how_do_nows/how_exit_slips,
+// a single-row how_exit_slip_ratings). Nothing is committed or deployed on it,
+// so if a dev DB still has that shape, drop the how_* tables and rebuild.
+try {
+    const dnCols = db.prepare("PRAGMA table_info(how_do_nows)").all();
+    if (dnCols.length && dnCols.some(c => c.name === 'category')) {
+        db.exec(`
+            DROP TRIGGER IF EXISTS trg_how_exit_slip_no_update;
+            DROP TABLE IF EXISTS how_exit_slip_voids;
+            DROP TABLE IF EXISTS how_exit_slip_ratings;
+            DROP TABLE IF EXISTS how_exit_slip_skills;
+            DROP TABLE IF EXISTS how_exit_slips;
+            DROP TABLE IF EXISTS how_do_now_skills;
+            DROP TABLE IF EXISTS how_do_nows;
+        `);
+    }
+} catch { /* table doesn't exist yet — fresh DB */ }
+
+db.exec(`
+    -- One Do Now per student per class per period (a day when daily, an ISO
+    -- week when weekly — 'date' is that week's Monday). cadence snapshots the
+    -- class setting at creation time.
+    CREATE TABLE IF NOT EXISTS how_do_nows (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id     INTEGER NOT NULL REFERENCES classes(id),
+        student_id   TEXT    NOT NULL,
+        date         TEXT    NOT NULL,
+        cadence      TEXT    NOT NULL DEFAULT 'daily',
+        submitted_at INTEGER NOT NULL,
+        UNIQUE(class_id, student_id, date)
+    );
+
+    -- The chosen focus bullet(s): one row (daily) or three, one per category
+    -- (weekly). category is 'dignitas' | 'pietas' | 'gravitas'; sub_bullet is a
+    -- catalogue bullet code that must belong to that category.
+    CREATE TABLE IF NOT EXISTS how_do_now_skills (
+        do_now_id  INTEGER NOT NULL REFERENCES how_do_nows(id),
+        category   TEXT    NOT NULL,
+        sub_bullet TEXT    NOT NULL,
+        PRIMARY KEY (do_now_id, category)
+    );
+
+    -- IMMUTABLE once submitted (trigger below), mirroring wbl_exit_slips: the
+    -- reflection is a record of the moment, not a draft. One per Do Now.
+    CREATE TABLE IF NOT EXISTS how_exit_slips (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        do_now_id    INTEGER NOT NULL REFERENCES how_do_nows(id),
+        class_id     INTEGER NOT NULL,
+        student_id   TEXT    NOT NULL,
+        date         TEXT    NOT NULL,
+        submitted_at INTEGER NOT NULL,
+        UNIQUE(do_now_id)
+    );
+
+    -- The student's own reflection, per category picked at Do Now: a 1-4
+    -- self-assessment of whether they met the goal, evidence, and where they
+    -- can improve. One row (daily) or three (weekly).
+    CREATE TABLE IF NOT EXISTS how_exit_slip_skills (
+        exit_slip_id INTEGER NOT NULL REFERENCES how_exit_slips(id),
+        category     TEXT    NOT NULL,
+        goal_rating  INTEGER NOT NULL CHECK(goal_rating BETWEEN 1 AND 4),
+        evidence     TEXT    NOT NULL,
+        improve      TEXT    NOT NULL,
+        PRIMARY KEY (exit_slip_id, category)
+    );
+
+    -- The teacher's 1-4 verdict, per category. EDITABLE (re-rating overwrites)
+    -- — no Witnessed/Confirmed gradient for non-WBL classes. This is what
+    -- feeds the PS sync. One row (daily) or up to three (weekly).
+    CREATE TABLE IF NOT EXISTS how_exit_slip_ratings (
+        exit_slip_id INTEGER NOT NULL REFERENCES how_exit_slips(id),
+        category     TEXT    NOT NULL,
+        rating       INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 4),
+        rated_by     TEXT    NOT NULL,
+        note         TEXT    NOT NULL DEFAULT '',
+        rated_at     INTEGER NOT NULL,
+        PRIMARY KEY (exit_slip_id, category)
+    );
+
+    -- Escape hatch for a junk submission — voids the WHOLE slip. The slip
+    -- itself is never mutated; a voided slip is dropped from the PS aggregate.
+    CREATE TABLE IF NOT EXISTS how_exit_slip_voids (
+        exit_slip_id INTEGER PRIMARY KEY REFERENCES how_exit_slips(id),
+        reason       TEXT    NOT NULL,
+        voided_by    TEXT    NOT NULL,
+        voided_at    INTEGER NOT NULL
+    );
+
+    -- PS assignment IDs the DobbsCore extension created, per class + category +
+    -- kind: 'weekly' (that week's category average) or 'standing' (mean of the
+    -- last <=3 weekly aggregates). Mirrors wbl_habits_sync. The server never
+    -- talks to PowerSchool — this only stores what the extension reports back.
+    -- Cadence-agnostic: 'weekly' mode feeds the exact same 6 assignments.
+    CREATE TABLE IF NOT EXISTS how_sync (
+        class_id                INTEGER NOT NULL REFERENCES classes(id),
+        category                TEXT    NOT NULL,
+        kind                    TEXT    NOT NULL CHECK(kind IN ('weekly','standing')),
+        ps_assignment_id        TEXT,
+        ps_assignmentsection_id TEXT,
+        PRIMARY KEY (class_id, category, kind)
+    );
+
+    -- Optional daily evidence log for weekly classes (classes.how_weekly_log = 1
+    -- => how_do_nows.cadence 'weekly_log'). The student sets 3 goals at the start
+    -- of the week, then adds short dated evidence notes per category on any day,
+    -- and closes the week with the exit slip (self-rating + 'improve'). Entries
+    -- are append-only — the immutable-reflection rule of wbl_exit_slips applies.
+    CREATE TABLE IF NOT EXISTS how_evidence_entries (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        do_now_id  INTEGER NOT NULL REFERENCES how_do_nows(id),
+        category   TEXT    NOT NULL,
+        date       TEXT    NOT NULL,
+        note       TEXT    NOT NULL,
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_how_donow_student ON how_do_nows(class_id, student_id, date);
+    CREATE INDEX IF NOT EXISTS idx_how_slip_student  ON how_exit_slips(class_id, student_id, date);
+    CREATE INDEX IF NOT EXISTS idx_how_slip_donow    ON how_exit_slips(do_now_id);
+    CREATE INDEX IF NOT EXISTS idx_how_ev_donow      ON how_evidence_entries(do_now_id);
+`);
+
+db.exec(`
+    -- Same immutability guarantee as wbl_exit_slips: DELETE stays permitted
+    -- (auditable by absence, and needed for records-retention purges), UPDATE
+    -- does not (it would falsify the record invisibly). Covers both the slip
+    -- and the student's per-category reflection rows.
+    CREATE TRIGGER IF NOT EXISTS trg_how_exit_slip_no_update
+    BEFORE UPDATE ON how_exit_slips
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(ABORT, 'HoW exit slips are immutable - record a void instead');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_how_exit_slip_skills_no_update
+    BEFORE UPDATE ON how_exit_slip_skills
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(ABORT, 'HoW exit slips are immutable - record a void instead');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_how_evidence_no_update
+    BEFORE UPDATE ON how_evidence_entries
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(ABORT, 'HoW evidence entries are immutable');
+    END;
+`);
+
+// Per-class HoW cadence: 'daily' (default) or 'weekly'. Additive, no backfill —
+// every existing class stays on the daily flow already built.
+try { db.prepare("ALTER TABLE classes ADD COLUMN how_cadence TEXT NOT NULL DEFAULT 'daily'").run(); }
+catch { /* already exists */ }
+
+// Weekly classes only: 1 => students log evidence daily through the week
+// (how_do_nows.cadence 'weekly_log'); 0 => single end-of-week exit slip.
+try { db.prepare('ALTER TABLE classes ADD COLUMN how_weekly_log INTEGER NOT NULL DEFAULT 0').run(); }
+catch { /* already exists */ }
+
 // Each practice submission is attributed to the class it was done for, so a
 // student on multiple rosters can complete each class's Do Now separately and
 // be served that class's domains. Nullable: NULL = "not for a class" (free

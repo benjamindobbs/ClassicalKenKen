@@ -5,8 +5,8 @@ window.SKILL_MAP_DATA = {
   topics: [
   {
     id: 1,
-    name: "Habits of Mind",
-    initials: "HM",
+    name: "Habits of Work",
+    initials: "HW",
     color: "#8B5CF6",
     glow: "rgba(139,92,246,0.35)",
     bg: "rgba(139,92,246,0.12)",

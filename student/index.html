@@ -128,6 +128,25 @@
         .wbl-pill-good  { background:#f0fdf4; color:#166534; }
         .wbl-pill-bad   { background:#fee2e2; color:#991b1b; }
 
+        /* Habits of Work — Do Now / Exit Slip (non-WBL classes) */
+        .how-opt        { display:flex; align-items:flex-start; gap:0.625rem; padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; margin-bottom:0.4rem; }
+        .how-opt:hover  { background:#f8fafc; }
+        .how-opt.sel    { border-color:#2563eb; background:#eff6ff; }
+        .how-opt input  { margin-top:0.15rem; flex-shrink:0; }
+        .how-opt-name   { font-size:0.875rem; font-weight:600; color:#0f172a; }
+        .how-opt-text   { display:block; font-size:0.8125rem; color:#475569; margin-top:0.1rem; line-height:1.45; }
+        .how-group-label { font-size:0.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0.75rem 0 0.35rem; }
+        .how-scale      { display:flex; gap:0.4rem; flex-wrap:wrap; }
+        .how-scale button { padding:0.4rem 0.85rem; border:1px solid var(--border); border-radius:var(--radius); background:#fff; font-size:0.875rem; font-weight:700; cursor:pointer; color:#334155; }
+        .how-scale button.sel { border-color:#2563eb; background:#2563eb; color:#fff; }
+        .how-field-label { font-size:0.8125rem; font-weight:600; color:#334155; margin:0.9rem 0 0.35rem; }
+        .how-textarea   { width:100%; min-height:70px; padding:0.6rem 0.7rem; border:1px solid var(--border); border-radius:var(--radius); font-size:0.875rem; font-family:inherit; resize:vertical; box-sizing:border-box; }
+        .how-hist-row   { border-top:1px solid #f1f5f9; padding:0.7rem 0; font-size:0.8125rem; }
+        .how-hist-row:first-child { border-top:none; }
+        .how-badge      { display:inline-block; font-size:0.6875rem; font-weight:700; padding:0.12rem 0.5rem; border-radius:9999px; background:#f1f5f9; color:#475569; }
+        .how-badge-rated { background:#f0fdf4; color:#166534; }
+        .how-badge-void { background:#fee2e2; color:#991b1b; }
+
         /* Empty states */
         .empty-state { color: #94a3b8; font-size: 0.875rem; padding: 1.5rem 0; text-align: center; }
 
@@ -197,6 +216,18 @@
                 <div id="wbl-credentials"></div>
                 <div id="wbl-skillchecks"></div>
                 <div id="wbl-history"></div>
+            </div>
+
+            <!-- Habits of Work: Do Now / Exit Slip (non-WBL classes) -->
+            <div id="how-section" style="display:none">
+                <div class="section-heading">Habits of Work</div>
+                <div class="wbl-prog-row">
+                    <select id="how-class" onchange="loadHowDay()"></select>
+                </div>
+                <div id="how-donow"></div>
+                <div id="how-evidence"></div>
+                <div id="how-exit"></div>
+                <div id="how-history"></div>
             </div>
 
             <!-- Charts -->
@@ -314,6 +345,7 @@
                 initDailyClasses().then(() => loadDailyProgress()),
                 loadScores(),
                 loadWbl(),
+                loadHow(),
             ]);
         }
 
@@ -1169,6 +1201,351 @@
                                         </div>`).join('')}
                                 </div>` : ''}
                         </div>`).join('')}
+                </div>`;
+        }
+
+        // ── Habits of Work: Do Now / Exit Slip (non-WBL classes) ──────────────
+        // A standalone, class-scoped mirror of the WBL Do Now / Exit Slip, using
+        // the district Dignitas / Pietas / Gravitas catalogue. Served for any
+        // class the student is on that is NOT linked to a WBL program. Mode
+        // (howDay.cadence): 'daily' (one goal a day, one category), 'weekly'
+        // (one goal in each of the 3 categories, one end-of-week exit slip), or
+        // 'weekly_log' (weekly + dated evidence notes added through the week).
+        let howClasses = [], howCatalog = [], howDay = null;
+        // Do Now picks: { <category>: <bulletCode|null> }. Exit-slip self-ratings:
+        // { <category>: 1..4 }.
+        let howPicks = {}, howGoals = {};
+        const howIsWeekly = m => m === 'weekly' || m === 'weekly_log';
+
+        async function howApi(method, path, body) {
+            const res = await authFetch('/api/how' + path, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            let json = null;
+            try { json = await res.json(); } catch { /* no body */ }
+            if (!res.ok) { const e = new Error(json?.error || res.statusText); e.status = res.status; e.body = json; throw e; }
+            return json;
+        }
+
+        const howClassId = () => {
+            const sel = document.getElementById('how-class');
+            return sel && sel.value ? Number(sel.value) : (howClasses[0]?.class_id ?? null);
+        };
+        const howCat = code => howCatalog.find(c => c.code === code) || { code, name: code, groups: [] };
+        const howBulletText = code => {
+            for (const c of howCatalog) for (const g of c.groups) {
+                const b = g.bullets.find(x => x.code === code);
+                if (b) return b.text;
+            }
+            return code;
+        };
+        // Which categories this Do Now covers — 3 in weekly modes, 1 in daily.
+        const howActiveCats = () => (howIsWeekly(howDay?.cadence)
+            ? howCatalog.map(c => c.code)
+            : (howDay?.do_now ? howDay.do_now.skills.map(s => s.category) : []));
+
+        async function loadHow() {
+            if (typeof localMode !== 'undefined' && localMode) return;
+            try { howClasses = (await howApi('GET', '/me/classes')).classes || []; }
+            catch { return; }
+            if (!howClasses.length) return;
+
+            document.getElementById('how-section').style.display = '';
+            const sel = document.getElementById('how-class');
+            sel.innerHTML = howClasses.map(c => `<option value="${c.class_id}">${wblEsc(c.name)}</option>`).join('');
+            sel.parentElement.style.display = howClasses.length > 1 ? '' : 'none';
+            loadHowDay();
+        }
+
+        async function loadHowDay() {
+            const cid = howClassId();
+            if (cid == null) return;
+            howDay = await howApi('GET', `/me/day?class_id=${cid}&date=${wblToday()}`);
+            howCatalog = howDay.categories || howCatalog;
+            renderHowDoNow();
+            renderHowEvidence();
+            renderHowExit();
+            loadHowHistory();
+        }
+
+        // One category's bullet-picker (radio list, optionally grouped).
+        function howBulletPicker(cat, weekly) {
+            return `
+                ${weekly ? `<div class="how-group-label" style="margin-top:0.9rem">${wblEsc(cat.name)}</div>
+                            <div class="wbl-card-sub" style="margin:0 0 0.35rem">${wblEsc(cat.blurb)}</div>` : ''}
+                ${cat.groups.map(g => `
+                    ${cat.groups.length > 1 ? `<div class="how-group-label">${wblEsc(g.name)}</div>` : ''}
+                    ${g.bullets.map(b => `
+                        <label class="how-opt" data-cat="${cat.code}" data-bullet="${b.code}">
+                            <input type="radio" name="how-bullet-${cat.code}" value="${b.code}"
+                                   onchange="howSelectBullet('${cat.code}','${b.code}')">
+                            <span class="how-opt-text" style="margin:0">${wblEsc(b.text)}</span>
+                        </label>`).join('')}`).join('')}`;
+        }
+
+        function renderHowDoNow() {
+            const el = document.getElementById('how-donow');
+            const weekly = howIsWeekly(howDay.cadence);
+
+            if (howDay.do_now) {
+                el.innerHTML = `
+                    <div class="wbl-card">
+                        <p class="wbl-card-title">${weekly ? "This Week's Goals" : "Today's Goal"}</p>
+                        <p class="wbl-card-sub">Set for ${wblEsc(howDay.date)}${weekly ? ' (week of)' : ''}.</p>
+                        ${howDay.do_now.skills.map(s => `
+                            <div style="margin-bottom:0.5rem">
+                                <span class="wbl-chip">${wblEsc(howCat(s.category).name)}</span>
+                                <p style="font-size:0.9375rem;color:#0f172a;margin:0.35rem 0 0">&ldquo;${wblEsc(howBulletText(s.sub_bullet))}&rdquo;</p>
+                            </div>`).join('')}
+                    </div>`;
+                return;
+            }
+
+            howPicks = {};
+            if (weekly) {
+                el.innerHTML = `
+                    <div class="wbl-card">
+                        <p class="wbl-card-title">Do Now &mdash; set this week's goals</p>
+                        <p class="wbl-card-sub">Pick one goal to focus on in each of the three areas this week.</p>
+                        ${howCatalog.map(c => howBulletPicker(c, true)).join('')}
+                        <button class="btn btn-primary btn-xs" id="how-donow-save" style="margin-top:0.9rem" onclick="saveHowDoNow()" disabled>Start the week</button>
+                    </div>`;
+            } else {
+                el.innerHTML = `
+                    <div class="wbl-card">
+                        <p class="wbl-card-title">Do Now &mdash; set your goal</p>
+                        <p class="wbl-card-sub">Pick one Habit of Work to focus on this class, then choose a specific goal.</p>
+                        <div id="how-cat-list">
+                            ${howCatalog.map(c => `
+                                <label class="how-opt" data-cat="${c.code}">
+                                    <input type="radio" name="how-cat" value="${c.code}" onchange="howSelectCat('${c.code}')">
+                                    <span><span class="how-opt-name">${wblEsc(c.name)}</span>
+                                    <span class="how-opt-text">${wblEsc(c.blurb)}</span></span>
+                                </label>`).join('')}
+                        </div>
+                        <div id="how-bullet-list" style="margin-top:0.5rem"></div>
+                        <button class="btn btn-primary btn-xs" id="how-donow-save" style="margin-top:0.75rem" onclick="saveHowDoNow()" disabled>Start</button>
+                    </div>`;
+            }
+        }
+
+        // Daily: choosing a category reveals just that category's bullets.
+        function howSelectCat(code) {
+            howPicks = {};
+            document.querySelectorAll('#how-cat-list .how-opt').forEach(o => o.classList.toggle('sel', o.dataset.cat === code));
+            document.getElementById('how-bullet-list').innerHTML = howBulletPicker(howCat(code), false);
+            document.getElementById('how-donow-save').disabled = true;
+        }
+
+        function howSelectBullet(cat, code) {
+            howPicks[cat] = code;
+            document.querySelectorAll(`.how-opt[data-cat="${cat}"]`).forEach(o =>
+                o.classList.toggle('sel', o.dataset.bullet === code));
+            const need = howIsWeekly(howDay.cadence) ? howCatalog.length : 1;
+            const have = Object.values(howPicks).filter(Boolean).length;
+            const btn = document.getElementById('how-donow-save');
+            if (btn) btn.disabled = have < need;
+        }
+
+        async function saveHowDoNow() {
+            const skills = Object.entries(howPicks)
+                .filter(([, b]) => b)
+                .map(([category, sub_bullet]) => ({ category, sub_bullet }));
+            const need = howIsWeekly(howDay.cadence) ? howCatalog.length : 1;
+            if (skills.length < need) return;
+            const btn = document.getElementById('how-donow-save');
+            const label = btn.textContent;
+            btn.disabled = true; btn.textContent = 'Saving…';
+            try {
+                await howApi('POST', '/me/do-now', { class_id: howClassId(), date: wblToday(), skills });
+            } catch (e) {
+                btn.disabled = false; btn.textContent = label;
+                return alert('Could not save: ' + e.message);
+            }
+            loadHowDay();
+        }
+
+        // weekly_log only: the running evidence log for the current week. Shows
+        // every entry grouped by category, with an "add" box until the exit
+        // slip closes the week.
+        function renderHowEvidence() {
+            const el = document.getElementById('how-evidence');
+            if (howDay.cadence !== 'weekly_log' || !howDay.do_now) { el.innerHTML = ''; return; }
+            const open = !howDay.exit_slip;
+            const byCat = new Map();
+            for (const e of howDay.do_now.evidence || []) {
+                if (!byCat.has(e.category)) byCat.set(e.category, []);
+                byCat.get(e.category).push(e);
+            }
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Evidence log &mdash; this week</p>
+                    <p class="wbl-card-sub">${open
+                        ? 'Add a short, specific note any day something happens toward one of your goals.'
+                        : 'This week is closed &mdash; here is what you logged.'}</p>
+                    ${howDay.do_now.skills.map(s => {
+                        const items = byCat.get(s.category) || [];
+                        return `
+                        <div style="border-top:1px solid #f1f5f9;padding-top:0.6rem;margin-top:0.6rem">
+                            <div class="wbl-slip-head">${wblEsc(howCat(s.category).name)}</div>
+                            <div class="how-opt-text" style="margin:0 0 0.35rem">&ldquo;${wblEsc(howBulletText(s.sub_bullet))}&rdquo;</div>
+                            ${items.length ? items.map(e => `
+                                <div class="how-hist-row" style="padding:0.4rem 0">
+                                    <strong>${wblEsc(e.date)}</strong> &mdash; ${wblEsc(e.note)}
+                                </div>`).join('') : '<div class="how-opt-text" style="margin:0">No entries yet.</div>'}
+                            ${open ? `
+                                <textarea id="how-evadd-${s.category}" class="how-textarea" style="min-height:52px;margin-top:0.4rem" placeholder="What happened?"></textarea>
+                                <button class="btn btn-outline btn-xs" style="margin-top:0.35rem" onclick="howAddEvidence('${s.category}')">Add entry</button>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
+        async function howAddEvidence(cat) {
+            const box = document.getElementById('how-evadd-' + cat);
+            const note = box.value.trim();
+            if (!note) return alert('Write a short note first.');
+            try {
+                await howApi('POST', '/me/evidence', { do_now_id: howDay.do_now.id, category: cat, note });
+            } catch (e) {
+                return alert(e.status === 409 ? 'This week is already closed.' : 'Could not add: ' + e.message);
+            }
+            loadHowDay();
+        }
+
+        function renderHowExit() {
+            const el = document.getElementById('how-exit');
+            if (!howDay.do_now) { el.innerHTML = ''; return; }
+            const weekly = howIsWeekly(howDay.cadence);
+            const log    = howDay.cadence === 'weekly_log';
+            const slip = howDay.exit_slip;
+
+            const evByCat = new Map();
+            for (const e of (howDay.do_now.evidence || [])) {
+                if (!evByCat.has(e.category)) evByCat.set(e.category, []);
+                evByCat.get(e.category).push(e);
+            }
+
+            if (slip) {
+                const ratingBy = new Map((slip.ratings || []).map(r => [r.category, r.rating]));
+                el.innerHTML = `
+                    <div class="wbl-card wbl-slip-done">
+                        <p class="wbl-card-title">Exit Slip</p>
+                        ${slip.skills.map(s => `
+                            <div style="border-top:1px solid #f1f5f9;padding-top:0.6rem;margin-top:0.6rem">
+                                <div class="wbl-slip-head">${wblEsc(howCat(s.category).name)}</div>
+                                <div class="wbl-slip-text"><strong>Met my goal:</strong> ${s.goal_rating}/4</div>
+                                ${log
+                                    ? `<div class="wbl-slip-text" style="margin-top:0.3rem"><strong>Evidence logged:</strong> ${(evByCat.get(s.category) || []).length
+                                        ? (evByCat.get(s.category).map(e => `${wblEsc(e.date)} &mdash; ${wblEsc(e.note)}`).join('<br>')) : '&mdash;'}</div>`
+                                    : `<div class="wbl-slip-text" style="margin-top:0.3rem"><strong>Evidence:</strong> ${wblEsc(s.evidence)}</div>`}
+                                <div class="wbl-slip-text" style="margin-top:0.3rem"><strong>Where I can improve:</strong> ${wblEsc(s.improve)}</div>
+                                <div class="wbl-slip-meta">${ratingBy.has(s.category)
+                                    ? `Teacher rating ${ratingBy.get(s.category)}/4` : 'Not yet reviewed'}</div>
+                            </div>`).join('')}
+                        <div class="wbl-slip-meta">Submitted ${wblEsc(slip.date)}
+                            ${slip.void_reason ? `<br><span class="wbl-voided">Voided: ${wblEsc(slip.void_reason)}</span>` : ''}</div>
+                    </div>`;
+                return;
+            }
+
+            howGoals = {};
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">${log ? 'Close out the week' : `Exit Slip &mdash; before you ${weekly ? 'finish the week' : 'leave'}`}</p>
+                    <p class="wbl-card-sub">Reflect on ${weekly ? 'each goal you set this week' : 'the goal you set at the start of class'}.${
+                        log ? ' Your logged evidence above is attached automatically.' : ''}</p>
+                    ${howDay.do_now.skills.map(s => `
+                        <div style="border-top:1px solid #f1f5f9;padding-top:0.7rem;margin-top:0.7rem">
+                            <div class="wbl-slip-head">${wblEsc(howCat(s.category).name)}</div>
+                            <div class="how-opt-text" style="margin:0 0 0.3rem">&ldquo;${wblEsc(howBulletText(s.sub_bullet))}&rdquo;</div>
+                            <div class="how-field-label">Did you meet your goal?</div>
+                            <div class="how-scale" data-goal-cat="${s.category}">
+                                ${[1, 2, 3, 4].map(n => `<button type="button" onclick="howSetGoal('${s.category}',${n})">${n}</button>`).join('')}
+                            </div>
+                            <div class="wbl-card-sub" style="margin:0.3rem 0 0">1 = not yet &nbsp;&middot;&nbsp; 4 = fully met</div>
+                            ${log ? '' : `
+                                <div class="how-field-label">Evidence &mdash; what actually happened?</div>
+                                <textarea id="how-ev-${s.category}" class="how-textarea" placeholder="Be specific about what you did."></textarea>`}
+                            <div class="how-field-label">Where can you improve?</div>
+                            <textarea id="how-im-${s.category}" class="how-textarea" placeholder="What will you work on next?"></textarea>
+                        </div>`).join('')}
+                    <button class="btn btn-primary btn-xs" style="margin-top:0.9rem" onclick="saveHowExit()">${log ? 'Close the week' : 'Submit'}</button>
+                    <p class="wbl-locked">Submitted once and can&rsquo;t be edited afterward.</p>
+                </div>`;
+        }
+
+        function howSetGoal(cat, n) {
+            howGoals[cat] = n;
+            document.querySelectorAll(`.how-scale[data-goal-cat="${cat}"] button`)
+                .forEach((b, i) => b.classList.toggle('sel', i + 1 === n));
+        }
+
+        async function saveHowExit() {
+            const log = howDay.cadence === 'weekly_log';
+            const skills = [];
+            for (const s of howDay.do_now.skills) {
+                const cat = s.category;
+                const goal = howGoals[cat];
+                const improve  = document.getElementById('how-im-' + cat).value.trim();
+                const label = howCat(cat).name;
+                if (!goal)     return alert(`${label}: rate whether you met your goal (1–4).`);
+                if (!improve)  return alert(`${label}: add where you can improve.`);
+                const entry = { category: cat, goal_rating: goal, improve };
+                if (!log) {
+                    const evidence = document.getElementById('how-ev-' + cat).value.trim();
+                    if (!evidence) return alert(`${label}: add your evidence.`);
+                    entry.evidence = evidence;
+                }
+                skills.push(entry);
+            }
+            if (!confirm(log
+                ? 'Close out this week? You won’t be able to add more evidence or change this.'
+                : 'Submit this exit slip? It can’t be changed afterward.')) return;
+            try {
+                await howApi('POST', '/me/exit-slip', { do_now_id: howDay.do_now.id, skills });
+            } catch (e) {
+                return alert(e.status === 409
+                    ? 'You already submitted an exit slip for this period.'
+                    : 'Could not submit: ' + e.message);
+            }
+            loadHowDay();
+        }
+
+        async function loadHowHistory() {
+            const cid = howClassId();
+            let rows = [];
+            try { rows = (await howApi('GET', `/me/history?class_id=${cid}`)).history || []; } catch { /* leave empty */ }
+            const past = rows.filter(r => r.date !== howDay.date);
+            const el = document.getElementById('how-history');
+            if (!past.length) { el.innerHTML = ''; return; }
+            el.innerHTML = `
+                <div class="wbl-card">
+                    <p class="wbl-card-title">Earlier Reflections</p>
+                    ${past.map(r => {
+                        const rated = r.skills.filter(k => k.teacher_rating != null).length;
+                        const badge = r.void_reason ? '<span class="how-badge how-badge-void">Voided</span>'
+                            : !r.exit_slip_id ? '<span class="how-badge">No exit slip</span>'
+                            : rated === r.skills.length ? `<span class="how-badge how-badge-rated">Rated</span>`
+                            : '<span class="how-badge">Awaiting review</span>';
+                        return `
+                        <div class="how-hist-row">
+                            <div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+                                <span><strong>${wblEsc(r.date)}</strong>${howIsWeekly(r.cadence) ? ' (week of)' : ''}</span>
+                                <span>${badge}</span>
+                            </div>
+                            ${r.skills.map(k => `
+                                <div class="how-opt-text" style="margin-top:0.2rem">
+                                    <strong>${wblEsc(k.category_name)}:</strong> &ldquo;${wblEsc(k.sub_bullet_text)}&rdquo;
+                                    ${k.goal_rating != null ? ` &mdash; goal ${k.goal_rating}/4` : ''}
+                                    ${k.teacher_rating != null ? ` &middot; teacher ${k.teacher_rating}/4` : ''}
+                                    ${(k.evidence_entries && k.evidence_entries.length)
+                                        ? `<br><span style="color:#64748b">${k.evidence_entries.length} evidence entr${k.evidence_entries.length === 1 ? 'y' : 'ies'}</span>` : ''}
+                                </div>`).join('')}
+                        </div>`;
+                    }).join('')}
                 </div>`;
         }
     </script>

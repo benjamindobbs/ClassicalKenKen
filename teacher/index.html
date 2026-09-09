@@ -1712,6 +1712,8 @@
                     </div>
                 </div>
 
+                ${cls.wbl_linked ? '' : howPanelHTML(cls.id, howModeOf(cls))}
+
                 <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
                     <span>Roster <span class="section-count">(${activeStudents.length} students${withdrawnCount ? `, ${withdrawnCount} withdrawn` : ''})</span></span>
                     ${withdrawnCount ? `<label style="font-size:0.8125rem;font-weight:400;color:var(--muted)">
@@ -1740,6 +1742,175 @@
             `;
 
             if (linkedCount > 0) renderClassCharts();
+            if (!cls.wbl_linked) initHowPanel(cls.id, howModeOf(cls));
+        }
+
+        // ── Habits of Work — cadence toggle + Exit Slip review (non-WBL) ──────
+        // Students run a Do Now / Exit Slip in one of three modes:
+        //   'daily'      — one goal a day, one category.
+        //   'weekly'     — one goal in EACH of the 3 categories, one end-of-week
+        //                  exit slip.
+        //   'weekly_log' — weekly, plus dated evidence notes the student adds
+        //                  through the week that roll into the review card.
+        // Rate every category 1–4 (re-rating overwrites) or void a junk slip;
+        // ratings feed the weekly PowerSchool sync run from the DobbsCore
+        // extension. Daily evidence-log entries themselves never sync.
+        const howState = { classId: null, cadence: 'daily' };
+        const howModeOf = cls => (cls.how_cadence !== 'weekly' ? 'daily'
+            : (cls.how_weekly_log ? 'weekly_log' : 'weekly'));
+
+        function howPanelHTML(classId, mode) {
+            const weekly = mode === 'weekly' || mode === 'weekly_log';
+            return `
+                <div id="how-panel" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+                    <div class="section-title">Habits of Work</div>
+                    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.4rem">
+                        <span style="font-size:0.875rem;font-weight:500;color:#374151">Do Now cadence</span>
+                        <select id="how-cadence" onchange="howSetCadence(${classId})"
+                            style="padding:0.4rem 0.625rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.875rem;background:#fff">
+                            <option value="daily"  ${!weekly ? 'selected' : ''}>Daily &mdash; one goal per day, one category</option>
+                            <option value="weekly" ${weekly  ? 'selected' : ''}>Weekly &mdash; one goal in each of the 3 categories</option>
+                        </select>
+                        <span id="how-cadence-saved" style="display:none;font-size:0.8125rem;color:#10b981">Saved</span>
+                    </div>
+                    <label id="how-weeklylog-row" style="display:${weekly ? 'flex' : 'none'};align-items:center;gap:0.4rem;font-size:0.8125rem;color:#374151;margin-bottom:0.5rem">
+                        <input type="checkbox" id="how-weeklylog" ${mode === 'weekly_log' ? 'checked' : ''} onchange="howSetCadence(${classId})">
+                        Let students log evidence daily through the week (otherwise one write-up at week&rsquo;s end)
+                    </label>
+                    <p class="lookup-note">
+                        Rate each category 1&ndash;4 &mdash; those feed the weekly Habits of Work sync you run
+                        from the DobbsCore extension on the PowerSchool gradebook page (3 weekly category
+                        assignments + 3 standing assignments, all excluded from the final grade).
+                    </p>
+                    <div class="search-row" style="flex-wrap:wrap;gap:0.5rem">
+                        <input type="text" id="how-q" placeholder="Search by student name" oninput="loadHowSlips()">
+                        <select id="how-status" onchange="loadHowSlips()">
+                            <option value="pending">Needs rating</option>
+                            <option value="all">All</option>
+                        </select>
+                        <label style="font-size:0.8125rem;color:#64748b;display:flex;align-items:center;gap:0.35rem">
+                            Week of <input type="date" id="how-week" onchange="loadHowSlips()">
+                        </label>
+                        <button class="btn btn-outline btn-sm" onclick="document.getElementById('how-week').value='';loadHowSlips()">All weeks</button>
+                    </div>
+                    <div id="how-slips-body"><p class="classes-empty">Loading&hellip;</p></div>
+                </div>`;
+        }
+
+        function initHowPanel(classId, mode) {
+            howState.classId = classId;
+            howState.cadence = mode || 'daily';
+            loadHowSlips();
+        }
+
+        async function howSetCadence(classId) {
+            const cadence = document.getElementById('how-cadence').value;
+            const weeklyLog = document.getElementById('how-weeklylog')?.checked || false;
+            const logRow = document.getElementById('how-weeklylog-row');
+            if (logRow) logRow.style.display = cadence === 'weekly' ? 'flex' : 'none';
+            const res = await teacherFetch(`/api/how/classes/${classId}/cadence`, {
+                method: 'PATCH', body: JSON.stringify({ cadence, weekly_log: weeklyLog }),
+            });
+            if (!res.ok) { alert('Could not change cadence.'); return; }
+            howState.cadence = (await res.json().catch(() => ({}))).mode || cadence;
+            const msg = document.getElementById('how-cadence-saved');
+            if (msg) { msg.style.display = ''; setTimeout(() => { msg.style.display = 'none'; }, 2000); }
+            loadHowSlips();
+        }
+
+        async function loadHowSlips() {
+            const classId = howState.classId;
+            const body = document.getElementById('how-slips-body');
+            if (!body || classId == null) return;
+            const q      = document.getElementById('how-q')?.value.trim() || '';
+            const status = document.getElementById('how-status')?.value || 'pending';
+            const week   = document.getElementById('how-week')?.value || '';
+            const qs = new URLSearchParams({ status });
+            if (q) qs.set('q', q);
+            if (week) qs.set('week', week);
+
+            let data;
+            try {
+                const res = await teacherFetch(`/api/how/classes/${classId}/exit-slips?${qs}`);
+                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+                data = await res.json();
+            } catch (e) {
+                body.innerHTML = `<p class="classes-empty">Could not load exit slips: ${esc(e.message)}</p>`;
+                return;
+            }
+            const slips = data.exit_slips || [];
+            if (!slips.length) {
+                body.innerHTML = `<p class="classes-empty">${status === 'pending'
+                    ? 'No exit slips waiting for a rating.' : 'No exit slips yet.'}</p>`;
+                return;
+            }
+            body.innerHTML = slips.map(howSlipRow).join('');
+        }
+
+        function howSkillBlock(s, sk) {
+            const scale = [1, 2, 3, 4].map(n => `
+                <button class="btn btn-outline btn-sm" style="min-width:2.2rem${sk.teacher_rating === n ? ';background:#2563eb;color:#fff;border-color:#2563eb' : ''}"
+                    onclick="howRate(${s.id}, '${sk.category}', ${n})">${n}</button>`).join('');
+            const entries = sk.evidence_entries || [];
+            const evidenceHtml = entries.length
+                ? `<div style="font-size:0.875rem;color:#0f172a;margin-bottom:0.3rem"><strong>Evidence log:</strong>
+                     ${entries.map(e => `<div style="margin-left:0.5rem">&bull; <span style="color:#64748b">${esc(e.date)}</span> &mdash; ${esc(e.note)}</div>`).join('')}</div>`
+                : (sk.evidence
+                    ? `<div style="font-size:0.875rem;color:#0f172a;margin-bottom:0.2rem"><strong>Evidence:</strong> ${esc(sk.evidence)}</div>`
+                    : (s.cadence === 'weekly_log' ? `<div style="font-size:0.8125rem;color:#94a3b8;margin-bottom:0.2rem">No evidence logged.</div>` : ''));
+            return `
+                <div style="border-top:1px solid var(--border);padding-top:0.5rem;margin-top:0.5rem">
+                    <div style="font-weight:600;color:#0f172a;font-size:0.875rem">${esc(sk.category_name)}
+                        ${sk.goal_rating != null ? `<span style="font-weight:400;color:#64748b;font-size:0.8125rem"> &middot; student self-rated ${sk.goal_rating}/4</span>` : ''}</div>
+                    <div style="font-size:0.8125rem;color:#334155;margin:0.15rem 0 0.3rem">&ldquo;${esc(sk.sub_bullet_text)}&rdquo;</div>
+                    ${evidenceHtml}
+                    ${sk.improve ? `<div style="font-size:0.875rem;color:#0f172a;margin-bottom:0.4rem"><strong>Where I can improve:</strong> ${esc(sk.improve)}</div>` : ''}
+                    ${(s.voided || s.in_progress) ? '' : `<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+                        <span style="font-size:0.8125rem;color:#64748b;margin-right:0.25rem">Rating:</span>${scale}</div>`}
+                </div>`;
+        }
+
+        function howSlipRow(s) {
+            const weekLabel = (s.cadence === 'weekly' || s.cadence === 'weekly_log') ? ' (week of)' : '';
+            return `
+                <div class="settings-card" style="margin-bottom:0.75rem${s.voided ? ';opacity:0.6' : ''}${s.in_progress ? ';border-style:dashed' : ''}">
+                    <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
+                        <span><strong>${esc(s.student_name)}</strong>
+                            <span style="color:#64748b;font-size:0.8125rem"> &middot; ${esc(s.date)}${weekLabel}</span></span>
+                        ${s.in_progress
+                            ? `<span style="font-size:0.8125rem;color:#94a3b8">In progress &mdash; week not closed</span>`
+                            : s.voided
+                            ? `<span style="font-size:0.8125rem;color:#b91c1c">Voided
+                                 <button class="btn btn-outline btn-sm" style="margin-left:0.4rem" onclick="howUnvoid(${s.id})">Undo</button></span>`
+                            : `<button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="howVoid(${s.id})">Void</button>`}
+                    </div>
+                    ${s.voided ? `<div style="font-size:0.8125rem;color:#b91c1c;margin-top:0.25rem">Reason: ${esc(s.void_reason)}</div>` : ''}
+                    ${s.skills.map(sk => howSkillBlock(s, sk)).join('')}
+                </div>`;
+        }
+
+        async function howRate(id, category, rating) {
+            const res = await teacherFetch(`/api/how/exit-slips/${id}/rate`, {
+                method: 'POST', body: JSON.stringify({ category, rating }),
+            });
+            if (!res.ok) { alert('Could not save rating.'); return; }
+            loadHowSlips();
+        }
+
+        async function howVoid(id) {
+            const reason = prompt('Void this exit slip — reason:');
+            if (!reason || !reason.trim()) return;
+            const res = await teacherFetch(`/api/how/exit-slips/${id}/void`, {
+                method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+            });
+            if (!res.ok) { alert('Could not void.'); return; }
+            loadHowSlips();
+        }
+
+        async function howUnvoid(id) {
+            const res = await teacherFetch(`/api/how/exit-slips/${id}/void`, { method: 'DELETE' });
+            if (!res.ok) { alert('Could not undo void.'); return; }
+            loadHowSlips();
         }
 
         function renderClassCharts() {
