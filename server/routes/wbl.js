@@ -242,7 +242,7 @@ router.get('/programs/:id/roster-by-class', requireTeacher, (req, res) => {
         'SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL'
     ).all(p.id).map(r => r.student_id));
     const studentsFor = db.prepare(
-        'SELECT student_id, student_name FROM class_students WHERE class_id = ? ORDER BY student_name'
+        'SELECT student_id, student_name FROM class_students WHERE class_id = ? AND exited_on IS NULL ORDER BY student_name'
     );
     res.json(classes.map(c => ({
         class_id: c.id, class_name: c.name,
@@ -1027,10 +1027,12 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
         SELECT wp.*,
                (SELECT student_name FROM class_students cs
                  WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name,
+               (SELECT name FROM classes WHERE id = wp.class_id) AS class_name,
                (SELECT tier FROM wbl_holistic_calls hc WHERE hc.participant_id = wp.id) AS holistic_tier,
                (SELECT COUNT(*) FROM wbl_skill_assessments sa WHERE sa.participant_id = wp.id) AS assessments,
                (SELECT COUNT(*) FROM wbl_qc_checks q WHERE q.participant_id = wp.id) AS qc_checks
-        FROM wbl_work_event_participants wp WHERE wp.work_event_id = ? ORDER BY student_name
+        FROM wbl_work_event_participants wp WHERE wp.work_event_id = ?
+        ORDER BY class_name, student_name
     `).all(we.id);
     const skill_ids = db.prepare('SELECT skill_id FROM wbl_work_event_skills WHERE work_event_id = ?')
         .all(we.id).map(r => r.skill_id);

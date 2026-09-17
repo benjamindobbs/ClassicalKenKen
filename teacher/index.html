@@ -13,6 +13,8 @@
         .portal-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
         .portal-table th { background: #f8fafc; padding: 0.625rem 0.875rem; text-align: left; font-weight: 600; color: #475569; cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid var(--border); }
         .portal-table th:hover { background: #f1f5f9; color: #0f172a; }
+        .wbl-table-group-row td { background: #f8fafc; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .04em; color: #64748b; padding: 0.4rem 0.875rem; }
         .portal-table th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
         .portal-table th.sort-desc::after { content: ' ↓'; color: var(--accent); }
         .portal-table td { padding: 0.5rem 0.875rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
@@ -2840,6 +2842,28 @@
         async function openWblEvent(id) {
             const w = await wblApi('GET', `/work-events/${id}`);
             wblRoster = { eventId: w.id, ids: w.participants.map(p => p.id) };
+
+            // Participants come back grouped by class already (server orders by
+            // class_name, student_name) — just watch for the class changing to
+            // drop in a header row between groups.
+            let wblLastGroupClass;
+            const participantRows = w.participants.map(p => {
+                const header = p.class_name !== wblLastGroupClass
+                    ? `<tr class="wbl-table-group-row"><td colspan="5">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
+                    : '';
+                wblLastGroupClass = p.class_name;
+                return header + `
+                        <tr>
+                            <td><a href="#" onclick="openWblParticipant(${p.id});return false">${wblEsc(p.student_name || p.student_id)}</a></td>
+                            <td><span class="wbl-phase wbl-phase-${p.phase_at_start}">Phase ${p.phase_at_start}</span></td>
+                            <td>${p.assessments}</td>
+                            <td>${p.qc_checks}</td>
+                            <td>${p.holistic_tier
+                                ? `<span class="wbl-pill wbl-pill-good">${wblEsc(p.holistic_tier)}</span>`
+                                : '<span class="wbl-pill wbl-pill-warn">none</span>'}</td>
+                        </tr>`;
+            }).join('');
+
             document.getElementById('wbl-event-detail').innerHTML = `
                 <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)}</div>
                 <p class="lookup-note" style="margin:0 0 0.25rem">
@@ -2852,17 +2876,7 @@
                 ${w.participants.length ? `
                 <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
                     <thead><tr><th>Student</th><th>Phase at start</th><th>Skills</th><th>QC</th><th>Holistic</th></tr></thead>
-                    <tbody>${w.participants.map(p => `
-                        <tr>
-                            <td><a href="#" onclick="openWblParticipant(${p.id});return false">${wblEsc(p.student_name || p.student_id)}</a></td>
-                            <td><span class="wbl-phase wbl-phase-${p.phase_at_start}">Phase ${p.phase_at_start}</span></td>
-                            <td>${p.assessments}</td>
-                            <td>${p.qc_checks}</td>
-                            <td>${p.holistic_tier
-                                ? `<span class="wbl-pill wbl-pill-good">${wblEsc(p.holistic_tier)}</span>`
-                                : '<span class="wbl-pill wbl-pill-warn">none</span>'}</td>
-                        </tr>`).join('')}
-                    </tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
+                    <tbody>${participantRows}</tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
         }
 
         // Closing a job without a Holistic Call would leave every skill demonstrated
