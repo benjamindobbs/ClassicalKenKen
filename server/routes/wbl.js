@@ -1080,6 +1080,29 @@ router.patch('/work-events/:id', requireTeacher, (req, res) => {
     res.json({ ok: true });
 });
 
+// Only a job nobody was ever added to can be deleted — a participant row (even
+// one with no assessments yet) or an exit slip that cites the job is history
+// worth keeping, and participants are removable one by one to get here.
+router.delete('/work-events/:id', requireTeacher, (req, res) => {
+    if (!owned(req, res, 'workEvent', req.params.id)) return;
+    const id = Number(req.params.id);
+    const refs = db.prepare(`
+        SELECT (SELECT COUNT(*) FROM wbl_work_event_participants WHERE work_event_id = ?) AS participants,
+               (SELECT COUNT(*) FROM wbl_exit_slips              WHERE work_event_id = ?) AS exit_slips
+    `).get(id, id);
+    if (refs.participants + refs.exit_slips > 0) {
+        return res.status(409).json({ error: 'work_event_not_empty', ...refs });
+    }
+    db.exec('BEGIN');
+    try {
+        db.prepare('DELETE FROM wbl_work_event_skills WHERE work_event_id = ?').run(id);
+        db.prepare('DELETE FROM wbl_work_event_sync   WHERE work_event_id = ?').run(id);
+        db.prepare('DELETE FROM wbl_work_events       WHERE id = ?').run(id);
+        db.exec('COMMIT');
+        res.json({ ok: true });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+});
+
 // phase_at_start is stamped here so the record stays honest after a student
 // advances — a Phase 1 participant is never retroactively expected to have
 // filed transfer claims.

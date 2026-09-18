@@ -160,6 +160,7 @@ Import copies catalog only. The exclusion list is in schema §1.1 and includes e
 | `PATCH` | `/work-events/:id` | Including `status` — see below |
 | `POST` | `/work-events/:id/participants` | `{student_ids: [], class_id}` |
 | `DELETE` | `/work-events/:id/participants/:pid` | `409` if any assessment exists |
+| `DELETE` | `/work-events/:id` | Empty events only — `409 work_event_not_empty` if any participant or exit slip references it |
 
 **Adding a participant stamps `phase_at_start`** from their effective phase at that moment. That is what keeps the record honest when a student advances mid-job — the row remembers which mechanics were live, so a Phase 1 participant is never retroactively expected to have filed transfer claims.
 
