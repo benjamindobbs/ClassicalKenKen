@@ -3667,12 +3667,20 @@
         async function openWblQcCheckModal() {
             const crit = wblP.qcCriteria;
             if (!crit.length) return alert('Add QC criteria to this program first (Catalog tab).');
-            const spec = prompt('Outcome per criterion — pass / fail / na, one per line:\n\n'
+            // prompt() is a single-line input in most browsers, so outcomes are
+            // split on any whitespace/comma rather than requiring newlines.
+            const spec = prompt('Outcome per criterion, in order — pass / fail / na (separated by spaces):\n\n'
                 + crit.map((c, i) => `${i + 1}. ${c.name}`).join('\n'),
-                crit.map(() => 'pass').join('\n'));
+                crit.map(() => 'pass').join(' '));
             if (spec === null) return;
-            const lines = spec.split('\n').map(s => s.trim().toLowerCase());
-            const results = crit.map((c, i) => ({ criterion_id: c.id, outcome: lines[i] || 'na' }));
+            const abbrev = { p: 'pass', f: 'fail', n: 'na', 'n/a': 'na' };
+            const tokens = spec.toLowerCase().split(/[\s,;]+/).filter(Boolean).map(t => abbrev[t] || t);
+            const bad = tokens.find(t => !['pass', 'fail', 'na'].includes(t));
+            if (bad) return alert(`"${bad}" isn't a valid outcome. Use pass, fail, or na.`);
+            if (tokens.length !== crit.length) {
+                return alert(`Expected ${crit.length} outcome(s), one per criterion, but got ${tokens.length}.`);
+            }
+            const results = crit.map((c, i) => ({ criterion_id: c.id, outcome: tokens[i] }));
             try {
                 await wblApi('POST', `/participants/${wblP.participant.id}/qc-check`, { results });
             } catch (e) {
