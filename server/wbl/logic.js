@@ -37,6 +37,18 @@ const dayCount = (a, b) =>
 const maxDate = (a, b) => (a > b ? a : b);
 const minDate = (a, b) => (a < b ? a : b);
 
+// Every YYYY-MM-DD from a to b inclusive. Calendar-day fallback for the
+// activity-grade per-day loop (server/routes/teacher.js) when a class has no
+// meetingDates pulled yet — same role dayCount plays for the old count-only
+// proration, just needing actual date strings to iterate now.
+function datesBetween(a, b) {
+    const out = [];
+    for (let t = Date.parse(a + 'T00:00:00'); t <= Date.parse(b + 'T00:00:00'); t += 86400000) {
+        out.push(new Date(t).toISOString().slice(0, 10));
+    }
+    return out;
+}
+
 // Distinct dates a class actually met, from pulled PS attendance
 // (wbl_attendance rows only ever exist for meeting days — PS's own grid
 // never returns a non-meeting date, see the extension's mdToIso comment).
@@ -403,6 +415,43 @@ function attendanceRatio(programId, classId, studentId, from, to) {
     return { ratio: credit / counted, days_counted: counted };
 }
 
+// Dates inside [from, to] a student's PS attendance code should exempt them
+// from that day's Daily Practice requirement entirely (dropped from the
+// per-day average, not zero-filled — see server/routes/teacher.js's /grades).
+// Distinct from attendanceRatio above: that function scores a day's worth of
+// *credit* for the WBL Holistic blend; this one decides whether a day counts
+// toward Daily Practice at all. Any code starting "EX" other than "EXT" (a
+// tardy, not an absence) is an excused absence. "UNV" (unverified absence)
+// still counts against the student — same as any ordinary no-submission day —
+// unless the WBL Roster's "Called Out" override applies for that date, which
+// only exists for classes linked to a WBL program; non-WBL classes have no
+// such override to check.
+function excusedAbsenceDates(classId, studentId, from, to) {
+    if (!from || !to) return new Set();
+    const rows = db.prepare(
+        'SELECT date, code FROM wbl_attendance WHERE class_id = ? AND student_id = ? AND date BETWEEN ? AND ?'
+    ).all(classId, studentId, from, to);
+    if (!rows.length) return new Set();
+
+    const program = db.prepare(`
+        SELECT p.id FROM wbl_class_programs cp JOIN wbl_programs p ON p.id = cp.program_id
+        WHERE cp.class_id = ? AND p.archived_at IS NULL LIMIT 1
+    `).get(classId);
+
+    const exempt = new Set();
+    for (const r of rows) {
+        if (r.code.startsWith('EX') && r.code !== 'EXT') {
+            exempt.add(r.date);
+        } else if (r.code === 'UNV' && program) {
+            const calledOut = db.prepare(
+                'SELECT 1 FROM wbl_called_outs WHERE program_id = ? AND student_id = ? AND date = ?'
+            ).get(program.id, studentId, r.date);
+            if (calledOut) exempt.add(r.date);
+        }
+    }
+    return exempt;
+}
+
 // ---------------------------------------------------------------------------
 // Habits of Work — dispositional scoring (Persistence, Commitment to
 // Excellence, Academic Curiosity)
@@ -506,11 +555,11 @@ function hasSkillEvidence(programId, classId, skillId) {
 }
 
 module.exports = {
-    isoWeek, isDate, today, dayCount, maxDate, minDate, meetingDates,
+    isoWeek, isDate, today, dayCount, datesBetween, maxDate, minDate, meetingDates,
     resolveStudent, ownedProgram, ownerOf,
     ensurePhaseRow, effectivePhase, recomputePhase,
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,
-    attendanceRatio, dispositionalScore, hasSkillEvidence,
+    attendanceRatio, excusedAbsenceDates, dispositionalScore, hasSkillEvidence,
 };

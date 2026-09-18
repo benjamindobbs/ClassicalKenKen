@@ -2114,75 +2114,6 @@
             document.getElementById('export-to').value   = fmt(to);
         }
 
-        function countWeekdays(fromDateStr, toDateStr) {
-            let count = 0;
-            const d = new Date(fromDateStr + 'T00:00:00');
-            const end = new Date(toDateStr + 'T00:00:00');
-            while (d <= end) {
-                const day = d.getDay();
-                if (day >= 1 && day <= 5) count++;
-                d.setDate(d.getDate() + 1);
-            }
-            return count;
-        }
-
-        function gradeForStudent(userKey, fromDate, toDate, as, expectedDays, maxScore, completionScore, noSubScore) {
-            const allKenken = rawData.kenken.filter(r => r.user_key === userKey);
-            const avgKenken = allKenken.length
-                ? allKenken.reduce((s, r) => s + Number(r.score), 0) / allKenken.length : 0;
-
-            const kenkenQ = allKenken.filter(r => {
-                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
-                return d >= fromDate && d <= toDate && Number(r.score) >= avgKenken;
-            }).length;
-            const satQ = rawData.sat.filter(r => {
-                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
-                return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
-            }).length;
-            const satMathQ = (rawData.sat_math || []).filter(r => {
-                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
-                return r.user_key === userKey && d >= fromDate && d <= toDate && Number(r.correct) === 1;
-            }).length;
-
-            const act   = as.required_activity;
-            const kReq  = (as.required_kenken_count   ?? 1) * expectedDays;
-            const sReq  = (as.required_sat_count      ?? 1) * expectedDays;
-            const smReq = (as.required_sat_math_count ?? 1) * expectedDays;
-
-            let rawPct, qualifying, requiredMet;
-            if (act === 'kenken') {
-                qualifying = kenkenQ;  rawPct = kenkenQ / kReq;   requiredMet = kenkenQ >= kReq;
-            } else if (act === 'sat') {
-                qualifying = satQ;     rawPct = satQ / sReq;      requiredMet = satQ >= sReq;
-            } else if (act === 'sat-math') {
-                qualifying = satMathQ; rawPct = satMathQ / smReq; requiredMet = satMathQ >= smReq;
-            } else if (act === 'both') {
-                qualifying = kenkenQ + satQ;
-                rawPct = ((kenkenQ / kReq) + (satQ / sReq)) / 2;
-                requiredMet = kenkenQ >= kReq && satQ >= sReq;
-            } else if (act === 'sat-both') {
-                qualifying = satQ + satMathQ;
-                rawPct = ((satQ / sReq) + (satMathQ / smReq)) / 2;
-                requiredMet = satQ >= sReq && satMathQ >= smReq;
-            } else if (act === 'all') {
-                qualifying = kenkenQ + satQ + satMathQ;
-                rawPct = ((kenkenQ / kReq) + (satQ / sReq) + (satMathQ / smReq)) / 3;
-                requiredMet = kenkenQ >= kReq && satQ >= sReq && satMathQ >= smReq;
-            } else { // either
-                qualifying = kenkenQ + satQ;
-                rawPct = Math.max(kenkenQ / kReq, satQ / sReq);
-                requiredMet = kenkenQ >= kReq || satQ >= sReq;
-            }
-
-            const rawScore = Math.min(rawPct, 1) * maxScore;
-            let points;
-            if (qualifying === 0)          points = noSubScore;
-            else if (rawScore < completionScore) points = completionScore;
-            else                           points = rawScore;
-
-            return { points, requiredMet };
-        }
-
         function formatScore(points, requiredMet, maxScore, noSubScore, scoreType) {
             if (scoreType === 'COMPLETION') return requiredMet ? maxScore : noSubScore;
             const pct = points / maxScore * 100;
@@ -2208,35 +2139,28 @@
                 return;
             }
 
-            // Fetch settings in parallel (get fresh copies in case they changed).
-            // Requirements are per-class now, so they come off cls itself.
-            const [gsData, profileData, cls] = await Promise.all([
+            // Grades come straight from GET /api/teacher/grades — the same
+            // per-day-averaged formula the DobbsCore extension syncs to PS, so
+            // this CSV can never disagree with what the extension pushes.
+            const [gsData, profileData, cls, gradesData] = await Promise.all([
                 teacherFetch('/api/teacher/gradebook-settings').then(r => r.json()),
                 teacherFetch('/api/teacher/profile').then(r => r.json()),
                 teacherFetch(`/api/teacher/classes/${classId}`).then(r => r.json()),
+                teacherFetch(`/api/teacher/grades?class_id=${classId}&start=${fromDate}&end=${toDate}`).then(r => r.json()),
             ]);
 
-            const maxScore       = gsData.assignment_max_score    ?? 100;
-            const completionScore = maxScore * (gsData.completion_score_pct    ?? 100) / 100;
-            const noSubScore      = maxScore * (gsData.no_submission_score_pct ??   0) / 100;
+            const maxScore   = gradesData.max_score ?? gsData.assignment_max_score ?? 100;
+            const noSubScore = maxScore * (gsData.no_submission_score_pct ?? 0) / 100;
 
-            // Expected school days: count Mon–Fri in range, assume 4 of 5 are submission days
-            const weekdays    = countWeekdays(fromDate, toDate);
-            const expectedDays = Math.max(1, Math.round(weekdays * 4 / 5));
-
-            // Grade each student
-            const rows = cls.students.map(s => {
-                let score;
-                if (!s.user_key) {
-                    score = formatScore(noSubScore, false, maxScore, noSubScore, scoreType);
-                } else {
-                    const { points, requiredMet } = gradeForStudent(
-                        s.user_key, fromDate, toDate, cls, expectedDays, maxScore, completionScore, noSubScore
-                    );
-                    score = formatScore(points, requiredMet, maxScore, noSubScore, scoreType);
-                }
-                return { student_id: s.student_id, student_name: s.student_name, score };
-            });
+            // Students with no countable day in range (exempt) have nothing to
+            // grade for this period and are left off the export entirely.
+            const rows = gradesData.students
+                .filter(s => s.grade != null)
+                .map(s => ({
+                    student_id:   s.student_id,
+                    student_name: s.student_name,
+                    score: formatScore(s.grade, s.grade === maxScore, maxScore, noSubScore, scoreType),
+                }));
 
             // Build PowerSchool CSV
             const csvEsc = v => { const s = String(v); return (s.includes(',') || s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
