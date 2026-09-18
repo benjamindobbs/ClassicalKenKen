@@ -884,7 +884,8 @@
                         <p class="wbl-card-sub">Chosen for ${wblEsc(d.date)}.</p>
                         ${feedback}
                         <div class="wbl-chosen">${d.skills.map(s =>
-                            `<span class="wbl-chip">${wblEsc(wblLabel(s.soft_skill_code))}</span>`).join('')}</div>
+                            `<span class="wbl-chip">${wblEsc(wblLabel(s.soft_skill_code))}${
+                                s.from_skill_name ? ` &mdash; ${wblEsc(s.from_skill_name)}` : ''}</span>`).join('')}</div>
                     </div>`;
                 return;
             }
@@ -913,6 +914,12 @@
                                 <span>
                                     <span class="wbl-pick-name">${wblEsc(s.name)}</span>
                                     ${hints[s.code] ? `<span class="wbl-pick-hint">Comes up in: ${wblEsc(hints[s.code].filter(Boolean).join(', '))}</span>` : ''}
+                                    ${s.code === 'extending_knowledge' ? `
+                                        <select id="wbl-extend-skill" style="margin-top:0.35rem;display:none" onchange="wblTogglePick(document.querySelector('#wbl-pick-extending_knowledge input'))">
+                                            <option value="">Which skill from your job?</option>
+                                            ${(d.work_event_skills || []).map(ws =>
+                                                `<option value="${ws.id}">${wblEsc(ws.name)}</option>`).join('')}
+                                        </select>` : ''}
                                 </span>
                             </label>`).join('')}
                     </div>
@@ -928,11 +935,22 @@
             // Cap of two, enforced here, in the route, and by a database trigger.
             if (picked.length > 2) { input.checked = false; return; }
             boxes.forEach(b => b.closest('.wbl-pick').classList.toggle('sel', b.checked));
-            document.getElementById('wbl-donow-save').disabled = picked.length === 0;
+
+            const extendBox = document.querySelector('#wbl-pick-extending_knowledge input');
+            const extendSelect = document.getElementById('wbl-extend-skill');
+            if (extendSelect) {
+                extendSelect.style.display = extendBox?.checked ? '' : 'none';
+                if (!extendBox?.checked) extendSelect.value = '';
+            }
+            const extendOk = !extendBox?.checked || !!extendSelect?.value;
+            document.getElementById('wbl-donow-save').disabled = picked.length === 0 || !extendOk;
         }
 
         async function saveWblDoNow() {
-            const skills = [...document.querySelectorAll('#wbl-donow input:checked')].map(b => b.value);
+            const skills = [...document.querySelectorAll('#wbl-donow input:checked')].map(b => {
+                if (b.value !== 'extending_knowledge') return b.value;
+                return { soft_skill_code: b.value, from_skill_id: Number(document.getElementById('wbl-extend-skill').value) };
+            });
             if (!skills.length) return;
             const btn = document.getElementById('wbl-donow-save');
             btn.disabled = true; btn.textContent = 'Saving…';
@@ -970,7 +988,9 @@
                         way, and what did you do about it?
                     </p>
                     ${wblDay.skills.map(s => {
-                        const hint = hints[s.soft_skill_code]
+                        const hint = s.from_skill_name
+                            ? `<div class="wbl-card-sub" style="margin:0.15rem 0 0">You picked this at Do Now &mdash; extending: ${wblEsc(s.from_skill_name)}</div>`
+                            : hints[s.soft_skill_code]
                             ? `<div class="wbl-card-sub" style="margin:0.15rem 0 0">You picked this at Do Now &mdash; comes up in: ${wblEsc(hints[s.soft_skill_code].filter(Boolean).join(', '))}</div>`
                             : `<div class="wbl-card-sub" style="margin:0.15rem 0 0">You picked this at Do Now.</div>`;
                         const slip = done.get(s.soft_skill_code);

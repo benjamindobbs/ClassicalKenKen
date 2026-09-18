@@ -271,6 +271,8 @@ function rotationQueue(programId, week) {
                MAX(wp.id)            AS participant_id,
                MAX(we.id)            AS work_event_id,
                MAX(we.title)         AS work_event_title,
+               (SELECT student_name FROM class_students cs
+                 WHERE cs.student_id = wp.student_id LIMIT 1) AS student_name,
                (SELECT MAX(iso_week) FROM wbl_qc_checks q
                  WHERE q.program_id = ? AND q.student_id = wp.student_id) AS last_checked_week
         FROM   wbl_work_event_participants wp
@@ -295,6 +297,8 @@ function qcFloorReport(programId, asOfWeek) {
     const rows = db.prepare(`
         SELECT wp.student_id,
                MIN(we.opened_on) AS first_active_on,
+               (SELECT student_name FROM class_students cs
+                 WHERE cs.student_id = wp.student_id LIMIT 1) AS student_name,
                (SELECT MAX(iso_week) FROM wbl_qc_checks q
                  WHERE q.program_id = ? AND q.student_id = wp.student_id) AS last_checked_week,
                (SELECT COUNT(*) FROM wbl_qc_checks q
@@ -318,6 +322,7 @@ function qcFloorReport(programId, asOfWeek) {
             : weeksBetween(isoWeek(r.first_active_on), asOfWeek);
         return {
             student_id: r.student_id,
+            student_name: r.student_name,
             checks: r.checks,
             last_checked_week: r.last_checked_week,
             weeks_since_check: since,

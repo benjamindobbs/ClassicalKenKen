@@ -1515,10 +1515,16 @@ router.get('/me/do-now', requireAuth, (req, res) => {
         date, phase,
         do_now: doNow ?? null,
         skills: doNow
-            ? db.prepare('SELECT * FROM wbl_do_now_skills WHERE do_now_id = ?').all(doNow.id)
+            ? db.prepare(`
+                SELECT dns.*, v.name AS from_skill_name
+                FROM wbl_do_now_skills dns
+                LEFT JOIN wbl_skills sk ON sk.id = dns.from_skill_id
+                LEFT JOIN wbl_skill_versions v ON v.skill_id = sk.id AND v.is_current = 1
+                WHERE dns.do_now_id = ?
+              `).all(doNow.id)
             : [],
         available: db.prepare(
-            `SELECT code, name FROM wbl_soft_skills WHERE category = 'dispositional' ORDER BY order_idx`
+            `SELECT code, name FROM wbl_soft_skills WHERE category = 'dispositional' AND code != 'extending_knowledge' ORDER BY order_idx`
         ).all(),
         pending_feedback: db.prepare(`
             SELECT id, body, created_at FROM wbl_dispositional_feedback
@@ -1526,15 +1532,40 @@ router.get('/me/do-now', requireAuth, (req, res) => {
         `).all(programId, s.student_id),
     };
 
-    // Phase 1 narrows the choice to instructor-pre-identified openings (§3);
-    // Phase 2 selection is fully self-directed, so the field is absent.
+    // Phase 1 narrows the choice to instructor-pre-identified openings (§3),
+    // scoped to skills on the student's active work event(s) — a hint tied to
+    // a skill nobody is actually being assessed on right now isn't useful.
+    // Phase 2 selection is fully self-directed, so these fields are absent.
     if (phase === 1) {
-        out.openings = db.prepare(`
+        const activeSkillIds = db.prepare(`
+            SELECT DISTINCT wes.skill_id
+            FROM wbl_work_event_participants wp
+            JOIN wbl_work_events we ON we.id = wp.work_event_id
+            JOIN wbl_work_event_skills wes ON wes.work_event_id = we.id
+            WHERE wp.student_id = ? AND we.program_id = ? AND we.status = 'active' AND wp.left_on IS NULL
+        `).all(s.student_id, programId).map(r => r.skill_id);
+
+        out.openings = activeSkillIds.length ? db.prepare(`
             SELECT DISTINCT o.soft_skill_code, o.skill_id, v.name AS skill_name
             FROM wbl_skill_openings o
-            JOIN wbl_skills s2 ON s2.id = o.skill_id AND s2.program_id = ?
-            LEFT JOIN wbl_skill_versions v ON v.skill_id = s2.id AND v.is_current = 1
-        `).all(programId);
+            LEFT JOIN wbl_skill_versions v ON v.skill_id = o.skill_id AND v.is_current = 1
+            WHERE o.skill_id IN (${activeSkillIds.map(() => '?').join(',')})
+        `).all(...activeSkillIds) : [];
+
+        // The pool a student picks from when focusing on "Extending Knowledge" —
+        // every skill on their active job, not just ones with a pre-set opening.
+        out.work_event_skills = activeSkillIds.length ? db.prepare(`
+            SELECT sk.id, v.name
+            FROM wbl_skills sk
+            LEFT JOIN wbl_skill_versions v ON v.skill_id = sk.id AND v.is_current = 1
+            WHERE sk.id IN (${activeSkillIds.map(() => '?').join(',')})
+        `).all(...activeSkillIds) : [];
+
+        // Only offer the option when there's actually a job skill to extend.
+        if (out.work_event_skills.length) {
+            const ek = db.prepare(`SELECT code, name FROM wbl_soft_skills WHERE code = 'extending_knowledge'`).get();
+            if (ek) out.available.push(ek);
+        }
     }
     res.json(out);
 });
@@ -1566,7 +1597,22 @@ router.post('/me/do-now', requireAuth, (req, res) => {
                 `SELECT 1 FROM wbl_soft_skills WHERE code = ? AND category = 'dispositional'`
             ).get(code);
             if (!okCode) throw new Error('not_a_dispositional_skill:' + code);
-            ins.run(doNow.id, code, typeof c === 'object' ? int(c.from_skill_id) : null);
+
+            const fromSkillId = typeof c === 'object' ? int(c.from_skill_id) : null;
+            if (code === 'extending_knowledge') {
+                // Must name a real skill on one of the student's own active jobs in
+                // this program — otherwise the exit slip would show a claim with
+                // nothing behind it.
+                const onActiveJob = fromSkillId && db.prepare(`
+                    SELECT 1
+                    FROM wbl_work_event_participants wp
+                    JOIN wbl_work_events we ON we.id = wp.work_event_id
+                    JOIN wbl_work_event_skills wes ON wes.work_event_id = we.id AND wes.skill_id = ?
+                    WHERE wp.student_id = ? AND we.program_id = ? AND we.status = 'active' AND wp.left_on IS NULL
+                `).get(fromSkillId, s.student_id, programId);
+                if (!onActiveJob) throw new Error('extending_knowledge_requires_active_job_skill');
+            }
+            ins.run(doNow.id, code, fromSkillId);
         }
 
         // Feedback is delivered forward, stamped as the student sees it.

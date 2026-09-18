@@ -864,8 +864,12 @@ db.exec(`
         ['persistence',                       'Persistence',                       'dispositional', 1],
         ['commitment_to_excellence',          'Commitment to Excellence',          'dispositional', 2],
         ['academic_curiosity',                'Academic Curiosity',                'dispositional', 3],
-        ['application_of_previous_knowledge', 'Application of Previous Knowledge', 'transfer',      4],
-        ['extension_of_knowledge',            'Extension of Knowledge',            'transfer',      5],
+        // Distinct from the transfer skill 'extension_of_knowledge' below: that one
+        // is a Phase 2 claim of a novel, uncredentialed capability, while this is a
+        // Phase 1 Do Now focus tied to an existing skill on the student's active job.
+        ['extending_knowledge',               'Extending Knowledge',               'dispositional', 4],
+        ['application_of_previous_knowledge', 'Application of Previous Knowledge', 'transfer',      5],
+        ['extension_of_knowledge',            'Extension of Knowledge',            'transfer',      6],
     ].forEach(r => softSkill.run(...r));
 
     const tier = db.prepare(
