@@ -1,8 +1,18 @@
+// Shows the lowest whole score that raises the player's average; hidden until they have one.
+function showScoreToBeat(avg) {
+    const el = document.getElementById('score-to-beat');
+    if (!el) return;
+    if (!Number.isFinite(avg) || avg <= 0) { el.style.display = 'none'; return; }
+    el.textContent = 'Score to beat: ' + (Math.floor(avg) + 1);
+    el.style.display = '';
+}
+
 async function onSignedIn() {
     try {
         const data = await getRank();
         const pd = document.getElementById('playerData');
         if (pd) pd.innerHTML = 'Current Rank ' + Math.floor(data.rank);
+        showScoreToBeat(data.avg);
     } catch (e) {}
 
     await ClassPicker.init('kenken');
@@ -31,6 +41,7 @@ async function writeScore(score, size) {
         const data = await res.json();
         document.getElementById('submitMessage').innerHTML = 'Score submitted';
         refreshDailyProgress('kenken');
+        showScoreToBeat(data.avg);
         return data.avg;
     } catch (err) {
         console.error(err);

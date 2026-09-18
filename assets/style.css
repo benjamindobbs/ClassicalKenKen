@@ -239,6 +239,18 @@ tbody tr:nth-child(even) { background: #f8fafc; }
 .daily-pill--active { background: #fef3c7; color: #92400e; }
 .daily-pill--done   { background: #d1fae5; color: #065f46; }
 
+.score-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: #dbeafe;
+    color: #1e40af;
+    user-select: none;
+}
+
 /* Class picker — which class a Do Now is being completed for */
 .class-picker-slot { display: inline-flex; align-items: center; }
 .class-picker-select {
