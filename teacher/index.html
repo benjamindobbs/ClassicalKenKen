@@ -2849,7 +2849,7 @@
             let wblLastGroupClass;
             const participantRows = w.participants.map(p => {
                 const header = p.class_name !== wblLastGroupClass
-                    ? `<tr class="wbl-table-group-row"><td colspan="5">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
+                    ? `<tr class="wbl-table-group-row"><td colspan="6">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
                     : '';
                 wblLastGroupClass = p.class_name;
                 return header + `
@@ -2861,6 +2861,7 @@
                             <td>${p.holistic_tier
                                 ? `<span class="wbl-pill wbl-pill-good">${wblEsc(p.holistic_tier)}</span>`
                                 : '<span class="wbl-pill wbl-pill-warn">none</span>'}</td>
+                            <td><button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="wblRemoveParticipant(${w.id}, ${p.id})">Remove</button></td>
                         </tr>`;
             }).join('');
 
@@ -2875,8 +2876,21 @@
                 <button class="btn btn-outline btn-sm" onclick="openWblParticipantModal(${w.id})">Add Participants</button>
                 ${w.participants.length ? `
                 <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
-                    <thead><tr><th>Student</th><th>Phase at start</th><th>Skills</th><th>QC</th><th>Holistic</th></tr></thead>
+                    <thead><tr><th>Student</th><th>Phase at start</th><th>Skills</th><th>QC</th><th>Holistic</th><th></th></tr></thead>
                     <tbody>${participantRows}</tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
+        }
+
+        async function wblRemoveParticipant(weId, pid) {
+            if (!confirm('Remove this student from the work event? Only allowed if they have no skill assessments, QC checks, or holistic call yet.')) return;
+            try { await wblApi('DELETE', `/work-events/${weId}/participants/${pid}`); }
+            catch (e) {
+                if (e.status === 409) {
+                    const c = e.body || {};
+                    return alert(`Can't remove — this student already has ${c.assessments || 0} skill assessment(s), ${c.qc_checks || 0} QC check(s), and ${c.holistic ? 'a' : 'no'} holistic call for this job.`);
+                }
+                return alert(e.message);
+            }
+            openWblEvent(weId);
         }
 
         // Closing a job without a Holistic Call would leave every skill demonstrated
