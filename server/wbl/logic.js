@@ -426,11 +426,20 @@ function attendanceRatio(programId, classId, studentId, from, to) {
 // unless the WBL Roster's "Called Out" override applies for that date, which
 // only exists for classes linked to a WBL program; non-WBL classes have no
 // such override to check.
+//
+// Accepts either ID form: wbl_attendance is keyed on the raw class_students
+// number (the import maps ps_dcid → raw student_id) while wbl_called_outs and
+// the rest of WBL use normalizeStudentId(), so this resolves both.
 function excusedAbsenceDates(classId, studentId, from, to) {
     if (!from || !to) return new Set();
-    const rows = db.prepare(
-        'SELECT date, code FROM wbl_attendance WHERE class_id = ? AND student_id = ? AND date BETWEEN ? AND ?'
-    ).all(classId, studentId, from, to);
+    const norm = normalizeStudentId(studentId);
+    const rawIds = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId)
+        .map(r => r.student_id).filter(id => normalizeStudentId(id) === norm);
+    if (!rawIds.includes(studentId)) rawIds.push(studentId);
+    const rows = db.prepare(`
+        SELECT date, code FROM wbl_attendance
+        WHERE class_id = ? AND student_id IN (${rawIds.map(() => '?').join(',')}) AND date BETWEEN ? AND ?
+    `).all(classId, ...rawIds, from, to);
     if (!rows.length) return new Set();
 
     const program = db.prepare(`
@@ -445,7 +454,7 @@ function excusedAbsenceDates(classId, studentId, from, to) {
         } else if (r.code === 'UNV' && program) {
             const calledOut = db.prepare(
                 'SELECT 1 FROM wbl_called_outs WHERE program_id = ? AND student_id = ? AND date = ?'
-            ).get(program.id, studentId, r.date);
+            ).get(program.id, norm, r.date);
             if (calledOut) exempt.add(r.date);
         }
     }
@@ -462,10 +471,23 @@ function excusedAbsenceDates(classId, studentId, from, to) {
 // attendanceRatio's contract — this function just computes over the window
 // it's given, same separation of concerns).
 //
-// Per meeting day (meetingDates — school days only, from pulled attendance):
-//   no Do Now submitted at all         → 0 (an opportunity existed, unused)
+// Per meeting day — pulled PS attendance dates (meetingDates) UNIONED with
+// every date anyone in this class submitted a Do Now for this program.
+// Attendance only reaches the server when the teacher clicks "Sync Attendance
+// from PS" in DobbsCore (loading the PS attendance page just caches it in the
+// browser) and only covers whatever range PS had cached, so attendance alone
+// left the term entirely unscored (no grades posted at all) until it was
+// imported, and silently dropped rated Exit Slips outside the cached range.
+// A day a classmate did a Do Now is a day the class met, so the union never
+// invents a non-meeting day:
+//   no Do Now submitted at all         → 0 (an opportunity existed, unused),
+//                                        or excluded on an excused absence
+//                                        (excusedAbsenceDates — same rule as
+//                                        Daily Practice)
 //   Do Now submitted, skill not picked → excluded (not this skill's day)
-//   picked, no resulting Exit Slip     → 0 (selected, no follow-through)
+//   picked, no resulting Exit Slip     → 0 (selected, no follow-through),
+//                                        or excluded on an excused absence
+//                                        (e.g. excused early departure)
 //   resulting Exit Slip, voided        → 0
 //   resulting Exit Slip, unverified    → excluded (student-claimed only,
 //                                         not yet reviewed — doesn't count
@@ -475,7 +497,13 @@ function excusedAbsenceDates(classId, studentId, from, to) {
 // produced a countable data point at all, so callers can leave the student
 // unscored rather than submit a hollow 0.
 function dispositionalScore(programId, classId, studentId, softSkillCode, from, to) {
-    const dates = meetingDates(classId, from, to);
+    const dates = [...new Set([
+        ...meetingDates(classId, from, to),
+        ...db.prepare(`
+            SELECT DISTINCT date FROM wbl_do_nows
+            WHERE program_id = ? AND class_id = ? AND date BETWEEN ? AND ?
+        `).all(programId, classId, from, to).map(r => r.date),
+    ])].sort();
     if (!dates.length) return null;
 
     const doNows = new Map(
@@ -504,13 +532,15 @@ function dispositionalScore(programId, classId, studentId, softSkillCode, from, 
         ).map(s => [s.do_now_id, s])
     );
 
+    const excused = excusedAbsenceDates(classId, studentId, from, to);
+
     const values = [];
     for (const date of dates) {
         const doNowId = doNows.get(date);
-        if (!doNowId) { values.push(0); continue; }
+        if (!doNowId) { if (!excused.has(date)) values.push(0); continue; }
         if (!pickedDoNowIds.has(doNowId)) continue;
         const slip = slipByDoNow.get(doNowId);
-        if (!slip) { values.push(0); continue; }
+        if (!slip) { if (!excused.has(date)) values.push(0); continue; }
         if (db.prepare('SELECT 1 FROM wbl_exit_slip_voids WHERE exit_slip_id = ?').get(slip.id)) {
             values.push(0); continue;
         }
