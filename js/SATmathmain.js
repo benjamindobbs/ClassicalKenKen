@@ -53,13 +53,15 @@ async function _doLoadMathQuestions() {
         } catch {}
     }
 
-    const SKIP_FLAGS = new Set(['incomplete-choices', 'missing-metadata', 'image-only-question']);
+    // Answer choices are served as images cropped from the source PDF (see
+    // SAT-Questions/extract_math_choices.py), so the OCR'd choice text and its
+    // incomplete-choices flag no longer matter. Questions without a sprite are
+    // free-response items the quiz can't present.
     const valid = all.filter(q => {
         if (suspended.has(q.ID)) return false;
         if (!MATH_DOMAINS.includes(q.Domain)) return false;
         if (!q.Skill || !q.Skill.trim()) return false;
-        if (!q.A || !q.B || !q.C || !q.D) return false;
-        if (q._flag && q._flag.split(',').some(f => SKIP_FLAGS.has(f.trim()))) return false;
+        if (!q.choiceSprite || !['A', 'B', 'C', 'D'].includes(q.Answer)) return false;
         return true;
     });
     questionTypes = MATH_DOMAINS.map(d => valid.filter(q => q.Domain === d));
@@ -128,12 +130,36 @@ function buildQuestion(question) {
         }
     }
 
-    document.getElementById('A Button').innerHTML = question.A;
-    document.getElementById('B Button').innerHTML = question.B;
-    document.getElementById('C Button').innerHTML = question.C;
-    document.getElementById('D Button').innerHTML = question.D;
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+        const btn = document.getElementById(letter + ' Button');
+        btn.innerHTML = '';
+        btn.appendChild(choiceSlice(question.choiceSprite, letter));
+    });
 
     renderMathInPage();
+}
+
+// Sprite slices are rendered at 150 DPI; the question image shows a 612pt-wide
+// page at 50vw, so slices use the same scale to keep text sizes consistent.
+const SPRITE_DPI = 150;
+const PAGE_WIDTH_PT = 612;
+const QUESTION_IMAGE_VW = 50;
+
+function choiceSlice(sprite, letter) {
+    const [W, H] = sprite.size;
+    const [y, w, h] = sprite[letter];
+    const widthVw = (w * 72 / SPRITE_DPI) / PAGE_WIDTH_PT * QUESTION_IMAGE_VW;
+    const el = document.createElement('span');
+    el.className = 'choice-img';
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', 'Choice ' + letter);
+    el.style.backgroundImage = "url('../SAT-Questions/" + sprite.src + "')";
+    el.style.width = 'min(100%, ' + widthVw.toFixed(3) + 'vw)';
+    el.style.aspectRatio = w + ' / ' + h;
+    // Percentages keep the slice aligned however the element ends up scaled.
+    el.style.backgroundSize = (W / w * 100) + '% auto';
+    el.style.backgroundPosition = '0 ' + (H === h ? 0 : y / (H - h) * 100) + '%';
+    return el;
 }
 
 function submit() {

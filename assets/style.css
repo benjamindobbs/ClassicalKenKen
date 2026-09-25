@@ -761,6 +761,18 @@ code {
     height: 1rem;
 }
 
+.answer-option > span:last-child {
+    flex: 1;
+    min-width: 0;
+}
+
+/* One slice of a per-question answer-choice sprite (see SATmathmain.js) */
+.choice-img {
+    display: block;
+    background-repeat: no-repeat;
+    mix-blend-mode: multiply; /* white crop background takes on hover/result colours */
+}
+
 .answer-label-letter {
     font-weight: 700;
     color: var(--muted);
