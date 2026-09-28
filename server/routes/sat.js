@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { db } = require('../db');
 const { requireAuth } = require('../auth');
+const { LEGACY_CONVENTIONS } = require('../englishBankMigration');
 
 const router = Router();
 router.use(requireAuth);
@@ -57,8 +58,21 @@ router.get('/next', (req, res) => {
     if (activeDomains.length === 0) return res.json({ domainIdx: ALL_DOMAINS[Math.floor(Math.random() * 4)], skill: '', difficulty: 'Easy' });
 
     // Last 25 attempts per (domain_idx, skill, difficulty) — recency window prevents old struggles
-    // from permanently suppressing a student's difficulty level
+    // from permanently suppressing a student's difficulty level.
+    // Conventions answers from before the skill split (skill '') count as history
+    // for both Conventions skills; newer real answers push them out of the window.
+    const [legacyA, legacyB] = LEGACY_CONVENTIONS.skills;
     const rawRows = db.prepare(`
+        WITH history AS (
+            SELECT domain_idx, skill, difficulty, correct, submitted_at
+            FROM sat_scores
+            WHERE user_key = ? AND NOT (domain_idx = ? AND skill = '')
+            UNION ALL
+            SELECT s.domain_idx, l.skill, s.difficulty, s.correct, s.submitted_at
+            FROM sat_scores s
+            CROSS JOIN (SELECT ? AS skill UNION ALL SELECT ?) l
+            WHERE s.user_key = ? AND s.domain_idx = ? AND s.skill = ''
+        )
         SELECT domain_idx, skill, difficulty, correct
         FROM (
             SELECT domain_idx, skill, difficulty, correct,
@@ -66,11 +80,10 @@ router.get('/next', (req, res) => {
                        PARTITION BY domain_idx, skill, difficulty
                        ORDER BY submitted_at DESC
                    ) AS rn
-            FROM sat_scores
-            WHERE user_key = ?
+            FROM history
         )
         WHERE rn <= 25
-    `).all(req.userKey);
+    `).all(req.userKey, LEGACY_CONVENTIONS.domainIdx, legacyA, legacyB, req.userKey, LEGACY_CONVENTIONS.domainIdx);
 
     // Aggregate windowed rows into accuracy map
     const accuracyMap = {};
@@ -162,7 +175,7 @@ router.get('/session', (req, res) => {
     for (const row of rows) {
         const di = row.domain_idx;
         if (!domainMap[di]) domainMap[di] = {};
-        const sk = row.skill || '';
+        const sk = row.skill || (di === LEGACY_CONVENTIONS.domainIdx ? LEGACY_CONVENTIONS.label : '');
         if (!domainMap[di][sk]) domainMap[di][sk] = {};
         const diff = row.difficulty;
         if (!domainMap[di][sk][diff]) domainMap[di][sk][diff] = { total: 0, correct: 0 };

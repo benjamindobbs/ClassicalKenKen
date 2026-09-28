@@ -133,7 +133,7 @@ function buildQuestion(question) {
     ['A', 'B', 'C', 'D'].forEach(letter => {
         const btn = document.getElementById(letter + ' Button');
         btn.innerHTML = '';
-        btn.appendChild(choiceSlice(question.choiceSprite, letter));
+        btn.appendChild(choiceSlice(question.choiceSprite, letter, mathSliceWidth));
     });
 
     renderMathInPage();
@@ -145,21 +145,8 @@ const SPRITE_DPI = 150;
 const PAGE_WIDTH_PT = 612;
 const QUESTION_IMAGE_VW = 50;
 
-function choiceSlice(sprite, letter) {
-    const [W, H] = sprite.size;
-    const [y, w, h] = sprite[letter];
-    const widthVw = (w * 72 / SPRITE_DPI) / PAGE_WIDTH_PT * QUESTION_IMAGE_VW;
-    const el = document.createElement('span');
-    el.className = 'choice-img';
-    el.setAttribute('role', 'img');
-    el.setAttribute('aria-label', 'Choice ' + letter);
-    el.style.backgroundImage = "url('../SAT-Questions/" + sprite.src + "')";
-    el.style.width = 'min(100%, ' + widthVw.toFixed(3) + 'vw)';
-    el.style.aspectRatio = w + ' / ' + h;
-    // Percentages keep the slice aligned however the element ends up scaled.
-    el.style.backgroundSize = (W / w * 100) + '% auto';
-    el.style.backgroundPosition = '0 ' + (H === h ? 0 : y / (H - h) * 100) + '%';
-    return el;
+function mathSliceWidth(w) {
+    return ((w * 72 / SPRITE_DPI) / PAGE_WIDTH_PT * QUESTION_IMAGE_VW).toFixed(3) + 'vw';
 }
 
 function submit() {

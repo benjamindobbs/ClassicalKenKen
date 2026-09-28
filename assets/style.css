@@ -639,6 +639,14 @@ code {
 .rationale-result-badge--correct   { background: #dcfce7; color: #15803d; }
 .rationale-result-badge--incorrect { background: #fee2e2; color: #b91c1c; }
 
+.rationale-text p {
+    margin: 0 0 0.75em;
+}
+
+.rationale-text p:last-child {
+    margin-bottom: 0;
+}
+
 .rationale-text {
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -699,6 +707,19 @@ code {
     max-width: 720px;
     margin: 2.5rem auto;
     padding: 0 1.5rem;
+}
+
+/* English passages are served as page crops; the extra width keeps their
+   9pt source text at a readable size (see SATmain.js). */
+.quiz-area--wide {
+    max-width: 1040px;
+}
+
+.question-crop {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    mix-blend-mode: multiply;
 }
 
 .begin-bar {

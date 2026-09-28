@@ -49,10 +49,11 @@ async function _doLoadEnglishQuestions() {
         } catch {}
     }
 
-    const DOMAINS = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', ''];
+    // Order matches domain_idx on the server (sat_scores, /api/sat/next).
+    const DOMAINS = ['Information and Ideas', 'Craft and Structure', 'Expression of Ideas', 'Standard English Conventions'];
     const valid = all.filter(q => {
         if (suspended.has(q.ID)) return false;
-        return DOMAINS.includes(q.Domain) && (q.Domain === '' || (q.Skill && q.Skill.trim()));
+        return DOMAINS.includes(q.Domain) && q.Skill && q.Skill.trim();
     });
     questionTypes = DOMAINS.map(d => valid.filter(q => q.Domain === d));
 }
@@ -101,11 +102,74 @@ function buildQuestion(question) {
     rationaleEl.style.background = '';
     rationaleEl.style.borderColor = '';
     document.getElementById('nextquestion').disabled = true;
-    document.getElementById('Question').innerHTML = question.Question;
-    document.getElementById('A Button').innerHTML = question.A;
-    document.getElementById('B Button').innerHTML = question.B;
-    document.getElementById('C Button').innerHTML = question.C;
-    document.getElementById('D Button').innerHTML = question.D;
+
+    // The question and choices are shown as crops of the source PDF (see
+    // SAT-Questions/extract_english.py), which keep tables, charts and
+    // underlining. The text is the alt text, and the fallback when a question
+    // has no crop.
+    const questionEl = document.getElementById('Question');
+    questionEl.innerHTML = '';
+    if (question.image) {
+        const img = document.createElement('img');
+        img.className = 'question-crop';
+        img.src = '../SAT-Questions/' + question.image;
+        img.alt = question.Question;
+        if (question.imageSize) {
+            img.width = question.imageSize[0];
+            img.height = question.imageSize[1];
+            img.style.width = englishImageWidth(question.imageSize[0]);
+        }
+        questionEl.appendChild(img);
+    } else {
+        questionEl.textContent = question.Question;
+    }
+
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+        const btn = document.getElementById(letter + ' Button');
+        btn.innerHTML = '';
+        if (question.choiceSprite) {
+            btn.appendChild(choiceSlice(question.choiceSprite, letter, englishImageWidth, question[letter]));
+        } else {
+            btn.textContent = question[letter];
+        }
+    });
+    updateCropScale(question);
+}
+
+// Crops are rendered at 150 DPI; 0.8 CSS px per crop px shows the PDF's 9pt
+// body text at about 15px. When the question's widest crop doesn't fit its
+// column at that scale, every crop of the question (passage and choices alike)
+// shrinks by the same factor so text sizes stay consistent. The scale lives in
+// --crop-scale.
+const ENGLISH_CROP_SCALE = 0.8;
+
+function englishImageWidth(w) {
+    return 'calc(' + w + 'px * var(--crop-scale, ' + ENGLISH_CROP_SCALE + '))';
+}
+
+function contentWidth(el) {
+    const cs = getComputedStyle(el);
+    return el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+}
+
+function updateCropScale(question = json[roll]) {
+    if (!question || !question.image || !question.choiceSprite) return;
+    const qWidth = contentWidth(document.getElementById('Question'));
+    const cWidth = contentWidth(document.getElementById('A Button'));
+    if (qWidth <= 0 || cWidth <= 0) return; // hidden; keep the last scale
+    const widestChoice = Math.max(...['A', 'B', 'C', 'D'].map(L => question.choiceSprite[L][1]));
+    const scale = Math.min(ENGLISH_CROP_SCALE, qWidth / question.imageSize[0], cWidth / widestChoice);
+    document.documentElement.style.setProperty('--crop-scale', scale.toFixed(4));
+}
+window.addEventListener('resize', () => updateCropScale());
+
+function renderRationale(el, text) {
+    el.innerHTML = '';
+    (text || '').split(/\n\n+/).forEach(para => {
+        const p = document.createElement('p');
+        p.textContent = para;
+        el.appendChild(p);
+    });
 }
 
 function submit() {
@@ -131,7 +195,7 @@ function submit() {
         document.getElementById(question.Answer).closest('.answer-option').style.background = '#dcfce7';
     }
 
-    document.getElementById('Rationale').innerHTML = question.Rationale;
+    renderRationale(document.getElementById('Rationale'), question.Rationale);
     document.getElementById('nextquestion').disabled = false;
     showRationaleOverlay(correct, selectedAnswer, question.Answer);
 }

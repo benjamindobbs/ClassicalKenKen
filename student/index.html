@@ -602,7 +602,7 @@
             });
             const domainSkillMap = {}, domainTotals = {}, domainCorrect = {};
             rows.forEach(r => {
-                const di = Number(r.domain_idx), sk = r.skill || 'Unknown';
+                const di = Number(r.domain_idx), sk = r.skill || (di === 3 ? 'Conventions (before skill split)' : 'Unknown');
                 if (!domainSkillMap[di]) domainSkillMap[di] = {};
                 if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0, total: 0 };
                 domainSkillMap[di][sk].correct += Number(r.correct);

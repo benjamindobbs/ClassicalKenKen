@@ -1,0 +1,11 @@
+.git
+.claude
+.vscode
+node_modules
+data
+*.db
+*.pdf
+SAT-Questions/*.py
+SAT-Questions/*.txt
+SAT-Questions/.SAT-Question-Bank
+todo

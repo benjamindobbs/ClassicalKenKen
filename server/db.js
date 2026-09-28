@@ -1,6 +1,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
+const { runEnglishBankMigration } = require('./englishBankMigration');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'scores.db');
 
@@ -1220,6 +1221,18 @@ try {
         `).run();
     }
 } catch { /* already migrated */ }
+
+// Question image migration: fix truncated English skill names, clear stale
+// English and math reports once. See englishBankMigration.js.
+{
+    const r = runEnglishBankMigration(db);
+    const renamed = Object.entries(r.renamed).filter(([, n]) => n > 0);
+    const cleared = Object.entries(r.cleared).filter(([, c]) => c.reports || c.suppressions);
+    if (renamed.length || cleared.length) {
+        console.log('question image migration:', JSON.stringify({ renamed: Object.fromEntries(renamed),
+            cleared: Object.fromEntries(cleared.map(([s, c]) => [s, { reports: c.reports, suppressions: c.suppressions }])) }));
+    }
+}
 
 function upsertUser(userKey, email) {
     db.prepare(

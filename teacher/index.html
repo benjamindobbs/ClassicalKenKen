@@ -1074,7 +1074,7 @@
             const domainSkillMap = {}, domainTotals = {}, domainCorrect = {};
             filtered.forEach(r => {
                 const di = Number(r.domain_idx);
-                const sk = r.skill || 'Unknown';
+                const sk = r.skill || (DOMAINS[di] === 'Standard English Conventions' ? 'Conventions (before skill split)' : 'Unknown');
                 if (!domainSkillMap[di]) domainSkillMap[di] = {};
                 if (!domainSkillMap[di][sk]) domainSkillMap[di][sk] = { correct: 0, total: 0 };
                 domainSkillMap[di][sk].correct += Number(r.correct);
@@ -1155,7 +1155,7 @@
             // skill -> { total, correct, diffs: { <difficulty>: { total, correct } } }
             const skillMap = {};
             rows.forEach(r => {
-                const sk = r.skill || 'Unknown';
+                const sk = r.skill || (DOMAINS[di] === 'Standard English Conventions' ? 'Conventions (before skill split)' : 'Unknown');
                 if (!skillMap[sk]) skillMap[sk] = { total: 0, correct: 0, diffs: {} };
                 skillMap[sk].total += 1;
                 skillMap[sk].correct += Number(r.correct);
