@@ -1,10 +1,15 @@
 // Daily progress pill — tracks done/required for today's assignment.
-// Call initDailyProgress(type, classId) after sign-in. type: 'kenken' | 'sat' | 'sat-math'
+// Call initDailyProgress(type, classId) after sign-in.
+// type: 'kenken' | 'sat' | 'sat-math' | 'measurement' (an activity key — js/activities.js)
 // classId: a class id to scope to, null for "not for a class" (pill hidden),
 // or undefined for the legacy first-class behaviour.
 // Renders into #daily-pill; triggers +1 float on qualifying submissions.
 
 let _dpData = null;
+
+function _dpActivity(type) {
+    return Activities.ACTIVITIES.find(a => a.key === type);
+}
 
 function _dpUrl(classId) {
     if (classId === null)      return '/api/student/daily-progress?class_id=none';
@@ -24,7 +29,7 @@ async function initDailyProgress(type, classId) {
 
 async function refreshDailyProgress(type, classId) {
     if (typeof localMode !== 'undefined' && localMode) return;
-    const todayKey = type === 'sat-math' ? 'sat_math' : type;
+    const todayKey = _dpActivity(type).todayKey;
     const prevCount = _dpData?.today?.[todayKey] ?? 0;
     try {
         const res = await authFetch(_dpUrl(classId));
@@ -39,21 +44,12 @@ async function refreshDailyProgress(type, classId) {
 function _renderPill(type) {
     const el = document.getElementById('daily-pill');
     if (!el || !_dpData?.settings) { if (el) el.style.display = 'none'; return; }
-    const act      = _dpData.settings.required_activity;
-    const relevant =
-        (type === 'kenken'   && ['kenken',   'both', 'either', 'all'].includes(act)) ||
-        (type === 'sat'      && ['sat',      'both', 'either', 'sat-both', 'all'].includes(act)) ||
-        (type === 'sat-math' && ['sat-math', 'sat-both', 'all'].includes(act));
-    if (!relevant) { el.style.display = 'none'; return; }
+    if (!Activities.includes(_dpData.settings.required_activity, type)) { el.style.display = 'none'; return; }
 
-    const todayKey = type === 'sat-math' ? 'sat_math' : type;
-    const required = type === 'kenken'
-        ? _dpData.settings.required_kenken_count
-        : type === 'sat-math'
-        ? _dpData.settings.required_sat_math_count
-        : _dpData.settings.required_sat_count;
-    const done  = Math.min(_dpData.today[todayKey] ?? 0, required);
-    const isDone = done >= required;
+    const a        = _dpActivity(type);
+    const required = _dpData.settings[a.countField] ?? 1;
+    const done     = Math.min(_dpData.today[a.todayKey] ?? 0, required);
+    const isDone   = done >= required;
 
     el.className = 'daily-pill ' + (isDone ? 'daily-pill--done' : 'daily-pill--active');
     el.style.display = '';

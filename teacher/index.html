@@ -198,6 +198,7 @@
             <a href="../KenKen/">Play KenKen</a>
             <a href="../SAT-Questions/">SAT English</a>
             <a href="../SAT-Math/">SAT Math</a>
+            <a href="../Measurement/">Ruler Game</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
             <a href="./index.html" class="active nav-teacher">Teacher</a>
@@ -334,6 +335,28 @@
                 <div class="bar-asmt-toggle" id="all-math-bar-chart-toggle"></div>
                 <div class="bar-legend" id="all-math-bar-legend"></div>
                 <div class="chart-card"><canvas id="all-math-bar-chart"></canvas></div>
+
+                <div class="section-title">Ruler Game Score Over Time</div>
+                <p class="lookup-note">Average score per day across all students (incorrect answers score 0).</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-rg-score-from" />
+                    <label>to</label><input type="date" id="all-rg-score-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllRulerCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-rg-score-chart"></canvas></div>
+
+                <div class="section-title">Ruler Game Accuracy by Fraction</div>
+                <p class="lookup-note">Accuracy % by the target&rsquo;s smallest fraction (whole inches through 1/32&Prime;).</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-rg-acc-from" />
+                    <label>to</label><input type="date" id="all-rg-acc-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllRulerCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-rg-acc-chart"></canvas></div>
+
+                <div class="section-title">Ruler Game Tier Distribution</div>
+                <p class="lookup-note">Number of students currently on each tier.</p>
+                <div class="chart-card"><canvas id="all-rg-tier-chart"></canvas></div>
             </div>
         </div>
 
@@ -395,9 +418,36 @@
                     <div class="bar-legend" id="math-bar-legend"></div>
                     <div class="chart-card"><canvas id="math-bar-chart"></canvas></div>
 
+                    <div class="section-title">Ruler Game Score Over Time <span class="section-count" id="rg-meta"></span></div>
+                    <p class="lookup-note">Average score per day (incorrect answers score 0).</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="rg-score-from" />
+                        <label>to</label><input type="date" id="rg-score-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-score-chart"></canvas></div>
+
+                    <div class="section-title">Ruler Game Accuracy by Fraction</div>
+                    <p class="lookup-note">Accuracy % by the target&rsquo;s smallest fraction.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="rg-acc-from" />
+                        <label>to</label><input type="date" id="rg-acc-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-acc-chart"></canvas></div>
+
+                    <div class="section-title">Ruler Game Tier Over Time</div>
+                    <p class="lookup-note">Highest tier played each day.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="rg-tier-from" />
+                        <label>to</label><input type="date" id="rg-tier-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-tier-chart"></canvas></div>
+
                     <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
                         <div class="section-title" style="color:#dc2626">Danger Zone</div>
-                        <p style="font-size:0.875rem;color:#64748b;margin:0.375rem 0 0.875rem">Permanently deletes all KenKen and SAT scores for this user. The student will need to sign in again and will start fresh. This cannot be undone.</p>
+                        <p style="font-size:0.875rem;color:#64748b;margin:0.375rem 0 0.875rem">Permanently deletes all KenKen, SAT and Ruler Game scores for this user. The student will need to sign in again and will start fresh. This cannot be undone.</p>
                         <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="clearUserData()">Clear All Data for This Student</button>
                     </div>
                 </div>
@@ -673,6 +723,8 @@
         </div>
     </div>
 
+    <script src="../js/activities.js"></script>
+    <script src="../js/measurement-core.js"></script>
     <script>
         // ── Teacher Auth ──────────────────────────────────────────────────────
         const CLIENT_ID      = '245572615958-jg9jin9k68eh70pk659ifhjc8unbopta.apps.googleusercontent.com';
@@ -806,6 +858,19 @@
             renderAllBarChart();
             renderAllMathLineChart();
             renderAllMathBarChart();
+
+            for (const id of ['all-rg-score', 'all-rg-acc']) {
+                document.getElementById(id + '-from').value = syFrom;
+                document.getElementById(id + '-to').value   = syTo;
+            }
+            renderAllRulerCharts();
+        }
+
+        function renderAllRulerCharts() {
+            const rows = rawData.measurement || [];
+            buildKenKenChart('all-rg-score-chart', rows, 'all-rg-score-from', 'all-rg-score-to');
+            buildRulerAccuracyChart('all-rg-acc-chart', rows, 'all-rg-acc-from', 'all-rg-acc-to');
+            buildRulerTierDistChart('all-rg-tier-chart', rawData.measurement_progress || []);
         }
 
         async function loadAllKenKenLeaderboard() {
@@ -982,6 +1047,105 @@
                     },
                     scales: {
                         y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Date' } },
+                    },
+                },
+            });
+        }
+
+        // ── Ruler Game charts (score-over-time reuses buildKenKenChart) ──────
+        function filterByDateRange(rows, fromId, toId) {
+            const from = document.getElementById(fromId)?.value || '';
+            const to   = document.getElementById(toId)?.value   || '';
+            return rows.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+        }
+
+        function buildRulerAccuracyChart(canvasId, rows, fromId, toId) {
+            destroyChart(canvasId);
+            const labels = MeasurementCore.DENOMINATOR_LABELS;
+            const agg = Object.fromEntries(labels.map(l => [l, { correct: 0, total: 0 }]));
+            filterByDateRange(rows, fromId, toId).forEach(r => {
+                const a = agg[MeasurementCore.denominatorLabel(Number(r.target_32))];
+                a.correct += Number(r.correct);
+                a.total   += 1;
+            });
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(l => l === 'Whole' ? 'Whole inch' : l + '″'),
+                    datasets: [{
+                        label: 'Accuracy',
+                        data: labels.map(l => agg[l].total ? Math.round(agg[l].correct / agg[l].total * 100) : null),
+                        backgroundColor: '#10b981', borderRadius: 4,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: i => {
+                            const a = agg[labels[i.dataIndex]];
+                            return `${i.raw}% correct (${a.correct}/${a.total})`;
+                        } } },
+                    },
+                    scales: {
+                        y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Target fraction' } },
+                    },
+                },
+            });
+        }
+
+        function buildRulerTierDistChart(canvasId, progressRows) {
+            destroyChart(canvasId);
+            const tiers  = Array.from({ length: MeasurementCore.MAX_TIER }, (_, i) => i + 1);
+            const counts = tiers.map(t => progressRows.filter(p => Number(p.tier) === t).length);
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: tiers.map(t => 'Tier ' + t),
+                    datasets: [{ label: 'Students', data: counts, backgroundColor: '#8b5cf6', borderRadius: 4 }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => `${i.raw} student${i.raw === 1 ? '' : 's'}` } } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Students' } },
+                        x: { title: { display: true, text: 'Current tier' } },
+                    },
+                },
+            });
+        }
+
+        function buildRulerTierTimeChart(canvasId, rows, fromId, toId) {
+            destroyChart(canvasId);
+            const byDate = {};
+            filterByDateRange(rows, fromId, toId).forEach(r => {
+                const d = new Date(r.submitted_at).toISOString().substring(0, 10);
+                byDate[d] = Math.max(byDate[d] || 0, Number(r.tier));
+            });
+            const dates = Object.keys(byDate).sort();
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chartInst[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Tier', data: dates.map(d => byDate[d]), stepped: true,
+                        borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)',
+                        pointBackgroundColor: '#8b5cf6', borderWidth: 2, pointRadius: 4, fill: true,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => `Tier ${i.raw}` } } },
+                    scales: {
+                        y: { min: 1, max: MeasurementCore.MAX_TIER, ticks: { stepSize: 1 }, title: { display: true, text: 'Tier' } },
                         x: { title: { display: true, text: 'Date' } },
                     },
                 },
@@ -1236,6 +1400,7 @@
         let lookupRows = [];
         let kenkenRows = [];
         let mathRows   = [];
+        let rulerRows  = [];
 
         function doLookup() {
             const key   = document.getElementById('lookup-input').value.trim();
@@ -1247,8 +1412,9 @@
             lookupRows = rawData.sat.filter(r => r.user_key === key);
             kenkenRows = rawData.kenken.filter(r => r.user_key === key);
             mathRows   = (rawData.sat_math || []).filter(r => r.user_key === key);
+            rulerRows  = (rawData.measurement || []).filter(r => r.user_key === key);
 
-            if (lookupRows.length === 0 && kenkenRows.length === 0 && mathRows.length === 0) {
+            if (lookupRows.length === 0 && kenkenRows.length === 0 && mathRows.length === 0 && rulerRows.length === 0) {
                 resEl.style.display = 'none';
                 msgEl.textContent = `No data found for user key "${key}".`;
                 msgEl.style.display = '';
@@ -1279,12 +1445,31 @@
                 document.getElementById('math-bar-to').value    = mDates[mDates.length - 1];
                 document.getElementById('math-line-meta').textContent = `(${mathRows.length} answers)`;
             }
+            if (rulerRows.length > 0) {
+                const rDates = rulerRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                for (const id of ['rg-score', 'rg-acc', 'rg-tier']) {
+                    document.getElementById(id + '-from').value = rDates[0];
+                    document.getElementById(id + '-to').value   = rDates[rDates.length - 1];
+                }
+                const cur = (rawData.measurement_progress || []).find(p => p.user_key === key);
+                document.getElementById('rg-meta').textContent =
+                    `(${rulerRows.length} answers${cur ? ` · currently Tier ${cur.tier}` : ''})`;
+            } else {
+                document.getElementById('rg-meta').textContent = '';
+            }
 
             renderStudentKenKenChart();
             buildSATLineChart('line-chart', lookupRows, 'line-from', 'line-to');
             renderStudentBarChart();
             buildSATLineChart('math-line-chart', mathRows, 'math-line-from', 'math-line-to', MATH_DOMAIN_DISPLAY);
             renderStudentMathBarChart();
+            renderStudentRulerCharts();
+        }
+
+        function renderStudentRulerCharts() {
+            buildKenKenChart('rg-score-chart', rulerRows, 'rg-score-from', 'rg-score-to');
+            buildRulerAccuracyChart('rg-acc-chart', rulerRows, 'rg-acc-from', 'rg-acc-to');
+            buildRulerTierTimeChart('rg-tier-chart', rulerRows, 'rg-tier-from', 'rg-tier-to');
         }
 
         function renderStudentKenKenChart() { buildKenKenChart('kenken-chart', kenkenRows, 'kenken-from', 'kenken-to'); }
@@ -1350,31 +1535,33 @@
             const k = document.getElementById('req-kenken').checked;
             const m = document.getElementById('req-sat-math').checked;
             const e = document.getElementById('req-sat-english').checked;
-            document.getElementById('ar-kenken-field').style.display   = k ? '' : 'none';
-            document.getElementById('ar-sat-math-field').style.display = m ? '' : 'none';
-            document.getElementById('ar-sat-field').style.display      = e ? '' : 'none';
+            const r = document.getElementById('req-measurement').checked;
+            document.getElementById('ar-kenken-field').style.display      = k ? '' : 'none';
+            document.getElementById('ar-sat-math-field').style.display    = m ? '' : 'none';
+            document.getElementById('ar-sat-field').style.display         = e ? '' : 'none';
+            document.getElementById('ar-measurement-field').style.display = r ? '' : 'none';
         }
 
         async function saveClassAssignmentSettings(classId) {
-            const k = document.getElementById('req-kenken').checked;
-            const m = document.getElementById('req-sat-math').checked;
-            const e = document.getElementById('req-sat-english').checked;
-            let required_activity;
-            if (k && m && e)  required_activity = 'all';
-            else if (k && e)  required_activity = 'both';
-            else if (e && m)  required_activity = 'sat-both';
-            else if (k && m)  required_activity = 'kenken-math';
-            else if (k)       required_activity = 'kenken';
-            else if (m)       required_activity = 'sat-math';
-            else if (e)       required_activity = 'sat';
-            else              required_activity = 'either';
-            const required_kenken_count   = parseInt(document.getElementById('ar-kenken-count').value)   || 1;
-            const required_sat_count      = parseInt(document.getElementById('ar-sat-count').value)      || 1;
-            const required_sat_math_count = parseInt(document.getElementById('ar-sat-math-count').value) || 1;
+            const checked = [
+                ['kenken',      'req-kenken'],
+                ['sat-math',    'req-sat-math'],
+                ['sat',         'req-sat-english'],
+                ['measurement', 'req-measurement'],
+            ].filter(([, id]) => document.getElementById(id).checked).map(([key]) => key);
+            // Nothing checked saves the legacy 'either' (js/activities.js).
+            const required_activity = Activities.serialize(checked);
+            const required_kenken_count      = parseInt(document.getElementById('ar-kenken-count').value)      || 1;
+            const required_sat_count         = parseInt(document.getElementById('ar-sat-count').value)         || 1;
+            const required_sat_math_count    = parseInt(document.getElementById('ar-sat-math-count').value)    || 1;
+            const required_measurement_count = parseInt(document.getElementById('ar-measurement-count').value) || 1;
             await teacherFetch(`/api/teacher/classes/${classId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ required_activity, required_kenken_count, required_sat_count, required_sat_math_count }),
+                body: JSON.stringify({
+                    required_activity, required_kenken_count, required_sat_count,
+                    required_sat_math_count, required_measurement_count,
+                }),
             });
             const msg = document.getElementById('ar-saved-msg');
             msg.style.display = '';
@@ -1465,7 +1652,8 @@
 
         function showClassesList() {
             // Destroy any class charts
-            ['class-kenken-chart','class-line-chart','class-bar-chart','class-math-line-chart','class-math-bar-chart'].forEach(destroyChart);
+            ['class-kenken-chart','class-line-chart','class-bar-chart','class-math-line-chart','class-math-bar-chart',
+             'class-rg-score-chart','class-rg-acc-chart','class-rg-tier-chart'].forEach(destroyChart);
             currentClassId = null;
             classStudents  = [];
             showWithdrawn  = false;
@@ -1500,10 +1688,11 @@
             const engEnabled  = parseDomains(cls.sat_english_domains);
             const mathEnabled = parseDomains(cls.sat_math_domains);
 
-            const reqAct = cls.required_activity || 'either';
-            const reqKenken = ['kenken','both','kenken-math','all','either'].includes(reqAct);
-            const reqSatMath = ['sat-math','sat-both','kenken-math','all'].includes(reqAct);
-            const reqSatEnglish = ['sat','both','sat-both','all','either'].includes(reqAct);
+            const reqSet = Activities.parse(cls.required_activity);
+            const reqKenken      = reqSet.has('kenken');
+            const reqSatMath     = reqSet.has('sat-math');
+            const reqSatEnglish  = reqSet.has('sat');
+            const reqMeasurement = reqSet.has('measurement');
 
             const activeStudents    = cls.students.filter(s => !s.exited_on);
             const withdrawnCount    = cls.students.length - activeStudents.length;
@@ -1593,6 +1782,28 @@
                 <div class="bar-asmt-toggle" id="class-math-bar-chart-toggle"></div>
                 <div class="bar-legend" id="class-math-bar-legend"></div>
                 <div class="chart-card"><canvas id="class-math-bar-chart"></canvas></div>
+
+                <div class="section-title">Class Ruler Game Score Over Time</div>
+                <p class="lookup-note">Average daily score across all linked students (incorrect answers score 0).</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-rg-score-from" />
+                    <label>to</label><input type="date" id="class-rg-score-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassRulerCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-rg-score-chart"></canvas></div>
+
+                <div class="section-title">Class Ruler Game Accuracy by Fraction</div>
+                <p class="lookup-note">Accuracy % by the target&rsquo;s smallest fraction across all linked students.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-rg-acc-from" />
+                    <label>to</label><input type="date" id="class-rg-acc-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassRulerCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-rg-acc-chart"></canvas></div>
+
+                <div class="section-title">Class Ruler Game Tier Distribution</div>
+                <p class="lookup-note">Number of linked students currently on each tier.</p>
+                <div class="chart-card"><canvas id="class-rg-tier-chart"></canvas></div>
             ` : '';
 
             const exportHTML = cls.students.length > 0 ? `
@@ -1692,6 +1903,10 @@
                                 <input type="checkbox" id="req-sat-english" onchange="updateActivityUI()" ${reqSatEnglish ? 'checked' : ''}>
                                 <span>SAT English</span>
                             </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-measurement" onchange="updateActivityUI()" ${reqMeasurement ? 'checked' : ''}>
+                                <span>Ruler Game</span>
+                            </label>
                         </div>
                     </div>
                     <div class="settings-grid">
@@ -1706,6 +1921,10 @@
                         <div class="settings-field" id="ar-sat-field" style="display:${reqSatEnglish ? '' : 'none'}">
                             <label class="settings-label">SAT English Correct / Day</label>
                             <input type="number" id="ar-sat-count" min="1" step="1" value="${cls.required_sat_count ?? 1}" />
+                        </div>
+                        <div class="settings-field" id="ar-measurement-field" style="display:${reqMeasurement ? '' : 'none'}">
+                            <label class="settings-label">Ruler Game Correct / Day</label>
+                            <input type="number" id="ar-measurement-count" min="1" step="1" value="${cls.required_measurement_count ?? 1}" />
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">
@@ -1946,6 +2165,25 @@
             renderClassBarChart();
             buildSATLineChart('class-math-line-chart', mathRows, 'class-math-line-from', 'class-math-line-to', MATH_DOMAIN_DISPLAY);
             renderClassMathBarChart();
+
+            const rgRows = (rawData.measurement || []).filter(r => userKeys.has(r.user_key));
+            if (rgRows.length > 0) {
+                const rDates = rgRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                for (const id of ['class-rg-score', 'class-rg-acc']) {
+                    document.getElementById(id + '-from').value = rDates[0];
+                    document.getElementById(id + '-to').value   = rDates[rDates.length - 1];
+                }
+            }
+            renderClassRulerCharts();
+        }
+
+        function renderClassRulerCharts() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            const rows = (rawData.measurement || []).filter(r => userKeys.has(r.user_key));
+            buildKenKenChart('class-rg-score-chart', rows, 'class-rg-score-from', 'class-rg-score-to');
+            buildRulerAccuracyChart('class-rg-acc-chart', rows, 'class-rg-acc-from', 'class-rg-acc-to');
+            buildRulerTierDistChart('class-rg-tier-chart',
+                (rawData.measurement_progress || []).filter(p => userKeys.has(p.user_key)));
         }
 
         function renderClassKenKenChart() {

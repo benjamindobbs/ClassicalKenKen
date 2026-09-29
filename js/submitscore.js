@@ -40,7 +40,7 @@ async function writeScore(score, size) {
         });
         const data = await res.json();
         document.getElementById('submitMessage').innerHTML = 'Score submitted';
-        refreshDailyProgress('kenken');
+        refreshDailyProgress('kenken', ClassPicker.activeClassId());
         showScoreToBeat(data.avg);
         return data.avg;
     } catch (err) {

@@ -2,6 +2,8 @@ const { Router }      = require('express');
 const { db }          = require('../db');
 const { requireAuth } = require('../auth');
 const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
+const Activities      = require('../../js/activities');
+const Measurement     = require('../measurement');
 
 const router = Router();
 router.use(requireAuth);
@@ -13,7 +15,7 @@ router.get('/classes', (req, res) => {
     const classes = db.prepare(`
         SELECT c.id AS class_id, c.name, c.assessment_type,
                c.required_activity, c.required_kenken_count,
-               c.required_sat_count, c.required_sat_math_count,
+               c.required_sat_count, c.required_sat_math_count, c.required_measurement_count,
                c.sat_english_domains, c.sat_math_domains
         FROM class_students cs
         JOIN classes c ON c.id = cs.class_id
@@ -28,7 +30,8 @@ router.get('/classes', (req, res) => {
 // Throws { status, error } for a class_id the student isn't actively enrolled in.
 function resolveScopeClass(userKey, qClass) {
     const cols = `c.id AS class_id, c.assessment_type,
-                  c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count`;
+                  c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count,
+                  c.required_measurement_count`;
     if (qClass != null && qClass !== '' && qClass !== 'none') {
         const row = db.prepare(`
             SELECT ${cols}
@@ -71,6 +74,7 @@ router.get('/daily-progress', (req, res) => {
         required_kenken_count: classRow.required_kenken_count,
         required_sat_count: classRow.required_sat_count,
         required_sat_math_count: classRow.required_sat_math_count,
+        required_measurement_count: classRow.required_measurement_count,
     };
 
     // Midnight UTC today
@@ -99,36 +103,24 @@ router.get('/daily-progress', (req, res) => {
         'SELECT COUNT(*) AS n FROM sat_math_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
     ).get(req.userKey, todayStart, ...cArg).n;
 
-    const act       = settings.required_activity;
-    const remaining = { kenken: 0, sat: 0, sat_math: 0 };
+    // Ruler Game: only count correct answers
+    const measurementToday = db.prepare(
+        'SELECT COUNT(*) AS n FROM measurement_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
+    ).get(req.userKey, todayStart, ...cArg).n;
 
-    if (act === 'kenken') {
-        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
-    } else if (act === 'sat') {
-        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
-    } else if (act === 'sat-math') {
-        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
-    } else if (act === 'both') {
-        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
-        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
-    } else if (act === 'sat-both') {
-        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
-        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
-    } else if (act === 'kenken-math') {
-        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
-        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
-    } else if (act === 'all') {
-        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
-        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
-        remaining.sat_math = Math.max(0, settings.required_sat_math_count - satMathToday);
-    } else /* either */ {
-        remaining.kenken   = Math.max(0, settings.required_kenken_count   - kenkenToday);
-        remaining.sat      = Math.max(0, settings.required_sat_count      - satToday);
+    const today = { kenken: kenkenToday, sat: satToday, sat_math: satMathToday, measurement: measurementToday };
+
+    // Legacy 'either' fills both the KenKen and SAT English rows; clients
+    // treat it as done once either one is (js/activities.js).
+    const required  = Activities.parse(settings.required_activity);
+    const remaining = { kenken: 0, sat: 0, sat_math: 0, measurement: 0 };
+    for (const a of Activities.ACTIVITIES) {
+        if (required.has(a.key)) remaining[a.todayKey] = Math.max(0, (settings[a.countField] ?? 1) - today[a.todayKey]);
     }
 
     res.json({
         settings,
-        today:           { kenken: kenkenToday, sat: satToday, sat_math: satMathToday },
+        today,
         remaining,
         assessment_type: classRow.assessment_type || 'sat',
         class_id:        scoped ? classRow.class_id : null,
@@ -147,7 +139,7 @@ router.get('/kenken-leaderboard', (req, res) => {
     })));
 });
 
-// GET /api/student/scores — all KenKen and SAT scores for the signed-in student
+// GET /api/student/scores — all KenKen, SAT and Ruler Game scores for the signed-in student
 router.get('/scores', (req, res) => {
     const kenken = db.prepare(
         'SELECT score, submitted_at FROM kenken_scores WHERE user_key = ? ORDER BY submitted_at'
@@ -158,7 +150,10 @@ router.get('/scores', (req, res) => {
     const satMath = db.prepare(
         'SELECT correct, domain_idx, skill, submitted_at FROM sat_math_scores WHERE user_key = ? ORDER BY submitted_at'
     ).all(req.userKey);
-    res.json({ kenken, sat, sat_math: satMath });
+    const measurement = db.prepare(
+        'SELECT tier, target_32, correct, time_ms, score, submitted_at FROM measurement_scores WHERE user_key = ? ORDER BY submitted_at'
+    ).all(req.userKey);
+    res.json({ kenken, sat, sat_math: satMath, measurement, measurement_status: Measurement.status(req.userKey) });
 });
 
 module.exports = router;

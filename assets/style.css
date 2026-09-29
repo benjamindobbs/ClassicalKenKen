@@ -1575,3 +1575,87 @@ body.skill-map {
 .pill-good { background: #dcfce7; color: #15803d; }
 .pill-ok   { background: #fef9c3; color: #a16207; }
 .pill-bad  { background: #fee2e2; color: #b91c1c; }
+
+/* === RULER GAME (/Measurement/) === */
+
+.rg-tier-label { font-size: 0.9375rem; font-weight: 700; color: #0f172a; }
+.rg-window     { font-size: 0.8125rem; color: var(--muted); cursor: help; }
+.rg-spacer     { flex: 1; }
+.rg-local-tier { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--muted); }
+.rg-local-tier select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    background: var(--surface);
+}
+
+.rg-stage {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 2rem 1rem 1.5rem;
+    text-align: center;
+}
+.rg-prompt-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0;
+}
+.rg-prompt {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0.25rem 0 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
+.rg-inch { margin-left: 0.1em; }
+
+.rg-ruler-wrap { width: 100%; }
+.rg-ruler {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+    border-radius: var(--radius);
+}
+.rg-ruler:focus-visible { outline: 2px solid #93c5fd; outline-offset: 4px; }
+
+.rg-body       { fill: #fdf6d8; stroke: #a8a29e; stroke-width: 1.5; }
+.rg-bar        { fill: rgba(34, 197, 94, 0.45); transition: fill 0.15s; }
+.rg-bar--correct { fill: rgba(22, 163, 74, 0.7); }
+.rg-bar--wrong   { fill: rgba(220, 38, 38, 0.6); }
+.rg-bar--answer  { fill: rgba(245, 158, 11, 0.55); }
+.rg-bar-edge   { stroke: #15803d; stroke-width: 2; }
+.rg-tick       { stroke: #1c1917; stroke-width: 1.4; }
+.rg-tick--inch { stroke-width: 2.2; }
+.rg-inch-num   { font-size: 24px; font-weight: 700; fill: #1c1917; text-anchor: middle; font-family: inherit; }
+.rg-frac       { font-size: 12px; font-weight: 600; fill: #44403c; text-anchor: middle; font-family: inherit; }
+.rg-labels--small .rg-frac { font-size: 10px; }
+.rg-frac-bar   { stroke: #44403c; stroke-width: 1; }
+.rg-labels--small .rg-frac-bar { transform-box: fill-box; transform-origin: center; transform: scaleX(0.8); }
+.rg-guess-mark { stroke: #dc2626; stroke-width: 3; }
+.rg-hit        { fill: transparent; }
+
+.rg-feedback-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 3rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+}
+.rg-feedback { font-size: 1.0625rem; font-weight: 600; margin: 0; color: var(--muted); }
+.rg-feedback--correct { color: #15803d; }
+.rg-feedback--wrong   { color: #b91c1c; }
+
+@media (max-width: 640px) {
+    .rg-prompt { font-size: 2.25rem; }
+    .rg-stage  { padding: 1.25rem 0.5rem; }
+}

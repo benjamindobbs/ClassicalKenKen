@@ -1,4 +1,4 @@
-// Shared class picker for the practice apps (KenKen / SAT English / SAT Math).
+// Shared class picker for the practice apps (KenKen / SAT English / SAT Math / Ruler Game).
 //
 // A student on more than one roster needs to complete each class's Do Now
 // separately — served that class's domains, with the submission attributed to
@@ -6,7 +6,7 @@
 // remembers the choice, and exposes the active class_id to the page.
 //
 // Public API:
-//   await ClassPicker.init(activity)   'kenken' | 'sat' | 'sat-math'
+//   await ClassPicker.init(activity)   'kenken' | 'sat' | 'sat-math' | 'measurement'
 //   ClassPicker.render(slotEl)         draw/refresh a <select> in slotEl (repeatable)
 //   ClassPicker.activeClassId()        number, or null for "not for a class" / unset
 //   ClassPicker.activeClass()          the full class row, or null
@@ -17,11 +17,6 @@
 
 const ClassPicker = (function () {
     const LS_KEY = 'classtech_active_class';
-    const RELEVANT = {
-        'kenken':   ['kenken', 'both', 'either', 'kenken-math', 'all'],
-        'sat':      ['sat', 'both', 'either', 'sat-both', 'all'],
-        'sat-math': ['sat-math', 'sat-both', 'kenken-math', 'all'],
-    };
 
     let _all = [];             // relevant classes only
     let _choice = undefined;   // number | null (not for a class) | undefined (unchosen)
@@ -55,8 +50,7 @@ const ClassPicker = (function () {
             const res = await authFetch('/api/student/classes');
             if (res.ok) {
                 const data = await res.json();
-                const ok = RELEVANT[activity] || [];
-                _all = (data.classes || []).filter(c => ok.includes(c.required_activity));
+                _all = (data.classes || []).filter(c => Activities.includes(c.required_activity, activity));
             }
         } catch (_) { _all = []; }
 

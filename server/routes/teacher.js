@@ -3,6 +3,7 @@ const { randomUUID } = require('crypto');
 const { db } = require('../db');
 const { requireTeacher, verifyTeacherToken } = require('../teacherAuth');
 const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
+const Activities = require('../../js/activities');
 // maxDate/minDate/meetingDates/datesBetween/excusedAbsenceDates live in
 // wbl/logic.js so the Daily Practice per-day grading below and the Habits of
 // Work dispositional average share one definition instead of drifting apart.
@@ -93,8 +94,8 @@ router.post('/gradebook-settings', requireTeacher, (req, res) => {
 });
 
 // ── Assignment settings ───────────────────────────────────────────────────────
-// Activity values: kenken | sat | sat-math | both | sat-both | all | either
-const VALID_ACTIVITIES = new Set(['kenken', 'sat', 'sat-math', 'both', 'sat-both', 'all', 'either']);
+// required_activity is a comma list of activity keys (or a legacy combo name) —
+// see js/activities.js.
 
 // ── Classes ───────────────────────────────────────────────────────────────────
 router.get('/classes', requireTeacher, (req, res) => {
@@ -267,12 +268,12 @@ router.patch('/classes/:id', requireTeacher, (req, res) => {
         }
     }
     if (req.body.required_activity != null) {
-        if (!VALID_ACTIVITIES.has(req.body.required_activity))
+        if (!Activities.isValid(req.body.required_activity))
             return res.status(400).json({ error: 'invalid required_activity' });
         updates.push('required_activity = ?');
         params.push(req.body.required_activity);
     }
-    for (const field of ['required_kenken_count', 'required_sat_count', 'required_sat_math_count']) {
+    for (const field of Activities.ACTIVITIES.map(a => a.countField)) {
         if (req.body[field] != null) {
             updates.push(`${field} = ?`);
             params.push(Number(req.body[field]) || 1);
@@ -384,6 +385,8 @@ router.delete('/users/:userKey', requireTeacher, (req, res) => {
     db.prepare('DELETE FROM kenken_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sat_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sat_math_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM measurement_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM measurement_progress WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sessions WHERE user_key = ?').run(userKey);
     db.prepare('UPDATE class_students SET user_key = NULL WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM users WHERE user_key = ?').run(userKey);
@@ -422,8 +425,9 @@ router.get('/grades', requireTeacher, (req, res) => {
 
     const maxScore   = settings.assignment_max_score;
     const noSubGrade = Math.round(maxScore * settings.no_submission_score_pct / 100);
-    const ra         = asgn.required_activity;
-    const smReq      = asgn.required_sat_math_count ?? 1;
+    const either     = Activities.isEither(asgn.required_activity);
+    const reqSet     = Activities.parse(asgn.required_activity);
+    const reqCount   = key => asgn[Activities.ACTIVITIES.find(a => a.key === key).countField] ?? 1;
 
     // Meeting-day calendar for this class, when PS attendance has been pulled
     // for it (server/wbl/logic.js:meetingDates — dates only ever exist there
@@ -509,23 +513,35 @@ router.get('/grades', requireTeacher, (req, res) => {
             GROUP BY day
         `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
 
-        let kenkenTotal = 0, satTotal = 0, satMathTotal = 0;
+        const measurementByDay = new Map(db.prepare(`
+            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM measurement_scores
+            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
+            GROUP BY day
+        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
+
+        let kenkenTotal = 0, satTotal = 0, satMathTotal = 0, measurementTotal = 0;
         const dayGrades = [];
 
         for (const date of countedDates) {
-            const k = kenkenByDay.get(date) ?? 0;
-            const s = satByDay.get(date) ?? 0;
-            const m = satMathByDay.get(date) ?? 0;
-            kenkenTotal += k; satTotal += s; satMathTotal += m;
+            const done = {
+                'kenken':      kenkenByDay.get(date) ?? 0,
+                'sat':         satByDay.get(date) ?? 0,
+                'sat-math':    satMathByDay.get(date) ?? 0,
+                'measurement': measurementByDay.get(date) ?? 0,
+            };
+            kenkenTotal += done.kenken; satTotal += done.sat;
+            satMathTotal += done['sat-math']; measurementTotal += done.measurement;
 
-            let dayRequired, dayActual;
-            if      (ra === 'kenken')   { dayRequired = asgn.required_kenken_count; dayActual = k; }
-            else if (ra === 'sat')      { dayRequired = asgn.required_sat_count;    dayActual = s; }
-            else if (ra === 'sat-math') { dayRequired = smReq;                      dayActual = m; }
-            else if (ra === 'both')     { dayRequired = asgn.required_kenken_count + asgn.required_sat_count; dayActual = k + s; }
-            else if (ra === 'sat-both') { dayRequired = asgn.required_sat_count + smReq;                      dayActual = s + m; }
-            else if (ra === 'all')      { dayRequired = asgn.required_kenken_count + asgn.required_sat_count + smReq; dayActual = k + s + m; }
-            else /* either */           { dayRequired = Math.max(asgn.required_kenken_count, asgn.required_sat_count); dayActual = Math.max(k, s); }
+            // Required activities pool together: the day's requirement is the
+            // sum of their counts, met by the sum of their completions.
+            // Legacy 'either' is KenKen OR SAT English, whichever is higher.
+            let dayRequired = 0, dayActual = 0;
+            if (either) {
+                dayRequired = Math.max(reqCount('kenken'), reqCount('sat'));
+                dayActual   = Math.max(done.kenken, done.sat);
+            } else {
+                for (const key of reqSet) { dayRequired += reqCount(key); dayActual += done[key]; }
+            }
 
             // completion_score_pct floors a PARTIAL day (some, not all, of the
             // requirement done); no_submission_score_pct floors a day with
@@ -557,7 +573,8 @@ router.get('/grades', requireTeacher, (req, res) => {
             kenken_count:    kenkenTotal,
             sat_count:       satTotal,
             sat_math_count:  satMathTotal,
-            enrolled_on:     student.enrolled_on,
+            measurement_count: measurementTotal,
+            enrolled_on:    student.enrolled_on,
             exited_on:       student.exited_on,
             days_counted:    countedDates.length,
             days_excused:    studentDates.length - countedDates.length,
@@ -584,7 +601,11 @@ router.get('/data', requireTeacher, (_req, res) => {
     const sat_math = db.prepare(
         'SELECT ms.*, u.email FROM sat_math_scores ms JOIN users u ON ms.user_key = u.user_key ORDER BY ms.submitted_at DESC'
     ).all();
-    res.json({ users, kenken, sat, sat_math });
+    const measurement = db.prepare(
+        'SELECT m.*, u.email FROM measurement_scores m JOIN users u ON m.user_key = u.user_key ORDER BY m.submitted_at DESC'
+    ).all();
+    const measurement_progress = db.prepare('SELECT user_key, tier, tier_started_at FROM measurement_progress').all();
+    res.json({ users, kenken, sat, sat_math, measurement, measurement_progress });
 });
 
 // GET /api/teacher/kenken-leaderboard — top 10 average KenKen scores among

@@ -20,6 +20,12 @@ app.use('/api/auth',    require('./routes/auth'));
 app.use('/api/kenken',  require('./routes/kenken'));
 app.use('/api/sat',      require('./routes/sat'));
 app.use('/api/sat-math', require('./routes/sat-math'));
+app.use('/api/measurement', require('./routes/measurement'));
+
+{
+    const n = require('./measurement').rescoreAll();
+    if (n) console.log(`measurement: re-scored ${n} attempts with the current formula`);
+}
 app.use('/api/teacher',   require('./routes/teacher'));
 app.use('/api/student',   require('./routes/student'));
 app.use('/api/questions', require('./routes/questions'));

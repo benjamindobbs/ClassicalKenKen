@@ -1222,6 +1222,37 @@ try {
     }
 } catch { /* already migrated */ }
 
+// Ruler Game (/Measurement/). Lengths are integers in 1/32" — see
+// js/measurement-core.js. score is derived from (tier, correct, time_ms) by
+// the formula version in score_version; server/measurement.js re-scores rows
+// on startup when the formula changes. measurement_progress holds each
+// student's current tier (global, not per class — like KenKen rank) and when
+// they entered it, which bounds the rolling window used for tier movement.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS measurement_scores (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_key      TEXT    NOT NULL REFERENCES users(user_key),
+        class_id      INTEGER REFERENCES classes(id),
+        tier          INTEGER NOT NULL,
+        target_32     INTEGER NOT NULL,
+        guess_32      INTEGER NOT NULL,
+        correct       INTEGER NOT NULL,
+        time_ms       INTEGER NOT NULL,
+        score         REAL    NOT NULL,
+        score_version INTEGER NOT NULL,
+        submitted_at  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_measurement_user  ON measurement_scores(user_key, tier, submitted_at);
+    CREATE INDEX IF NOT EXISTS idx_measurement_class ON measurement_scores(class_id, submitted_at);
+
+    CREATE TABLE IF NOT EXISTS measurement_progress (
+        user_key        TEXT    PRIMARY KEY REFERENCES users(user_key),
+        tier            INTEGER NOT NULL DEFAULT 1,
+        tier_started_at INTEGER NOT NULL
+    );
+`);
+try { db.prepare('ALTER TABLE classes ADD COLUMN required_measurement_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+
 // Question image migration: fix truncated English skill names, clear stale
 // English and math reports once. See englishBankMigration.js.
 {

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Ruler Game — Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/">Play KenKen</a>
+            <a href="../SAT-Questions/">SAT English</a>
+            <a href="../SAT-Math/">SAT Math</a>
+            <a href="./" class="active">Ruler Game</a>
+            <a href="../Skill-Maps/">Skill Maps</a>
+            <a href="../readme/">ReadMe</a>
+            <span id="nav-auth-slot"></span>
+        </div>
+    </nav>
+    <script src="../js/nav.js"></script>
+
+    <div id="landing" class="landing">
+        <div class="landing-card">
+            <h1>Ruler Game</h1>
+            <p>Sign in with your school Google account to save your progress and move up through the tiers, or practice locally without an account.</p>
+            <div class="landing-actions">
+                <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+                <button class="btn btn-outline" id="local_button" onclick="playLocally(); onLocalMode()">Play Locally</button>
+            </div>
+            <p class="landing-status" id="landing_status">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <div id="game-ui" style="display:none">
+        <div class="game-header">
+            <span class="game-title">Ruler Game</span>
+            <div class="auth-controls">
+                <span id="playerData"></span>
+                <span id="class-picker-slot" class="class-picker-slot" style="display:none"></span>
+                <span id="daily-pill" class="daily-pill" style="display:none"><span class="dp-count"></span></span>
+                <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+            </div>
+        </div>
+
+        <div id="rg-start-screen" class="start-screen">
+            <div class="start-card">
+                <h2>Ruler Game</h2>
+                <p>Slide along the ruler and click the mark that matches the length shown. Faster correct answers score more, and as you improve you'll move up to finer marks with fewer labels.</p>
+                <button class="btn btn-primary btn-lg" onclick="launchRulerGame()">Start</button>
+            </div>
+        </div>
+
+        <div id="rg-game-area" style="display:none">
+            <div class="game-controls">
+                <span id="rg-tier-label" class="rg-tier-label"></span>
+                <label id="rg-local-tier" class="rg-local-tier" style="display:none">
+                    Practice tier
+                    <select id="rg-local-tier-select" onchange="setLocalTier(this.value)"></select>
+                </label>
+                <span id="rg-window" class="rg-window"></span>
+                <span class="rg-spacer"></span>
+                <span class="timer-label">Time:</span>
+                <span class="timer-display"><span id="rg-time">0.0</span>s</span>
+            </div>
+
+            <div class="rg-stage">
+                <p class="rg-prompt-label">Measure</p>
+                <p class="rg-prompt"><span id="rg-target"></span><span class="rg-inch">&Prime;</span></p>
+
+                <div class="rg-ruler-wrap">
+                    <svg id="rg-ruler" class="rg-ruler" tabindex="0" role="slider"
+                         aria-label="Ruler — use the arrow keys to move, Enter to answer"></svg>
+                </div>
+
+                <div class="rg-feedback-row">
+                    <p id="rg-feedback" class="rg-feedback" aria-live="polite"></p>
+                    <button id="rg-next" class="btn btn-primary" style="display:none" onclick="nextProblem()">Next</button>
+                </div>
+            </div>
+
+            <div class="game-footer">
+                <p id="submitMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/activities.js"></script>
+    <script src="../js/classpicker.js"></script>
+    <script src="../js/dailyprogress.js"></script>
+    <script src="../js/measurement-core.js"></script>
+    <script src="../js/measurement.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

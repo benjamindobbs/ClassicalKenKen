@@ -162,6 +162,7 @@
             <a href="../KenKen/">Play KenKen</a>
             <a href="../SAT-Questions/">SAT English</a>
             <a href="../SAT-Math/">SAT Math</a>
+            <a href="../Measurement/">Ruler Game</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
             <span id="nav-auth-slot"></span>
@@ -287,12 +288,43 @@
                 </div>
                 <div class="bar-legend" id="math-bar-legend"></div>
                 <div class="chart-card"><canvas id="math-bar-chart"></canvas></div>
+
+                <div id="rg-charts" style="display:none">
+                    <div class="section-heading">Ruler Game Score Over Time <span id="rg-current-tier" class="chart-subtitle"></span></div>
+                    <p class="chart-subtitle">Average score per day (incorrect answers score 0)</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="rg-score-from" />
+                        <label>to</label><input type="date" id="rg-score-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-score-chart"></canvas></div>
+
+                    <div class="section-heading">Ruler Game Accuracy by Fraction</div>
+                    <p class="chart-subtitle">Accuracy % by the target&rsquo;s smallest fraction</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="rg-acc-from" />
+                        <label>to</label><input type="date" id="rg-acc-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-acc-chart"></canvas></div>
+
+                    <div class="section-heading">Ruler Game Tier Over Time</div>
+                    <p class="chart-subtitle">Highest tier played each day</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="rg-tier-from" />
+                        <label>to</label><input type="date" id="rg-tier-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderRulerCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="rg-tier-chart"></canvas></div>
+                </div>
             </div>
 
         </div>
     </div>
 
     <script src="../js/auth.js"></script>
+    <script src="../js/activities.js"></script>
+    <script src="../js/measurement-core.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         const DOMAIN_DISPLAY = [
@@ -314,6 +346,7 @@
         let kenkenData = [];
         let satData    = [];
         let mathData   = [];
+        let rulerData  = [];
         const chartInst = {};
 
         function hexToRgba(hex, alpha) {
@@ -394,61 +427,32 @@
             const data = await res.json();
             if (!data.settings) { document.getElementById('daily-section').style.display = 'none'; return; }
 
-            const act      = data.settings.required_activity;
-            const today    = data.today;
+            const act       = data.settings.required_activity;
+            const today     = data.today;
             const remaining = data.remaining;
-            const reqKk    = data.settings.required_kenken_count;
-            const reqSat   = data.settings.required_sat_count;
-            const reqMath  = data.settings.required_sat_math_count;
+            const required  = Activities.ACTIVITIES.filter(a => Activities.includes(act, a.key));
 
-            const showKk   = ['kenken','both','either','kenken-math','all'].includes(act);
-            const showSat  = ['sat','both','either','sat-both','all'].includes(act);
-            const showMath = ['sat-math','sat-both','kenken-math','all'].includes(act);
+            // Legacy 'either' is done when KenKen OR SAT English is; every
+            // other setting needs each required activity finished.
+            const allDone = Activities.isEither(act)
+                ? remaining.kenken === 0 || remaining.sat === 0
+                : required.every(a => (remaining[a.todayKey] ?? 0) === 0);
 
-            const kkDone   = Math.min(today.kenken,   reqKk);
-            const satDone  = Math.min(today.sat,      reqSat);
-            const mathDone = Math.min(today.sat_math || 0, reqMath);
-            const kkPct    = reqKk   ? Math.round(kkDone   / reqKk   * 100) : 0;
-            const satPct   = reqSat  ? Math.round(satDone  / reqSat  * 100) : 0;
-            const mathPct  = reqMath ? Math.round(mathDone / reqMath * 100) : 0;
-
-            let allDone = false;
-            if (act === 'kenken')      allDone = remaining.kenken === 0;
-            if (act === 'sat')         allDone = remaining.sat    === 0;
-            if (act === 'sat-math')    allDone = remaining.sat_math === 0;
-            if (act === 'both')        allDone = remaining.kenken === 0 && remaining.sat === 0;
-            if (act === 'sat-both')    allDone = remaining.sat    === 0 && remaining.sat_math === 0;
-            if (act === 'kenken-math') allDone = remaining.kenken === 0 && remaining.sat_math === 0;
-            if (act === 'all')         allDone = remaining.kenken === 0 && remaining.sat === 0 && remaining.sat_math === 0;
-            if (act === 'either')      allDone = remaining.kenken === 0 || remaining.sat === 0;
-
-            const rows = [];
-            if (showKk) rows.push(`
+            const rows = required.map(a => {
+                const req  = data.settings[a.countField] ?? 1;
+                const done = Math.min(today[a.todayKey] ?? 0, req);
+                const pct  = req ? Math.round(done / req * 100) : 0;
+                return `
                 <div class="progress-row">
-                    <span class="progress-label">KenKen</span>
+                    <span class="progress-label">${a.label}</span>
                     <div class="progress-bar-wrap">
-                        <div class="progress-bar-fill ${kkPct >= 100 ? 'done' : 'active'}" style="width:${kkPct}%"></div>
+                        <div class="progress-bar-fill ${pct >= 100 ? 'done' : 'active'}" style="width:${pct}%"></div>
                     </div>
-                    <span class="progress-count">${kkDone} / ${reqKk}</span>
-                </div>`);
-            if (showSat) rows.push(`
-                <div class="progress-row">
-                    <span class="progress-label">SAT English</span>
-                    <div class="progress-bar-wrap">
-                        <div class="progress-bar-fill ${satPct >= 100 ? 'done' : 'active'}" style="width:${satPct}%"></div>
-                    </div>
-                    <span class="progress-count">${satDone} / ${reqSat}</span>
-                </div>`);
-            if (showMath) rows.push(`
-                <div class="progress-row">
-                    <span class="progress-label">SAT Math</span>
-                    <div class="progress-bar-wrap">
-                        <div class="progress-bar-fill ${mathPct >= 100 ? 'done' : 'active'}" style="width:${mathPct}%"></div>
-                    </div>
-                    <span class="progress-count">${mathDone} / ${reqMath}</span>
-                </div>`);
+                    <span class="progress-count">${done} / ${req}</span>
+                </div>`;
+            });
 
-            const eitherNote = act === 'either'
+            const eitherNote = Activities.isEither(act)
                 ? '<p class="either-note">Complete either KenKen or SAT English to fulfill today&rsquo;s requirement.</p>' : '';
 
             const completeMsg = allDone
@@ -467,8 +471,9 @@
             kenkenData = data.kenken    || [];
             satData    = data.sat       || [];
             mathData   = data.sat_math  || [];
+            rulerData  = data.measurement || [];
 
-            if (!kenkenData.length && !satData.length && !mathData.length) return;
+            if (!kenkenData.length && !satData.length && !mathData.length && !rulerData.length) return;
             document.getElementById('charts-section').style.display = '';
 
             const { from: syFrom, to: syTo } = schoolYearRange();
@@ -497,6 +502,104 @@
                 renderMathLineChart();
                 renderMathBarChart();
             }
+            if (rulerData.length) {
+                for (const id of ['rg-score', 'rg-acc', 'rg-tier']) {
+                    document.getElementById(id + '-from').value = syFrom;
+                    document.getElementById(id + '-to').value   = syTo;
+                }
+                const st = data.measurement_status;
+                document.getElementById('rg-current-tier').textContent = st ? `· currently Tier ${st.tier} of ${st.max_tier}` : '';
+                document.getElementById('rg-charts').style.display = '';
+                renderRulerCharts();
+            }
+        }
+
+        // ── Ruler Game charts ─────────────────────────────────────────────────
+        function rulerRowsIn(fromId, toId) {
+            const from = document.getElementById(fromId).value;
+            const to   = document.getElementById(toId).value;
+            return rulerData.filter(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                return (!from || d >= from) && (!to || d <= to);
+            });
+        }
+
+        function renderRulerCharts() {
+            // Score over time
+            destroyChart('rg-score-chart');
+            const byDate = {};
+            rulerRowsIn('rg-score-from', 'rg-score-to').forEach(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                if (!byDate[d]) byDate[d] = { sum: 0, n: 0 };
+                byDate[d].sum += Number(r.score);
+                byDate[d].n   += 1;
+            });
+            const dates = Object.keys(byDate).sort();
+            chartInst['rg-score-chart'] = new Chart(document.getElementById('rg-score-chart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{ label: 'Avg Score', data: dates.map(d => Math.round(byDate[d].sum / byDate[d].n)),
+                        borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)',
+                        pointBackgroundColor: '#0ea5e9', tension: 0.3, borderWidth: 2, pointRadius: 4, fill: true }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => `Avg score: ${i.raw}` } } },
+                    scales: { y: { title: { display: true, text: 'Score' } }, x: { title: { display: true, text: 'Date' } } },
+                },
+            });
+
+            // Accuracy by target fraction
+            destroyChart('rg-acc-chart');
+            const labels = MeasurementCore.DENOMINATOR_LABELS;
+            const agg = Object.fromEntries(labels.map(l => [l, { correct: 0, total: 0 }]));
+            rulerRowsIn('rg-acc-from', 'rg-acc-to').forEach(r => {
+                const a = agg[MeasurementCore.denominatorLabel(Number(r.target_32))];
+                a.correct += Number(r.correct);
+                a.total   += 1;
+            });
+            chartInst['rg-acc-chart'] = new Chart(document.getElementById('rg-acc-chart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels.map(l => l === 'Whole' ? 'Whole inch' : l + '″'),
+                    datasets: [{ label: 'Accuracy', backgroundColor: '#10b981', borderRadius: 4,
+                        data: labels.map(l => agg[l].total ? Math.round(agg[l].correct / agg[l].total * 100) : null) }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => {
+                        const a = agg[labels[i.dataIndex]];
+                        return `${i.raw}% correct (${a.correct}/${a.total})`;
+                    } } } },
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                        x: { title: { display: true, text: 'Target fraction' } } },
+                },
+            });
+
+            // Tier over time
+            destroyChart('rg-tier-chart');
+            const tierByDate = {};
+            rulerRowsIn('rg-tier-from', 'rg-tier-to').forEach(r => {
+                const d = new Date(r.submitted_at).toISOString().slice(0,10);
+                tierByDate[d] = Math.max(tierByDate[d] || 0, Number(r.tier));
+            });
+            const tDates = Object.keys(tierByDate).sort();
+            chartInst['rg-tier-chart'] = new Chart(document.getElementById('rg-tier-chart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: tDates,
+                    datasets: [{ label: 'Tier', data: tDates.map(d => tierByDate[d]), stepped: true,
+                        borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)',
+                        pointBackgroundColor: '#8b5cf6', borderWidth: 2, pointRadius: 4, fill: true }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: i => `Tier ${i.raw}` } } },
+                    scales: { y: { min: 1, max: MeasurementCore.MAX_TIER, ticks: { stepSize: 1 }, title: { display: true, text: 'Tier' } },
+                        x: { title: { display: true, text: 'Date' } } },
+                },
+            });
         }
 
         function renderKenKenChart() {

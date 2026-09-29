@@ -14,6 +14,7 @@
             <a href="./KenKen/">Play KenKen</a>
             <a href="./SAT-Questions/">SAT English</a>
             <a href="./SAT-Math/">SAT Math</a>
+            <a href="./Measurement/">Ruler Game</a>
             <a href="./Skill-Maps/">Skill Maps</a>
             <a href="./readme/">ReadMe</a>
             <span id="nav-auth-slot"></span>
@@ -50,10 +51,11 @@
                 <h2>My Progress</h2>
                 <p>View your KenKen and SAT scores, microcredential progress, and daily rubric history</p>
             </a>
-            <a class="app-card" href="./Skill-Maps/">
-                <span class="app-card-label">Course Tools</span>
-                <h2>Skill Maps</h2>
-                <p>Interactive visual maps linking course skills to career clusters and sub-cluster areas</p>
+            <a class="app-card" href="./Measurement/">
+                <span class="app-card-label">Measurement</span>
+                <h2>Ruler Game</h2>
+                <p>Read a ruler to the nearest fraction of an inch, from whole inches down to 1/32&Prime;</p>
+                <div id="measurement-badge" class="daily-badge" style="display:none"></div>
             </a>
             <a class="app-card" href="./readme/">
                 <span class="app-card-label">Documentation</span>
@@ -63,7 +65,15 @@
         </div>
     </div>
 
+    <script src="./js/activities.js"></script>
     <script>
+        const BADGE_IDS = {
+            'kenken':      'kenken-badge',
+            'sat':         'sat-badge',
+            'sat-math':    'sat-math-badge',
+            'measurement': 'measurement-badge',
+        };
+
         (async () => {
             try {
                 const token = localStorage.getItem('classtech_session');
@@ -75,13 +85,11 @@
                 const { settings, today } = await res.json();
                 if (!settings) return;
 
-                const act = settings.required_activity;
-                if (['kenken', 'both', 'either', 'kenken-math', 'all'].includes(act))
-                    setBadge('kenken-badge', today.kenken, settings.required_kenken_count);
-                if (['sat', 'both', 'either', 'sat-both', 'all'].includes(act))
-                    setBadge('sat-badge', today.sat, settings.required_sat_count);
-                if (['sat-math', 'sat-both', 'kenken-math', 'all'].includes(act))
-                    setBadge('sat-math-badge', today.sat_math, settings.required_sat_math_count);
+                const required = Activities.parse(settings.required_activity);
+                for (const a of Activities.ACTIVITIES) {
+                    if (required.has(a.key))
+                        setBadge(BADGE_IDS[a.key], today[a.todayKey] ?? 0, settings[a.countField] ?? 1);
+                }
             } catch (_) {}
         })();
 
