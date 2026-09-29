@@ -15,28 +15,31 @@
     const UNITS_PER_INCH = 32;
 
     const CONFIG = {
-        SCORE_VERSION: 1,
+        SCORE_VERSION: 3,
 
-        // Placeholder scoring: a correct answer earns the tier's max score,
-        // scaled by speed. Full credit at or under FAST_MS, falling linearly
-        // to MIN_TIME_FACTOR at SLOW_MS and beyond. Incorrect = 0.
+        // points = (tier base + fraction bonus) × speed; incorrect = 0.
+        //   tier base      — the ruler's difficulty: BASE + PER_TIER per tier above 1
+        //   fraction bonus — the target's reduced denominator (1 = whole inch)
+        //   speed          — par ÷ time, capped at 1, floored at MIN_TIME_FACTOR;
+        //                    par grows with the tier since finer rulers take longer
         SCORE: {
-            BASE: 100,              // tier 1 max score
-            PER_TIER: 25,           // added per tier above 1 (tier 8 max = 275)
-            FAST_MS: 3000,
-            SLOW_MS: 20000,
+            BASE: 25,
+            PER_TIER: 25,
+            FRACTION_BONUS: { 1: 0, 2: 0, 4: 10, 8: 20, 16: 35, 32: 50 },
+            PAR_MS: [null, 3000, 3500, 4000, 5000, 5500, 6500, 7000, 8000],
             MIN_TIME_FACTOR: 0.25,
         },
 
         // Tier movement looks at the last WINDOW attempts made in the student's
         // current tier (attempts from before they entered it don't count).
-        // Score thresholds are a fraction of the tier's max score so one set of
-        // numbers works for every tier.
+        // Score thresholds compare the window's average "pct" — each attempt's
+        // points as a fraction of what that attempt could have earned — so one
+        // set of numbers works for every tier and any mix of targets.
         PROGRESSION: {
             WINDOW: 20,
             PROMOTE_ACCURACY: 0.9,     // ≥ 90% correct in the window …
-            PROMOTE_SCORE_PCT: 0.6,    // … and avg score ≥ 60% of tier max
-            DEMOTE_SCORE_PCT: 0.3,     // avg score < 30% of tier max → down one
+            PROMOTE_SCORE_PCT: 0.6,    // … and avg pct ≥ 60%
+            DEMOTE_SCORE_PCT: 0.3,     // avg pct < 30% → down one
         },
 
         // Targets from a newer denominator are weighted heavier; each step
@@ -123,31 +126,42 @@
         return Math.round(clamped * grad) * (UNITS_PER_INCH / grad);
     }
 
-    function maxScore(tier) {
+    function tierBase(tier) {
         return CONFIG.SCORE.BASE + CONFIG.SCORE.PER_TIER * (clampTier(tier) - 1);
     }
 
-    function timeFactor(ms) {
-        const { FAST_MS, SLOW_MS, MIN_TIME_FACTOR } = CONFIG.SCORE;
-        const t = Math.max(0, Number(ms) || 0);
-        if (t <= FAST_MS) return 1;
-        if (t >= SLOW_MS) return MIN_TIME_FACTOR;
-        return 1 - (1 - MIN_TIME_FACTOR) * (t - FAST_MS) / (SLOW_MS - FAST_MS);
+    // Points a correct, at-par answer to this target earns at this tier.
+    function maxScore(tier, target) {
+        return tierBase(tier) + (CONFIG.SCORE.FRACTION_BONUS[denominatorOf(Number(target))] || 0);
     }
 
-    function scoreAttempt(tier, correct, timeMs) {
+    function parMs(tier) {
+        return CONFIG.SCORE.PAR_MS[clampTier(tier)];
+    }
+
+    function timeFactor(tier, ms) {
+        const t = Math.max(1, Number(ms) || 0);
+        return Math.max(CONFIG.SCORE.MIN_TIME_FACTOR, Math.min(1, parMs(tier) / t));
+    }
+
+    function scoreAttempt(tier, target, correct, timeMs) {
         if (!correct) return 0;
-        return Math.round(maxScore(tier) * timeFactor(timeMs));
+        return Math.round(maxScore(tier, target) * timeFactor(tier, timeMs));
+    }
+
+    // Fraction of the attempt's possible points it earned (0–1).
+    function attemptPct(tier, r) {
+        return Number(r.score) / maxScore(tier, r.target_32);
     }
 
     // Given the current tier and its recent attempts (newest first, each
-    // { correct, score }), returns the tier the student should be on next.
+    // { correct, score, target_32 }), returns the tier the student should be on next.
     function nextTier(tier, recent) {
         const P = CONFIG.PROGRESSION;
         const window = recent.slice(0, P.WINDOW);
         if (window.length < P.WINDOW) return tier;
         const acc = window.filter(r => r.correct).length / window.length;
-        const avgPct = window.reduce((a, r) => a + Number(r.score), 0) / window.length / maxScore(tier);
+        const avgPct = window.reduce((a, r) => a + attemptPct(tier, r), 0) / window.length;
         if (tier < MAX_TIER && acc >= P.PROMOTE_ACCURACY && avgPct >= P.PROMOTE_SCORE_PCT) return tier + 1;
         if (tier > 1 && avgPct < P.DEMOTE_SCORE_PCT) return tier - 1;
         return tier;
@@ -173,7 +187,7 @@
     const api = {
         RULER_INCHES, UNITS_PER_INCH, CONFIG, TIERS, MAX_TIER, DENOMINATOR_LABELS,
         clampTier, tierDef, denominatorOf, targetsFor, isValidTarget, isValidGuess,
-        pickTarget, snap, maxScore, timeFactor, scoreAttempt, nextTier,
+        pickTarget, snap, tierBase, maxScore, parMs, timeFactor, scoreAttempt, attemptPct, nextTier,
         formatLength, denominatorLabel,
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

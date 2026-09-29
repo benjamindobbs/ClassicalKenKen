@@ -89,17 +89,17 @@ function applyStatus(s) {
         w.textContent = `Answer ${s.window} in this tier to be ranked`;
     } else {
         const acc = Math.round(s.accuracy * 100);
-        const avg = Math.round(s.avg_score / s.max_score * 100);
-        w.textContent = `Last ${s.attempts}/${s.window} in tier: ${acc}% correct · avg ${avg}% of max`;
+        const avg = Math.round(s.avg_pct * 100);
+        w.textContent = `Last ${s.attempts}/${s.window} in tier: ${acc}% correct · avg ${avg}% of possible points`;
     }
     w.title = `Move up: ${Math.round(P.PROMOTE_ACCURACY * 100)}% correct and an average of at least `
-            + `${Math.round(P.PROMOTE_SCORE_PCT * 100)}% of the tier's max score over your last ${s.window}. `
+            + `${Math.round(P.PROMOTE_SCORE_PCT * 100)}% of possible points over your last ${s.window}. `
             + `Move down: average below ${Math.round(P.DEMOTE_SCORE_PCT * 100)}%.`;
 }
 
 function renderTierLabel() {
     const el = document.getElementById('rg-tier-label');
-    if (el) el.textContent = `Tier ${rg.tier} of ${Core.MAX_TIER}`;
+    if (el) el.textContent = `Tier ${rg.tier} of ${Core.MAX_TIER} · par ${Core.parMs(rg.tier) / 1000}s`;
 }
 
 // ── Game flow ────────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ function commit(units) {
 
     if (correct) {
         rg.els.bar.setAttribute('class', 'rg-bar rg-bar--correct');
-        const score = Core.scoreAttempt(rg.tier, true, timeMs);
+        const score = Core.scoreAttempt(rg.tier, target, true, timeMs);
         fb.textContent = `Correct! +${score}`;
         fb.className = 'rg-feedback rg-feedback--correct';
         rg.advanceId = setTimeout(nextProblem, RG.ADVANCE_MS);

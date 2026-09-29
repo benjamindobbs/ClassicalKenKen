@@ -21,7 +21,7 @@ function setTier(userKey, tier, now) {
 // Attempts made in the current tier since entering it, newest first.
 function recentInTier(userKey, progress) {
     return db.prepare(`
-        SELECT correct, score FROM measurement_scores
+        SELECT correct, score, target_32 FROM measurement_scores
         WHERE user_key = ? AND tier = ? AND submitted_at >= ?
         ORDER BY id DESC LIMIT ?
     `).all(userKey, progress.tier, progress.tier_started_at, Core.CONFIG.PROGRESSION.WINDOW);
@@ -39,7 +39,8 @@ function status(userKey) {
         attempts:  n,
         accuracy:  n ? recent.filter(r => r.correct).length / n : null,
         avg_score: n ? recent.reduce((a, r) => a + Number(r.score), 0) / n : null,
-        max_score: Core.maxScore(progress.tier),
+        // avg of each attempt's points ÷ its possible points — what tier movement uses
+        avg_pct:   n ? recent.reduce((a, r) => a + Core.attemptPct(progress.tier, r), 0) / n : null,
     };
 }
 
@@ -53,7 +54,7 @@ function recordAttempt(userKey, { target_32, guess_32, time_ms, class_id }) {
 
     const ms = Math.max(0, Math.min(10 * 60 * 1000, Math.round(Number(time_ms) || 0)));
     const correct = Number(target_32) === Number(guess_32);
-    const score = Core.scoreAttempt(tier, correct, ms);
+    const score = Core.scoreAttempt(tier, target_32, correct, ms);
     const now = Date.now();
 
     db.exec('BEGIN');
@@ -81,12 +82,12 @@ function recordAttempt(userKey, { target_32, guess_32, time_ms, class_id }) {
 // one. Tier history is left alone — only scores (and so charts/averages) move.
 function rescoreAll() {
     const v = Core.CONFIG.SCORE_VERSION;
-    const stale = db.prepare('SELECT id, tier, correct, time_ms FROM measurement_scores WHERE score_version != ?').all(v);
+    const stale = db.prepare('SELECT id, tier, target_32, correct, time_ms FROM measurement_scores WHERE score_version != ?').all(v);
     if (!stale.length) return 0;
     const upd = db.prepare('UPDATE measurement_scores SET score = ?, score_version = ? WHERE id = ?');
     db.exec('BEGIN');
     try {
-        for (const r of stale) upd.run(Core.scoreAttempt(r.tier, !!r.correct, r.time_ms), v, r.id);
+        for (const r of stale) upd.run(Core.scoreAttempt(r.tier, r.target_32, !!r.correct, r.time_ms), v, r.id);
         db.exec('COMMIT');
     } catch (e) {
         db.exec('ROLLBACK');
