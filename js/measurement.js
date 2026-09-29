@@ -64,7 +64,7 @@ function onLocalMode() {
     }
     sel.value = String(rg.tier);
     document.getElementById('rg-local-tier').style.display = '';
-    document.getElementById('rg-window').textContent = '';
+    document.getElementById('rg-progress').style.display = 'none';
     renderTierLabel();
 }
 
@@ -82,19 +82,54 @@ function applyStatus(s) {
     const pd = document.getElementById('playerData');
     if (pd && !rg.local) pd.textContent = `Tier ${rg.tier}`;
 
-    const w = document.getElementById('rg-window');
-    if (!w || rg.local) return;
+    if (!rg.local) renderTierProgress(s);
+}
+
+// ── Tier progress bar (mirrors KenKen's rank progress bar) ───────────────────
+// Promotion needs three things over the rolling window: enough answers, enough
+// correct, enough points. Each is scored 0–1 against its target and the bar
+// shows the weakest — it reaches 100% exactly when the student moves up.
+function computeTierProgress(s) {
     const P = Core.CONFIG.PROGRESSION;
-    if (!s.attempts) {
-        w.textContent = `Answer ${s.window} in this tier to be ranked`;
-    } else {
-        const acc = Math.round(s.accuracy * 100);
-        const avg = Math.round(s.avg_pct * 100);
-        w.textContent = `Last ${s.attempts}/${s.window} in tier: ${acc}% correct · avg ${avg}% of possible points`;
-    }
-    w.title = `Move up: ${Math.round(P.PROMOTE_ACCURACY * 100)}% correct and an average of at least `
-            + `${Math.round(P.PROMOTE_SCORE_PCT * 100)}% of possible points over your last ${s.window}. `
-            + `Move down: average below ${Math.round(P.DEMOTE_SCORE_PCT * 100)}%.`;
+    const clamp = v => Math.max(0, Math.min(1, v));
+    const n = s.attempts || 0;
+    const reqs = [
+        { label: 'Answers', have: `${n}/${s.window}`,                         pct: clamp(n / s.window) },
+        { label: 'Correct', have: `${n ? Math.round(s.accuracy * 100) : 0}%`, need: `${Math.round(P.PROMOTE_ACCURACY * 100)}%`,
+          pct: n ? clamp(s.accuracy / P.PROMOTE_ACCURACY) : 0 },
+        { label: 'Points',  have: `${n ? Math.round(s.avg_pct * 100) : 0}%`,  need: `${Math.round(P.PROMOTE_SCORE_PCT * 100)}%`,
+          pct: n ? clamp(s.avg_pct / P.PROMOTE_SCORE_PCT) : 0 },
+    ];
+    return {
+        tier: s.tier,
+        next: s.tier < Core.MAX_TIER ? s.tier + 1 : null,
+        pct: Math.min(...reqs.map(r => r.pct)),
+        reqs,
+    };
+}
+
+function renderTierProgress(s) {
+    const el = document.getElementById('rg-progress');
+    if (!el) return;
+    const p = computeTierProgress(s);
+    const P = Core.CONFIG.PROGRESSION;
+    el.style.display = '';
+    document.getElementById('rg-progress-from').textContent = `Tier ${p.tier}`;
+    document.getElementById('rg-progress-to').textContent = p.next ? `Tier ${p.next}` : 'Max';
+
+    const fill = document.getElementById('rg-progress-fill');
+    const width = p.next ? Math.round(p.pct * 100) : 100;
+    // Two frames so a first render animates up from 0, like KenKen's.
+    requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = width + '%'; }));
+
+    document.getElementById('rg-progress-reqs').innerHTML = p.reqs.map(r =>
+        `<span class="rg-req${r.pct >= 1 ? ' rg-req--met' : ''}">${r.label} ${r.have}${r.need ? ` / ${r.need}` : ''}</span>`
+    ).join('');
+    document.getElementById('rg-progress-pct').textContent =
+        p.next ? `${width}% to next tier` : 'Maximum tier reached';
+    el.title = `Move up: over your last ${s.window} answers in this tier, get ${Math.round(P.PROMOTE_ACCURACY * 100)}% `
+             + `correct and average ${Math.round(P.PROMOTE_SCORE_PCT * 100)}% of possible points. `
+             + `Move down: average below ${Math.round(P.DEMOTE_SCORE_PCT * 100)}%.`;
 }
 
 function renderTierLabel() {

@@ -1579,7 +1579,6 @@ body.skill-map {
 /* === RULER GAME (/Measurement/) === */
 
 .rg-tier-label { font-size: 0.9375rem; font-weight: 700; color: #0f172a; }
-.rg-window     { font-size: 0.8125rem; color: var(--muted); cursor: help; }
 .rg-spacer     { flex: 1; }
 .rg-local-tier { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--muted); }
 .rg-local-tier select {
@@ -1659,3 +1658,43 @@ body.skill-map {
     .rg-prompt { font-size: 2.25rem; }
     .rg-stage  { padding: 1.25rem 0.5rem; }
 }
+
+/* Tier progress bar — same look as KenKen's rank progress bar (js/kenken.js) */
+.rg-progress { max-width: 640px; margin: 1.5rem auto 0; text-align: left; cursor: help; }
+.rg-progress-header {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+.rg-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.375rem;
+}
+.rg-progress-to { color: #94a3b8; }
+.rg-progress-track { width: 100%; height: 10px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; }
+.rg-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #2563eb, #60a5fa);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rg-progress-caption {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.4rem;
+}
+.rg-progress-reqs { display: inline-flex; gap: 0.75rem; flex-wrap: wrap; }
+.rg-req--met { color: #15803d; font-weight: 600; }
+.rg-req--met::before { content: '✓ '; }

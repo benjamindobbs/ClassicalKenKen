@@ -60,7 +60,6 @@
                     Practice tier
                     <select id="rg-local-tier-select" onchange="setLocalTier(this.value)"></select>
                 </label>
-                <span id="rg-window" class="rg-window"></span>
                 <span class="rg-spacer"></span>
                 <span class="timer-label">Time:</span>
                 <span class="timer-display"><span id="rg-time">0.0</span>s</span>
@@ -78,6 +77,19 @@
                 <div class="rg-feedback-row">
                     <p id="rg-feedback" class="rg-feedback" aria-live="polite"></p>
                     <button id="rg-next" class="btn btn-primary" style="display:none" onclick="nextProblem()">Next</button>
+                </div>
+
+                <div id="rg-progress" class="rg-progress" style="display:none">
+                    <div class="rg-progress-header">Tier Progress</div>
+                    <div class="rg-progress-labels">
+                        <span id="rg-progress-from"></span>
+                        <span id="rg-progress-to" class="rg-progress-to"></span>
+                    </div>
+                    <div class="rg-progress-track"><div id="rg-progress-fill" class="rg-progress-fill"></div></div>
+                    <div class="rg-progress-caption">
+                        <span id="rg-progress-reqs" class="rg-progress-reqs"></span>
+                        <span id="rg-progress-pct"></span>
+                    </div>
                 </div>
             </div>
 
