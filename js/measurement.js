@@ -82,54 +82,34 @@ function applyStatus(s) {
     const pd = document.getElementById('playerData');
     if (pd && !rg.local) pd.textContent = `Tier ${rg.tier}`;
 
-    if (!rg.local) renderTierProgress(s);
+    if (!rg.local) {
+        TierProgress.render(document.getElementById('rg-progress'), s,
+            { progression: Core.CONFIG.PROGRESSION, maxTier: Core.MAX_TIER });
+    }
 }
 
-// ── Tier progress bar (mirrors KenKen's rank progress bar) ───────────────────
-// Promotion needs three things over the rolling window: enough answers, enough
-// correct, enough points. Each is scored 0–1 against its target and the bar
-// shows the weakest — it reaches 100% exactly when the student moves up.
-function computeTierProgress(s) {
+// ── How to play ──────────────────────────────────────────────────────────────
+function mountHelp() {
     const P = Core.CONFIG.PROGRESSION;
-    const clamp = v => Math.max(0, Math.min(1, v));
-    const n = s.attempts || 0;
-    const reqs = [
-        { label: 'Answers', have: `${n}/${s.window}`,                         pct: clamp(n / s.window) },
-        { label: 'Correct', have: `${n ? Math.round(s.accuracy * 100) : 0}%`, need: `${Math.round(P.PROMOTE_ACCURACY * 100)}%`,
-          pct: n ? clamp(s.accuracy / P.PROMOTE_ACCURACY) : 0 },
-        { label: 'Points',  have: `${n ? Math.round(s.avg_pct * 100) : 0}%`,  need: `${Math.round(P.PROMOTE_SCORE_PCT * 100)}%`,
-          pct: n ? clamp(s.avg_pct / P.PROMOTE_SCORE_PCT) : 0 },
-    ];
-    return {
-        tier: s.tier,
-        next: s.tier < Core.MAX_TIER ? s.tier + 1 : null,
-        pct: Math.min(...reqs.map(r => r.pct)),
-        reqs,
-    };
-}
-
-function renderTierProgress(s) {
-    const el = document.getElementById('rg-progress');
-    if (!el) return;
-    const p = computeTierProgress(s);
-    const P = Core.CONFIG.PROGRESSION;
-    el.style.display = '';
-    document.getElementById('rg-progress-from').textContent = `Tier ${p.tier}`;
-    document.getElementById('rg-progress-to').textContent = p.next ? `Tier ${p.next}` : 'Max';
-
-    const fill = document.getElementById('rg-progress-fill');
-    const width = p.next ? Math.round(p.pct * 100) : 100;
-    // Two frames so a first render animates up from 0, like KenKen's.
-    requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = width + '%'; }));
-
-    document.getElementById('rg-progress-reqs').innerHTML = p.reqs.map(r =>
-        `<span class="rg-req${r.pct >= 1 ? ' rg-req--met' : ''}">${r.label} ${r.have}${r.need ? ` / ${r.need}` : ''}</span>`
-    ).join('');
-    document.getElementById('rg-progress-pct').textContent =
-        p.next ? `${width}% to next tier` : 'Maximum tier reached';
-    el.title = `Move up: over your last ${s.window} answers in this tier, get ${Math.round(P.PROMOTE_ACCURACY * 100)}% `
-             + `correct and average ${Math.round(P.PROMOTE_SCORE_PCT * 100)}% of possible points. `
-             + `Move down: average below ${Math.round(P.DEMOTE_SCORE_PCT * 100)}%.`;
+    const S = Core.CONFIG.SCORE;
+    const pct = v => `${Math.round(v * 100)}%`;
+    HowToPlay.mount(document.getElementById('rg-help'), {
+        id: 'ruler',
+        sections: {
+            play: `
+                <h3>Controls</h3>
+                <ul>
+                    <li><strong>Mouse:</strong> move along the ruler (the green bar snaps to the nearest mark), then click to answer.</li>
+                    <li><strong>Touchscreen:</strong> drag along the ruler and lift your finger to answer.</li>
+                    <li><strong>Keyboard:</strong> <kbd>←</kbd> <kbd>→</kbd> move one mark, <kbd>PgUp</kbd> <kbd>PgDn</kbd> move one inch, <kbd>Enter</kbd> answers.</li>
+                    <li>If you're wrong, the correct length is shown in gold. Press <strong>Next</strong> when you're ready.</li>
+                </ul>
+                <h3>Scoring</h3>
+                <p>Correct answers at or under the tier's <strong>par</strong> time (shown next to the tier) earn full points; slower ones earn less, down to ${pct(S.MIN_TIME_FACTOR)}. Harder fractions are worth more. Wrong answers earn 0.</p>
+                <h3>Tiers</h3>
+                <p>Move up by getting ${pct(P.PROMOTE_ACCURACY)} of your last ${P.WINDOW} answers in a tier correct while averaging ${pct(P.PROMOTE_SCORE_PCT)} of the possible points. Averaging below ${pct(P.DEMOTE_SCORE_PCT)} moves you back a tier. The <strong>Tier Progress</strong> bar shows how close you are.</p>`,
+        },
+    });
 }
 
 function renderTierLabel() {
@@ -145,6 +125,7 @@ function launchRulerGame() {
     }
     document.getElementById('rg-start-screen').style.display = 'none';
     document.getElementById('rg-game-area').style.display = '';
+    if (!rg.helpMounted) { mountHelp(); rg.helpMounted = true; }
     initRuler();
     nextProblem();
 }

@@ -79,23 +79,14 @@
                     <button id="rg-next" class="btn btn-primary" style="display:none" onclick="nextProblem()">Next</button>
                 </div>
 
-                <div id="rg-progress" class="rg-progress" style="display:none">
-                    <div class="rg-progress-header">Tier Progress</div>
-                    <div class="rg-progress-labels">
-                        <span id="rg-progress-from"></span>
-                        <span id="rg-progress-to" class="rg-progress-to"></span>
-                    </div>
-                    <div class="rg-progress-track"><div id="rg-progress-fill" class="rg-progress-fill"></div></div>
-                    <div class="rg-progress-caption">
-                        <span id="rg-progress-reqs" class="rg-progress-reqs"></span>
-                        <span id="rg-progress-pct"></span>
-                    </div>
-                </div>
+                <div id="rg-progress" style="display:none"></div>
             </div>
 
             <div class="game-footer">
                 <p id="submitMessage"></p>
             </div>
+
+            <div class="htp-wrap"><div id="rg-help"></div></div>
         </div>
     </div>
 
@@ -103,6 +94,8 @@
     <script src="../js/activities.js"></script>
     <script src="../js/classpicker.js"></script>
     <script src="../js/dailyprogress.js"></script>
+    <script src="../js/tierprogress.js"></script>
+    <script src="../js/howtoplay.js"></script>
     <script src="../js/measurement-core.js"></script>
     <script src="../js/measurement.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
