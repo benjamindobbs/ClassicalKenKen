@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { db } = require('../db');
 const { requireAuth } = require('../auth');
 const { LEGACY_CONVENTIONS } = require('../englishBankMigration');
+const { MIN_ANSWER_MS, markServed, answeredTooFast } = require('../satPace');
 
 const router = Router();
 router.use(requireAuth);
@@ -31,6 +32,10 @@ router.post('/score', (req, res) => {
     if (correct == null || domainIdx == null || !difficulty) {
         return res.status(400).json({ error: 'correct, domainIdx, and difficulty required' });
     }
+    // Answered too soon after being served to have been read: discard it
+    // entirely rather than spoil the data (server/satPace.js).
+    if (answeredTooFast(req.userKey, 'english')) return res.json({ ok: true, flagged: true, min_ms: MIN_ANSWER_MS });
+
     const asmt = VALID_ASSESSMENTS.has(assessment) ? assessment : 'unknown';
     const classId = enrolledClassId(req.userKey, class_id);
 
@@ -47,6 +52,7 @@ router.get('/next', (req, res) => {
     // Domain restrictions come from the one class the student is working for.
     // No class_id (free practice) => all four domains. History is always global
     // per student — only the eligible-domain filter is per-class.
+    markServed(req.userKey, 'english');
     const classId = enrolledClassId(req.userKey, req.query.class_id);
     let allowedDomains = null; // null = all four allowed
     if (classId) {

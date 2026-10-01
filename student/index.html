@@ -20,7 +20,7 @@
         .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
         .progress-bar-fill.done   { background: #16a34a; }
         .progress-bar-fill.active { background: #2563eb; }
-        .progress-count { font-size: 0.8125rem; color: #64748b; width: 80px; flex-shrink: 0; text-align: right; }
+        .progress-count { font-size: 0.8125rem; color: #64748b; min-width: 80px; flex-shrink: 0; text-align: right; white-space: nowrap; }
         .daily-complete { display: flex; align-items: center; gap: 0.5rem; color: #16a34a; font-size: 0.875rem; font-weight: 600; }
         .either-note { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; }
 
@@ -461,7 +461,6 @@
             if (!data.settings) { document.getElementById('daily-section').style.display = 'none'; return; }
 
             const act       = data.settings.required_activity;
-            const today     = data.today;
             const remaining = data.remaining;
             const required  = Activities.ACTIVITIES.filter(a => Activities.includes(act, a.key));
 
@@ -472,27 +471,29 @@
                 : required.every(a => (remaining[a.todayKey] ?? 0) === 0);
 
             const rows = required.map(a => {
-                const req  = data.settings[a.countField] ?? 1;
-                const done = Math.min(today[a.todayKey] ?? 0, req);
-                const pct  = req ? Math.round(done / req * 100) : 0;
+                const { isDone, pct, text } = Activities.todayStatus(data, a.key);
                 return `
                 <div class="progress-row">
                     <span class="progress-label">${a.label}</span>
                     <div class="progress-bar-wrap">
-                        <div class="progress-bar-fill ${pct >= 100 ? 'done' : 'active'}" style="width:${pct}%"></div>
+                        <div class="progress-bar-fill ${isDone ? 'done' : 'active'}" style="width:${pct}%"></div>
                     </div>
-                    <span class="progress-count">${done} / ${req}</span>
+                    <span class="progress-count">${text}</span>
                 </div>`;
             });
 
             const eitherNote = Activities.isEither(act)
                 ? '<p class="either-note">Complete either KenKen or SAT English to fulfill today&rsquo;s requirement.</p>' : '';
 
+            // SAT accuracy mode: spell out the rule, since "N correct" alone no longer does it.
+            const accuracyNote = required.map(a => Activities.accuracyRule(data.settings, a.key))
+                .filter(Boolean).map(t => `<p class="either-note">${t}</p>`).join('');
+
             const completeMsg = allDone
                 ? '<div class="daily-complete">&#10003; Today\'s assignment is complete!</div>' : '';
 
             document.getElementById('daily-content').innerHTML =
-                `<div class="progress-rows">${rows.join('')}</div>${eitherNote}${completeMsg}`;
+                `<div class="progress-rows">${rows.join('')}</div>${eitherNote}${accuracyNote}${completeMsg}`;
             document.getElementById('daily-section').style.display = '';
         }
 

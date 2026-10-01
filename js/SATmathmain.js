@@ -149,7 +149,7 @@ function mathSliceWidth(w) {
     return ((w * 72 / SPRITE_DPI) / PAGE_WIDTH_PT * QUESTION_IMAGE_VW).toFixed(3) + 'vw';
 }
 
-function submit() {
+async function submit() {
     document.getElementById('A').disabled = true;
     document.getElementById('B').disabled = true;
     document.getElementById('C').disabled = true;
@@ -160,13 +160,16 @@ function submit() {
     const correctAnswer = (question.Answer || '').trim().toUpperCase();
     const correct = selectedAnswer === correctAnswer;
 
-    writeScore(
+    const result = await writeScore(
         correct ? 1 : 0,
         currentDomainIdx,
         question.Skill || '',
         question.Difficulty || currentDifficulty,
         assessmentType
     );
+    // Answered too fast to have been read: the server discarded it, so
+    // don't reveal the answer; SatPace locks the next question instead.
+    if (result && result.flagged) { SatPace.showTooFast(result.min_ms); return; }
 
     if (!correct) {
         const selEl = document.getElementById(selectedAnswer);
@@ -223,6 +226,7 @@ async function nextQuestion() {
     });
     selectedAnswer = '';
     document.getElementById('submit').disabled = true;
+    SatPace.onQuestionShown();
 }
 
 // ── Session summary ──────────────────────────────────────────────────────────

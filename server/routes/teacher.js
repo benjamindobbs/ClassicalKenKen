@@ -4,6 +4,7 @@ const { db } = require('../db');
 const { requireTeacher, verifyTeacherToken } = require('../teacherAuth');
 const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 const Activities = require('../../js/activities');
+const { accuracyProgress } = require('../satAccuracy');
 // maxDate/minDate/meetingDates/datesBetween/excusedAbsenceDates live in
 // wbl/logic.js so the Daily Practice per-day grading below and the Habits of
 // Work dispositional average share one definition instead of drifting apart.
@@ -273,11 +274,24 @@ router.patch('/classes/:id', requireTeacher, (req, res) => {
         updates.push('required_activity = ?');
         params.push(req.body.required_activity);
     }
-    for (const field of Activities.ACTIVITIES.map(a => a.countField)) {
+    for (const field of [...Activities.ACTIVITIES.map(a => a.countField), 'sat_accuracy_window']) {
         if (req.body[field] != null) {
             updates.push(`${field} = ?`);
-            params.push(Number(req.body[field]) || 1);
+            params.push(Math.max(1, Math.round(Number(req.body[field])) || 1));
         }
+    }
+    if (req.body.sat_requirement_mode != null) {
+        if (!['correct', 'accuracy'].includes(req.body.sat_requirement_mode))
+            return res.status(400).json({ error: 'invalid sat_requirement_mode' });
+        updates.push('sat_requirement_mode = ?');
+        params.push(req.body.sat_requirement_mode);
+    }
+    if (req.body.sat_accuracy_pct != null) {
+        const pct = Math.round(Number(req.body.sat_accuracy_pct));
+        if (!(pct >= 1 && pct <= 100))
+            return res.status(400).json({ error: 'sat_accuracy_pct must be 1-100' });
+        updates.push('sat_accuracy_pct = ?');
+        params.push(pct);
     }
     if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
 
@@ -431,6 +445,9 @@ router.get('/grades', requireTeacher, (req, res) => {
     const either     = Activities.isEither(asgn.required_activity);
     const reqSet     = Activities.parse(asgn.required_activity);
     const reqCount   = key => asgn[Activities.ACTIVITIES.find(a => a.key === key).countField] ?? 1;
+    // In SAT accuracy mode an SAT activity's day is met via server/satAccuracy.js
+    // (correct count AND recent accuracy), not by the correct count alone.
+    const accuracyKeys = [...reqSet].filter(key => Activities.usesAccuracy(asgn, key));
 
     // Meeting-day calendar for this class, when PS attendance has been pulled
     // for it (server/wbl/logic.js:meetingDates — dates only ever exist there
@@ -528,6 +545,24 @@ router.get('/grades', requireTeacher, (req, res) => {
             GROUP BY day
         `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
 
+        // SAT accuracy mode needs each day's full answer sequence, not a
+        // count of correct ones (server/satAccuracy.js) — same as /daily-progress.
+        const answersByDay = table => {
+            const m = new Map();
+            for (const r of db.prepare(`
+                SELECT ${dayCol} AS day, correct FROM ${table}
+                WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND class_id = ?
+                ORDER BY submitted_at, id
+            `).all(student.user_key, sMs, eMs, cid)) {
+                if (!m.has(r.day)) m.set(r.day, []);
+                m.get(r.day).push(r.correct);
+            }
+            return m;
+        };
+        const accuracyAnswers = {};
+        if (accuracyKeys.includes('sat'))      accuracyAnswers['sat']      = answersByDay('sat_scores');
+        if (accuracyKeys.includes('sat-math')) accuracyAnswers['sat-math'] = answersByDay('sat_math_scores');
+
         let kenkenTotal = 0, satTotal = 0, satMathTotal = 0, measurementTotal = 0, projectionTotal = 0;
         const dayGrades = [];
 
@@ -542,6 +577,15 @@ router.get('/grades', requireTeacher, (req, res) => {
             kenkenTotal += done.kenken; satTotal += done.sat;
             satMathTotal += done['sat-math']; measurementTotal += done.measurement;
             projectionTotal += done.projection;
+
+            // Accuracy-mode SAT activities contribute their progress fraction
+            // scaled to the correct count, so they pool with the rest below on
+            // the same "units done vs. units required" footing.
+            for (const key of accuracyKeys) {
+                const need = reqCount(key);
+                done[key] = need * accuracyProgress(accuracyAnswers[key].get(date) ?? [], need,
+                    asgn.sat_accuracy_window, asgn.sat_accuracy_pct).fraction;
+            }
 
             // Required activities pool together: the day's requirement is the
             // sum of their counts, met by the sum of their completions.
