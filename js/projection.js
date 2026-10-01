@@ -22,7 +22,6 @@ const PJ = {
     HIT_PX: 8,         // how close to a line counts as clicking the line (mouse)
     HIT_PX_TOUCH: 14,
     ADVANCE_MS: 1400,  // pause on a correct answer before the next problem
-    ISO_MAX_PX: 320,
     BUILD_MAX_PX: 380,
 };
 
@@ -607,26 +606,30 @@ function drawIso() {
     const svg = document.getElementById('pj-iso');
     svg.innerHTML = '';
     const [W, D, H] = pj.shape.box;
-    // Scale from the tier's whole box (so cube size is steady within a tier),
-    // framed on this shape and its floor.
+    // The drawing's frame lines up with the grids: as wide as the right side
+    // view, as tall as the top view. Scale from the tier's whole box (so cube
+    // size is steady within a tier) to fit the frame; centre this shape and
+    // its floor in it.
     const extent = pts => [Math.min(...pts.map(c => c[0])), Math.max(...pts.map(c => c[0])),
                            Math.min(...pts.map(c => c[1])), Math.max(...pts.map(c => c[1]))];
+    const w = pj.views.right.size[0] * pj.cell + 2 * PJ.PAD;
+    const h = pj.views.top.size[1] * pj.cell + 2 * PJ.PAD;
     const boxCorners = [];
     for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) boxCorners.push(PC.isoXY([x, y, z]));
     const [bx0, bx1, by0, by1] = extent(boxCorners);
-    const scale = Math.min(PJ.ISO_MAX_PX / (bx1 - bx0), PJ.ISO_MAX_PX / (by1 - by0), pj.cell * 1.1);
+    const margin = PJ.PAD + 4;
+    const scale = Math.min((w - 2 * margin) / (bx1 - bx0), (h - 2 * margin) / (by1 - by0));
     const shapeCorners = pj.shape.cubes.flatMap(([x, y, z]) =>
         [[x, y, z], [x + 1, y, z], [x, y + 1, z], [x + 1, y + 1, z], [x, y, z + 1], [x + 1, y, z + 1], [x, y + 1, z + 1], [x + 1, y + 1, z + 1]]
             .map(PC.isoXY));
     // …plus the floor grid, which covers the whole box footprint.
     const floorCorners = [[0, 0, 0], [W, 0, 0], [W, D, 0], [0, D, 0]].map(PC.isoXY);
     const [minX, maxX, minY, maxY] = extent(shapeCorners.concat(floorCorners));
-    const pad = 8;
-    const w = (maxX - minX) * scale + 2 * pad, h = (maxY - minY) * scale + 2 * pad;
+    const ox = (w - (maxX - minX) * scale) / 2, oy = (h - (maxY - minY) * scale) / 2;
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.setAttribute('width', w);
     svg.setAttribute('height', h);
-    const T = ([x, y]) => [pad + (x - minX) * scale, pad + (maxY - y) * scale];
+    const T = ([x, y]) => [ox + (x - minX) * scale, oy + (maxY - y) * scale];
 
     // Light floor grid on the empty bottom-layer squares, drawn first so cubes cover it.
     for (const tile of PC.isoFloorTiles(pj.shape)) {

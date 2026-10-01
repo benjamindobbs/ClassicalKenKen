@@ -1804,6 +1804,8 @@ body.skill-map {
 .pj-hit        { fill: transparent; }
 
 .pj-iso { display: block; }
+/* Drawing problems: the isometric sits in a tile the size of its neighbours' grids, so its edges line up with them */
+.pj-sheet:not(.pj-sheet--build) .pj-iso { background: var(--surface); border-radius: var(--radius-sm); }
 .pj-face-top   { fill: #eef2f7; stroke: #eef2f7; stroke-width: 1; stroke-linejoin: round; }
 .pj-face-front { fill: #cbd5e1; stroke: #cbd5e1; stroke-width: 1; stroke-linejoin: round; }
 .pj-face-right { fill: #a3b1c4; stroke: #a3b1c4; stroke-width: 1; stroke-linejoin: round; }
