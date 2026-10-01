@@ -22,18 +22,30 @@ const game = createTieredGame({
     rescore:       r => PC.scoreAttempt(r.tier, !!r.correct, r.time_ms),
 });
 
+// Build problems send only the three views — the shape is the answer. (The
+// code is still sent for bug reports; it's not meant to be secret, just not
+// handed over as cubes.)
 function payload(row) {
     const def = PC.tierDef(row.tier);
+    const shape = PC.decodeShape(row.shape_code);
+    const given = row.task === 'build'
+        ? { box: shape.box, views: viewsJSON(shape) }
+        : { shape };
     return {
         problem_id:    row.id,
         tier:          row.tier,
         task:          row.task,
-        shape:         PC.decodeShape(row.shape_code),
+        ...given,
         code:          row.shape_code,
         elapsed_ms:    Math.max(0, Date.now() - row.issued_at),
         hidden_graded: def.hiddenGraded,
         align:         def.align,
     };
+}
+
+function viewsJSON(shape) {
+    const v = PC.computeViews(shape);
+    return Object.fromEntries(PC.VIEW_NAMES.map(n => [n, PC.viewToJSON(v[n])]));
 }
 
 // The student's open problem, or a new one at their current tier.
@@ -133,6 +145,8 @@ function submit(userKey, { problem_id, answer, class_id }) {
         per_view: result.perView,
         aligned:  result.aligned !== false,
         floating: result.floating || 0,
+        // Once answered, a build problem's shape can be shown ("a correct build").
+        ...(open.task === 'build' ? { shape } : {}),
         time_ms,
         ...rec,
     };

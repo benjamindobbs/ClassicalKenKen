@@ -4,9 +4,15 @@
 // the same core to draw the gold/red feedback. Local mode picks a practice
 // tier and saves nothing.
 //
-// Answer grids: click a square to shade it (its outline appears on its own),
-// click a line to add or remove it, hover a line and press H (or use the
-// Hidden lines button) to make it hidden. Submit checks all three views.
+// Draw problems (isometric → three views): click a square to shade it (its
+// outline appears on its own), click a line to add or remove it, hover a line
+// and press H (or use the Hidden lines button) to make it hidden. Submit
+// checks all three views.
+//
+// Build problems (three views → cubes): the isometric panel becomes a
+// builder. Click a face to add a cube against it (Shift/right-click or Remove
+// mode takes one away), or use the keyboard cursor: arrows move it within a
+// layer, +/- change layer, Space adds/removes, Q/E turn the drawing.
 
 const PC = ProjectionCore;
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -17,15 +23,19 @@ const PJ = {
     HIT_PX_TOUCH: 14,
     ADVANCE_MS: 1400,  // pause on a correct answer before the next problem
     ISO_MAX_PX: 320,
+    BUILD_MAX_PX: 380,
 };
 
 const pj = {
     local: true,
     tier: 1,
     task: 'draw',
-    shape: null,
+    shape: null,          // target shape (build problems from the server: only after submitting)
+    box: null,            // the problem's box [W, D, H]
     views: null,          // correct views (computed)
-    answer: null,         // { front, right, top } answer state
+    answer: null,         // { front, right, top } answer state (draw)
+    build: null,          // builder state (build) — see newBuild()
+    buildViews: null,     // views of the submitted build (build feedback)
     cell: 48,             // grid cell size in px for this problem
     phase: 'idle',        // 'idle' | 'answer' | 'feedback'
     hiddenMode: false,
@@ -108,7 +118,7 @@ function launchProjections() {
     }
     document.getElementById('pj-start-screen').style.display = 'none';
     document.getElementById('pj-game-area').style.display = '';
-    if (!pj.helpMounted) { mountHelp(); pj.helpMounted = true; initGrids(); }
+    if (!pj.helpMounted) { mountHelp(); pj.helpMounted = true; initGrids(); initBuilder(); }
     nextProblem();
 }
 
@@ -133,7 +143,9 @@ async function nextProblem() {
         const data = await res.json();
         applyStatus(data);
         pj.problemId = data.problem_id;
-        showProblem({ shape: data.shape, task: data.task, elapsedMs: data.elapsed_ms });
+        // Build problems come as views only — the shape would give the answer away.
+        const views = data.views && Object.fromEntries(PC.VIEW_NAMES.map(n => [n, PC.viewFromJSON(data.views[n])]));
+        showProblem({ shape: data.shape, views, box: data.box, code: data.code, task: data.task, elapsedMs: data.elapsed_ms });
     } catch (err) {
         console.error(err);
         setFeedback('Couldn\'t load a problem — check your connection and press Next.', 'wrong');
@@ -143,13 +155,17 @@ async function nextProblem() {
     }
 }
 
-function showProblem({ shape, task, elapsedMs }) {
+function showProblem({ shape, views, box, code, task, elapsedMs }) {
     const def = PC.tierDef(pj.tier);
-    pj.task = task;   // build problems get the builder when it ships (PC.CONFIG.BUILD_ENABLED)
-    pj.shape = shape;
-    document.getElementById('pj-code').textContent = PC.encodeShape(pj.shape);
-    pj.views = PC.computeViews(pj.shape);
-    pj.answer = Object.fromEntries(PC.VIEW_NAMES.map(n => [n, emptyAnswerView(pj.views[n].size)]));
+    const build = task === 'build';
+    pj.task = build ? 'build' : 'draw';
+    pj.shape = shape || null;
+    pj.box = shape ? shape.box : box;
+    pj.views = shape ? PC.computeViews(shape) : views;
+    document.getElementById('pj-code').textContent = shape ? PC.encodeShape(shape) : (code || '');
+    pj.answer = build ? null : Object.fromEntries(PC.VIEW_NAMES.map(n => [n, emptyAnswerView(pj.views[n].size)]));
+    pj.build = build ? newBuild() : null;
+    pj.buildViews = null;
     pj.diffs = null;
     pj.perView = null;
     pj.hover = null;
@@ -157,20 +173,31 @@ function showProblem({ shape, task, elapsedMs }) {
     const maxDim = Math.max(...def.box);
     pj.cell = Math.max(36, Math.min(56, Math.floor(220 / maxDim)));
 
-    document.getElementById('pj-task-title').textContent = 'Draw the front, right side and top views';
+    document.getElementById('pj-task-title').textContent = build
+        ? 'Build the object these views show' : 'Draw the front, right side and top views';
     document.getElementById('pj-task-sub').textContent = subtitleFor(def);
     setFeedback('', '');
     document.getElementById('pj-legend').style.display = 'none';
     document.getElementById('pj-next').style.display = 'none';
     document.getElementById('pj-submit').style.display = '';
     document.getElementById('pj-clear-all').disabled = false;
+    // Controls that belong to one task only.
+    document.getElementById('pj-sheet').classList.toggle('pj-sheet--build', build);
+    document.querySelectorAll('[data-clear]').forEach(b => { b.style.display = build ? 'none' : ''; });
+    document.getElementById('pj-hidden-mode').style.display = build ? 'none' : '';
+    document.getElementById('pj-build-controls').style.display = build ? '' : 'none';
+    document.getElementById('pj-show-answer').style.display = 'none';
+    document.getElementById('pj-iso-label').textContent = build ? 'Your build' : 'Isometric';
+    setRemoveMode(false);
+    HowToPlay.show(pj.task);
     announceRules(def);
 
-    drawIso();
+    pj.phase = 'answer';
+    setBuildControlsEnabled(true);
+    if (build) drawBuilder(); else drawIso();
     PC.VIEW_NAMES.forEach(renderGrid);
     renderLabels();
 
-    pj.phase = 'answer';
     // A problem resumed from the server keeps the time it's already been open.
     pj.startedAt = performance.now() - (elapsedMs || 0);
     clearInterval(pj.timerId);
@@ -211,6 +238,11 @@ function copyProblemCode() {
 }
 
 function subtitleFor(def) {
+    if (pj.task === 'build') {
+        return PC.hasHiddenLines(pj.views)
+            ? 'Any build with exactly these views counts — dashed hidden lines included.'
+            : 'Any build with exactly these views counts. The front of the object is marked.';
+    }
     const parts = [];
     if (def.hiddenGraded) parts.push('hidden lines count');
     else if (!def.noHidden) parts.push('hidden lines are shown but not graded yet');
@@ -230,6 +262,7 @@ function setFeedback(text, kind) {
 
 function clearAll() {
     if (pj.phase !== 'answer') return;
+    if (pj.task === 'build') { pj.build.cubes.clear(); afterBuildChange(); return; }
     PC.VIEW_NAMES.forEach(n => { pj.answer[n] = emptyAnswerView(pj.answer[n].size); renderGrid(n); });
 }
 
@@ -246,7 +279,14 @@ function toggleHiddenMode() {
 
 async function submitAnswer() {
     if (pj.phase !== 'answer') return;
-    if (!PC.VIEW_NAMES.every(n => pj.answer[n].cells.size)) {
+    const build = pj.task === 'build';
+    if (build) {
+        if (!pj.build.cubes.size) { setFeedback('Add some cubes first.', 'wrong'); return; }
+        if (buildFloating().length) {
+            setFeedback('The red cubes aren\'t connected to the floor — connect or remove them first.', 'wrong');
+            return;
+        }
+    } else if (!PC.VIEW_NAMES.every(n => pj.answer[n].cells.size)) {
         setFeedback('Shade at least one square in each view first.', 'wrong');
         return;
     }
@@ -254,12 +294,16 @@ async function submitAnswer() {
     pj.phase = 'feedback';
     clearInterval(pj.timerId);
     pj.hover = null;
+    if (build) { pj.build.hover = null; drawBuilder(); }
     document.getElementById('pj-submit').style.display = 'none';
     document.getElementById('pj-clear-all').disabled = true;
+    setBuildControlsEnabled(false);
 
     if (pj.local) {
         const timeMs = Math.round(performance.now() - pj.startedAt);
-        const result = PC.gradeDrawing(pj.shape, pj.answer, pj.tier);
+        const result = build
+            ? PC.gradeBuild(pj.shape, { cubes: buildCubes() })
+            : PC.gradeDrawing(pj.shape, pj.answer, pj.tier);
         showResult(result, PC.scoreAttempt(pj.tier, result.correct, timeMs));
         return;
     }
@@ -274,7 +318,9 @@ async function submitAnswer() {
             method: 'POST',
             body: JSON.stringify({
                 problem_id: pj.problemId,
-                answer: Object.fromEntries(PC.VIEW_NAMES.map(n => [n, PC.viewToJSON(pj.answer[n])])),
+                answer: build
+                    ? { cubes: buildCubes() }
+                    : Object.fromEntries(PC.VIEW_NAMES.map(n => [n, PC.viewToJSON(pj.answer[n])])),
                 class_id: classId,
             }),
         });
@@ -288,6 +334,7 @@ async function submitAnswer() {
             return;
         }
         if (!res.ok) throw new Error(data.error || res.status);
+        if (data.shape) pj.shape = data.shape;   // build target, revealed once answered
         showResult({ correct: data.correct, perView: data.per_view, aligned: data.aligned }, data.score);
         applyStatus(data);
         if (data.tier > tierBefore)      msg.textContent = `Moved up to Tier ${data.tier}!`;
@@ -300,6 +347,8 @@ async function submitAnswer() {
         pj.phase = 'answer';
         document.getElementById('pj-submit').style.display = '';
         document.getElementById('pj-clear-all').disabled = false;
+        setBuildControlsEnabled(true);
+        if (build) drawBuilder();
         setFeedback('Couldn\'t reach the server — your answer wasn\'t saved. Try Submit again.', 'wrong');
     }
 }
@@ -318,16 +367,28 @@ function showResult(result, score) {
         return;
     }
 
+    const build = pj.task === 'build';
+    // Build: the grids switch to the build's own views, marked against the target's.
+    if (build) pj.buildViews = PC.computeViews({ box: pj.box, cubes: buildCubes() });
+    const mine = build ? pj.buildViews : pj.answer;
     pj.diffs = Object.fromEntries(PC.VIEW_NAMES
         .filter(n => !result.perView[n])
-        .map(n => [n, PC.diffView(pj.views[n], pj.answer[n], def.hiddenGraded)]));
+        .map(n => [n, PC.diffView(pj.views[n], mine[n], build || def.hiddenGraded)]));
     const wrong = PC.VIEW_NAMES.filter(n => !result.perView[n]);
     const names = { front: 'front', right: 'right side', top: 'top' };
+    const list = wrong.map(n => names[n]).join(', ').replace(/, ([^,]*)$/, ' and $1');
     let msg;
-    if (!wrong.length && !result.aligned) {
+    if (build) {
+        msg = `Not quite — your build's ${list} view${wrong.length > 1 ? 's don\'t' : ' doesn\'t'} match. The grids now show your build's views, with what's missing in gold.`;
+        if (pj.shape) {
+            const btn = document.getElementById('pj-show-answer');
+            btn.style.display = '';
+            btn.textContent = 'Show a correct build';
+        }
+    } else if (!wrong.length && !result.aligned) {
         msg = 'Each view is right, but they don\'t line up: the top view must sit directly above the front, and the right side level with it.';
     } else {
-        msg = `Not quite — check the ${wrong.map(n => names[n]).join(', ')} view${wrong.length > 1 ? 's' : ''}. The correct marks are shown in gold.`;
+        msg = `Not quite — check the ${list} view${wrong.length > 1 ? 's' : ''}. The correct marks are shown in gold.`;
     }
     setFeedback(msg, 'wrong');
     document.getElementById('pj-legend').style.display = wrong.length ? '' : 'none';
@@ -336,6 +397,15 @@ function showResult(result, score) {
     const next = document.getElementById('pj-next');
     next.style.display = '';
     next.focus({ preventScroll: true });
+}
+
+// Build feedback: swap the builder between the student's build and the target.
+function toggleShowAnswer() {
+    if (pj.task !== 'build' || pj.phase !== 'feedback' || !pj.shape) return;
+    pj.build.showAnswer = !pj.build.showAnswer;
+    document.getElementById('pj-show-answer').textContent = pj.build.showAnswer ? 'Show my build' : 'Show a correct build';
+    document.getElementById('pj-iso-label').textContent = pj.build.showAnswer ? 'A correct build' : 'Your build';
+    drawBuilder();
 }
 
 function renderLabels() {
@@ -359,12 +429,12 @@ function initGrids() {
     for (const name of PC.VIEW_NAMES) {
         const svg = document.getElementById(`pj-grid-${name}`);
         svg.addEventListener('pointermove', e => {
-            if (pj.phase !== 'answer') return;
+            if (pj.phase !== 'answer' || pj.task !== 'draw') return;
             setHover(name, targetFromEvent(name, e));
         });
         svg.addEventListener('pointerleave', () => { if (pj.hover && pj.hover.view === name) setHover(null); });
         svg.addEventListener('pointerdown', e => {
-            if (pj.phase !== 'answer' || (e.pointerType === 'mouse' && e.button !== 0)) return;
+            if (pj.phase !== 'answer' || pj.task !== 'draw' || (e.pointerType === 'mouse' && e.button !== 0)) return;
             e.preventDefault();
             const t = targetFromEvent(name, e);
             if (!t) return;
@@ -375,13 +445,13 @@ function initGrids() {
     }
     document.querySelectorAll('[data-clear]').forEach(b => b.addEventListener('click', () => clearView(b.dataset.clear)));
     document.addEventListener('keydown', e => {
-        if (pj.phase !== 'answer' || !pj.hover || pj.hover.kind !== 'seg') return;
+        if (pj.phase !== 'answer' || pj.task !== 'draw' || !pj.hover || pj.hover.kind !== 'seg') return;
         if (e.key === 'h' || e.key === 'H') { e.preventDefault(); toggleHidden(pj.hover.view, pj.hover.key); }
     });
 }
 
 function gridGeom(name) {
-    const [U, V] = pj.answer[name].size;
+    const [U, V] = pj.views[name].size;
     const s = pj.cell, p = PJ.PAD;
     return { U, V, s, p, X: u => p + u * s, Y: v => p + (V - v) * s };
 }
@@ -483,9 +553,16 @@ function toggleHidden(name, key) {
     renderGrid(name);
 }
 
+// What a grid shows: the student's drawing (draw), the given view (build),
+// or the build's own view once a wrong build is marked.
+function gridContent(name) {
+    if (pj.task === 'draw') return pj.answer[name];
+    return pj.buildViews ? pj.buildViews[name] : pj.views[name];
+}
+
 function renderGrid(name) {
     const svg = document.getElementById(`pj-grid-${name}`);
-    const a = pj.answer[name];
+    const a = gridContent(name);
     const { U, V, s, p, X, Y } = gridGeom(name);
     const w = U * s + 2 * p, h = V * s + 2 * p;
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -570,10 +647,263 @@ function drawIso() {
     }
 }
 
+// ── Builder (build problems) ─────────────────────────────────────────────────
+// The build is kept in the problem's own coordinates ('x,y,z' keys); Q/E only
+// turn the drawing. "Display" coordinates are the build turned rot quarter
+// turns (counter-clockwise seen from above), which is what gets drawn and
+// what the arrow keys move through.
+function newBuild() {
+    return { cubes: new Set(), cursor: [0, 0, 0], rot: 0, removeMode: false, hover: null, showAnswer: false };
+}
+
+// A point (lattice corner, or anything in between) turned r quarter turns in a W×D box.
+function turnPt([x, y, z], r, [W, D]) {
+    for (let i = 0; i < ((r % 4) + 4) % 4; i++) { [x, y] = [D - y, x]; [W, D] = [D, W]; }
+    return [x, y, z];
+}
+// A cube turned: its centre turned, then back to its corner.
+function turnCube([x, y, z], r, box) {
+    const [cx, cy] = turnPt([x + 0.5, y + 0.5, z], r, box);
+    return [Math.round(cx - 0.5), Math.round(cy - 0.5), z];
+}
+function dispBox() {
+    const [W, D, H] = pj.box;
+    return pj.build.rot % 2 ? [D, W, H] : [W, D, H];
+}
+const toDisp = c => turnCube(c, pj.build.rot, pj.box);
+const fromDisp = c => turnCube(c, 4 - pj.build.rot, dispBox());
+const inBox = ([x, y, z], [W, D, H]) => x >= 0 && y >= 0 && z >= 0 && x < W && y < D && z < H;
+
+function buildCubes() { return [...pj.build.cubes].map(k => k.split(',').map(Number)); }
+function buildFloating() { return PC.floatingCubes(buildCubes()); }
+function buildEditing() { return pj.task === 'build' && pj.phase === 'answer' && !!pj.build; }
+
+function initBuilder() {
+    const svg = document.getElementById('pj-iso');
+    svg.addEventListener('contextmenu', e => { if (pj.task === 'build') e.preventDefault(); });
+    svg.addEventListener('pointermove', e => {
+        if (buildEditing() && e.pointerType === 'mouse') setBuildHover(builderTarget(e, e.shiftKey));
+    });
+    svg.addEventListener('pointerleave', () => { if (buildEditing()) setBuildHover(null); });
+    svg.addEventListener('pointerdown', e => {
+        if (!buildEditing()) return;
+        const t = builderTarget(e, e.shiftKey || e.button === 2);
+        if (!t) return;
+        e.preventDefault();
+        pj.build.hover = null;
+        if (t.remove) setCube(fromDisp(t.remove), false);
+        else setCube(fromDisp(t.place), true);
+    });
+    document.addEventListener('keydown', onBuildKey);
+    document.querySelectorAll('#pj-build-controls [data-move]').forEach(b => b.addEventListener('click', () => {
+        if (buildEditing()) moveCursor(b.dataset.move.split(',').map(Number));
+    }));
+    document.querySelectorAll('#pj-build-controls [data-act]').forEach(b => b.addEventListener('click', () => {
+        const act = b.dataset.act;
+        if (act === 'rot-left') return turnBuild(1);
+        if (act === 'rot-right') return turnBuild(-1);
+        if (!buildEditing()) return;
+        if (act === 'toggle') toggleAtCursor();
+        if (act === 'remove-mode') setRemoveMode(!pj.build.removeMode);
+    }));
+}
+
+// What a click would do: { place: displayCube } or { remove: displayCube }.
+function builderTarget(e, wantRemove) {
+    const el = e.target;
+    if (!el || !el.dataset) return null;
+    if (wantRemove || pj.build.removeMode) {
+        return el.dataset.c ? { remove: el.dataset.c.split(',').map(Number) } : null;
+    }
+    if (!el.dataset.t) return null;
+    const t = el.dataset.t.split(',').map(Number);
+    if (!inBox(t, dispBox()) || pj.build.cubes.has(fromDisp(t).join(','))) return null;
+    return { place: t };
+}
+
+function setBuildHover(t) {
+    const b = pj.build, prev = JSON.stringify(b.hover);
+    b.hover = t;
+    if (JSON.stringify(t) !== prev) drawBuilder();
+}
+
+function setCube(c, on) {
+    const k = c.join(',');
+    if (on) pj.build.cubes.add(k); else pj.build.cubes.delete(k);
+    pj.build.cursor = c;
+    afterBuildChange();
+}
+
+function afterBuildChange() {
+    drawBuilder();
+    const floating = buildFloating().length;
+    const fb = document.getElementById('pj-feedback');
+    if (floating) setFeedback('Red cubes aren\'t connected to the floor — every cube must rest on the floor or join one that does.', 'wrong');
+    else if (fb.dataset.floating) setFeedback('', '');
+    fb.dataset.floating = floating ? '1' : '';
+}
+
+function onBuildKey(e) {
+    if (pj.task !== 'build' || !pj.build || e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = ((e.target && e.target.tagName) || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    const k = e.key;
+    // Turning the drawing also works while looking over a marked answer.
+    if (k === 'q' || k === 'Q') { e.preventDefault(); turnBuild(1); return; }
+    if (k === 'e' || k === 'E') { e.preventDefault(); turnBuild(-1); return; }
+    if (!buildEditing()) return;
+    const moves = { ArrowUp: [0, 1, 0], ArrowDown: [0, -1, 0], ArrowRight: [1, 0, 0], ArrowLeft: [-1, 0, 0],
+                    '+': [0, 0, 1], '=': [0, 0, 1], PageUp: [0, 0, 1], '-': [0, 0, -1], '_': [0, 0, -1], PageDown: [0, 0, -1] };
+    if (moves[k]) moveCursor(moves[k]);
+    else if (k === ' ' || k === 'Spacebar') toggleAtCursor();
+    else if (k === 'Delete' || k === 'Backspace') {
+        if (pj.build.cubes.has(pj.build.cursor.join(','))) setCube(pj.build.cursor, false);
+    } else return;
+    e.preventDefault();
+}
+
+// Moves the cursor in display directions, so the arrows follow the drawing.
+function moveCursor(d) {
+    const box = dispBox(), cur = toDisp(pj.build.cursor);
+    const n = cur.map((v, i) => Math.max(0, Math.min(box[i] - 1, v + d[i])));
+    pj.build.cursor = fromDisp(n);
+    drawBuilder();
+}
+
+function toggleAtCursor() {
+    const c = pj.build.cursor;
+    setCube(c, !pj.build.cubes.has(c.join(',')));
+}
+
+function turnBuild(dr) {
+    if (pj.task !== 'build' || !pj.build) return;
+    pj.build.rot = (pj.build.rot + dr + 4) % 4;
+    pj.build.hover = null;
+    drawBuilder();
+}
+
+function setRemoveMode(on) {
+    if (pj.build) pj.build.removeMode = on;
+    document.getElementById('pj-remove-mode').classList.toggle('active', !!on);
+    if (pj.build) { pj.build.hover = null; if (pj.task === 'build') drawBuilder(); }
+}
+
+// While an answer is being marked only turning stays available.
+function setBuildControlsEnabled(on) {
+    document.querySelectorAll('#pj-build-controls button').forEach(b => {
+        if (!/^rot-/.test(b.dataset.act || '')) b.disabled = !on;
+    });
+}
+
+function drawBuilder() {
+    const svg = document.getElementById('pj-iso');
+    svg.innerHTML = '';
+    const b = pj.build;
+    const [W, D, H] = dispBox();
+    const editing = pj.phase === 'answer';
+    const canon = b.showAnswer && pj.shape ? pj.shape.cubes : buildCubes();
+    const cubes = canon.map(toDisp);
+    const set = PC.cubeSet(cubes);
+    const has = (x, y, z) => set.has(`${x},${y},${z}`);
+    const floating = PC.cubeSet(b.showAnswer ? [] : PC.floatingCubes(cubes));
+    const cur = toDisp(b.cursor);
+    const layer = editing ? cur[2] : H;   // cubes above the cursor's layer are faded
+
+    // Frame on the whole box (steady size while building) plus the FRONT label.
+    const [W0, D0] = pj.box;
+    const labelAt = turnPt([W0 / 2, -0.7, 0], b.rot, [W0, D0]);
+    const pts = [];
+    for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) pts.push(PC.isoXY([x, y, z]));
+    pts.push(PC.isoXY(labelAt));
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const scale = Math.min(PJ.BUILD_MAX_PX / (maxX - minX), PJ.BUILD_MAX_PX / (maxY - minY), pj.cell * 1.2);
+    const pad = 14;
+    const w = (maxX - minX) * scale + 2 * pad, h = (maxY - minY) * scale + 2 * pad;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    const P = ([x, y]) => [pad + (x - minX) * scale, pad + (maxY - y) * scale];
+    const T = p => P(PC.isoXY(p));
+    const poly = (corners, cls, attrs) => svgEl('polygon',
+        { points: corners.map(T).map(p => p.join(',')).join(' '), class: cls, ...(attrs || {}) }, svg);
+    const line2 = (p, q, cls) => svgEl('line', { x1: p[0], y1: p[1], x2: q[0], y2: q[1], class: cls }, svg);
+    const line = (a, c, cls) => line2(T(a), T(c), cls);
+    const tile = (x, y, z) => [[x, y, z], [x + 1, y, z], [x + 1, y + 1, z], [x, y + 1, z]];
+    // A cube's three drawn faces, each with the spot a cube placed against it would fill.
+    const faces = (x, y, z) => ({
+        top:   { pts: tile(x, y, z + 1), t: [x, y, z + 1] },
+        front: { pts: [[x, y, z], [x + 1, y, z], [x + 1, y, z + 1], [x, y, z + 1]], t: [x, y - 1, z] },
+        right: { pts: [[x + 1, y, z], [x + 1, y + 1, z], [x + 1, y + 1, z + 1], [x + 1, y, z + 1]], t: [x + 1, y, z] },
+    });
+
+    // Floor: clicking a square puts a cube on it.
+    for (let x = 0; x < W; x++) for (let y = 0; y < D; y++) {
+        poly(tile(x, y, 0), 'pj-floor', editing ? { 'data-t': `${x},${y},0` } : null);
+    }
+    // The object's front edge, so a turned drawing still matches the views.
+    line(turnPt([0, 0, 0], b.rot, [W0, D0]), turnPt([W0, 0, 0], b.rot, [W0, D0]), 'pj-bfront-edge');
+    const [lx, ly] = T(labelAt);
+    svgEl('text', { x: lx, y: ly, class: 'pj-bfront', 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, svg)
+        .textContent = 'FRONT';
+
+    // Where the cursor would land: the top of whatever is under it.
+    let shadowZ = 0;
+    for (let z = cur[2] - 1; z >= 0; z--) if (has(cur[0], cur[1], z)) { shadowZ = z + 1; break; }
+
+    // Bottom layer up, back to front within a layer — a valid paint order for
+    // this view, and it lets the layer plane slot in between layers.
+    const byZ = Array.from({ length: H }, () => []);
+    for (const c of cubes) byZ[c[2]].push(c);
+    for (let z = 0; z < H; z++) {
+        if (editing && z === layer) {
+            for (let x = 0; x < W; x++) for (let y = 0; y < D; y++) poly(tile(x, y, z), 'pj-bplane');
+        }
+        if (editing && z === shadowZ) poly(tile(cur[0], cur[1], z), 'pj-bshadow');
+        byZ[z].sort((p, q) => (p[0] - p[1]) - (q[0] - q[1]));
+        for (const [x, y] of byZ[z]) {
+            const k = `${x},${y},${z}`;
+            const f = faces(x, y, z);
+            const extra = (floating.has(k) ? ' pj-bface--float' : '') + (z > layer ? ' pj-bface--faded' : '');
+            for (const name of ['top', 'front', 'right']) {
+                if (has(...f[name].t)) continue;
+                poly(f[name].pts, `pj-bface pj-bface--${name}${extra}`,
+                    editing ? { 'data-c': k, 'data-t': f[name].t.join(',') } : null);
+            }
+        }
+    }
+
+    // Hidden lines for cubes the drawing hides completely, as in the problems.
+    for (const e of PC.isoEdges({ box: [W, D, H], cubes }).filter(e => e.hidden)) {
+        line2(P(e.a), P(e.b), 'pj-iso-line pj-iso-line--hidden pj-nohit');
+    }
+
+    if (!editing) return;
+    const ghost = (c, cls) => { const f = faces(...c); for (const n of ['top', 'front', 'right']) poly(f[n].pts, cls); };
+    if (b.hover && b.hover.place) ghost(b.hover.place, 'pj-bghost');
+    if (b.hover && b.hover.remove) ghost(b.hover.remove, 'pj-bghost pj-bghost--remove');
+
+    // Cursor: a wire cube with the edges at its hidden back corner dashed, and
+    // a drop line down to its shadow when it's up in the air.
+    const [x, y, z] = cur;
+    const back = [x, y + 1, z].join();
+    const corners = [];
+    for (const dx of [0, 1]) for (const dy of [0, 1]) for (const dz of [0, 1]) corners.push([x + dx, y + dy, z + dz]);
+    for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) {
+        const [p, q] = [corners[i], corners[j]];
+        if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]) !== 1) continue;
+        line(p, q, 'pj-bcursor' + (p.join() === back || q.join() === back ? ' pj-bcursor--back' : ''));
+    }
+    if (shadowZ < z) line([x + 0.5, y + 0.5, shadowZ], [x + 0.5, y + 0.5, z], 'pj-bstem');
+}
+
 // ── How to play ──────────────────────────────────────────────────────────────
 function mountHelp() {
     const P = PC.CONFIG.PROGRESSION;
     const pct = v => `${Math.round(v * 100)}%`;
+    const scoring = `
+                <h3>Scoring and tiers</h3>
+                <p>Correct answers at or under the tier's <strong>par</strong> time (shown next to the tier) earn full points; slower ones earn less. Move up by getting ${pct(P.PROMOTE_ACCURACY)} of your last ${P.WINDOW} right while averaging ${pct(P.PROMOTE_SCORE_PCT)} of the possible points — or by getting ${P.STREAK} right in a row. Averaging below ${pct(P.DEMOTE_SCORE_PCT)} moves you back a tier.</p>`;
     HowToPlay.mount(document.getElementById('pj-help'), {
         id: 'projections',
         sections: {
@@ -588,15 +918,37 @@ function mountHelp() {
                     <li><strong>Clear</strong> resets one view; <strong>Submit</strong> checks all three at once.</li>
                 </ul>
                 <h3>Checking</h3>
-                <p>Each view is checked for its shaded squares and its lines. Where you place a view on its grid doesn't matter — until the higher tiers, where the views must line up with each other. If something's wrong, the correct marks appear in gold and extra ones in red; press <strong>Next</strong> when you're ready.</p>
-                <h3>Scoring and tiers</h3>
-                <p>Correct answers at or under the tier's <strong>par</strong> time (shown next to the tier) earn full points; slower ones earn less. Move up by getting ${pct(P.PROMOTE_ACCURACY)} of your last ${P.WINDOW} right while averaging ${pct(P.PROMOTE_SCORE_PCT)} of the possible points — or by getting ${P.STREAK} right in a row. Averaging below ${pct(P.DEMOTE_SCORE_PCT)} moves you back a tier.</p>`,
+                <p>Each view is checked for its shaded squares and its lines. Where you place a view on its grid doesn't matter — until the higher tiers, where the views must line up with each other. If something's wrong, the correct marks appear in gold and extra ones in red; press <strong>Next</strong> when you're ready.</p>` + scoring,
+            build: `
+                <h3>Your task</h3>
+                <p>The <strong>top</strong>, <strong>front</strong> and <strong>right side</strong> views show an object made of cubes. Build it in the box on the right. The side marked <strong>FRONT</strong> is the side the front view looks at. Any build whose three views match exactly is correct.</p>
+                <h3>With the mouse</h3>
+                <ul>
+                    <li><strong>Click a floor square</strong> to put a cube there, or <strong>click a cube's face</strong> to add a cube against that face. A see-through cube shows where it will go.</li>
+                    <li><strong>Shift-click</strong> or <strong>right-click</strong> a cube to remove it. On a touchscreen, turn on <strong>Remove</strong> and tap.</li>
+                </ul>
+                <h3>With the keyboard</h3>
+                <ul>
+                    <li>The blue wire cube is your <strong>cursor</strong>. The arrow keys move it along the drawing's lines: <kbd>↑</kbd> goes back-right, <kbd>↓</kbd> front-left, <kbd>→</kbd> front-right, <kbd>←</kbd> back-left.</li>
+                    <li><kbd>+</kbd> and <kbd>-</kbd> move it up and down a layer. The tinted plane shows the layer you're on; cubes above it fade, and the dark square below shows where the cursor sits over the cubes underneath.</li>
+                    <li><kbd>Space</kbd> adds or removes the cube at the cursor.</li>
+                    <li><kbd>Q</kbd> and <kbd>E</kbd> turn the drawing to see it from another corner. The buttons beside the box do all of this too.</li>
+                </ul>
+                <h3>Rules and checking</h3>
+                <p>Every cube must rest on the floor or join one that does — cubes that aren't connected turn red and must be fixed before you can submit. Dashed hidden lines in the views count, so a hidden pocket must be built too. If your build is wrong, the grids switch to your build's views with what's missing in gold and what's extra in red; you can also look at one correct build.</p>` + scoring,
         },
     });
 }
 
 // Rules that switch on at a tier get a one-time note in the help panel.
 function announceRules(def) {
+    if (pj.task === 'build') {
+        HowToPlay.announce('build', '<p><strong>New: build problems.</strong> Now you get the three views and build the object from cubes. The controls are explained below.</p>');
+    }
+    if (def.task === 'mixed') {
+        HowToPlay.announce('mixed', '<p><strong>Mixed problems.</strong> From here on you\'ll get both kinds: drawing views from an object, and building an object from its views.</p>');
+    }
+    if (pj.task !== 'draw') return;   // the rest are about drawing views
     if (!def.noHidden && !def.hiddenGraded) {
         HowToPlay.announce('hidden-shown', '<p><strong>Hidden lines now appear</strong> as dashed lines in the drawing — edges you can\'t see from where you\'re looking. You don\'t need to draw them yet.</p>');
     }

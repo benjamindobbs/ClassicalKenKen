@@ -68,9 +68,9 @@
             STREAK: 5,
         },
         GENERATE_TRIES: 2000,
-        // Build problems (three views → cubes) switch on when the builder ships;
-        // until then every tier serves drawing problems.
-        BUILD_ENABLED: false,
+        // Build problems (three views → cubes). Off → every tier serves
+        // drawing problems.
+        BUILD_ENABLED: true,
     };
 
     function clampTier(t) {
