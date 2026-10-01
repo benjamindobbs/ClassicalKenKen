@@ -1253,6 +1253,48 @@ db.exec(`
 `);
 try { db.prepare('ALTER TABLE classes ADD COLUMN required_measurement_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 
+// Projections (/Projections/) — see js/projection-core.js and
+// server/projection.js. Problems are generated and timed on the server:
+// projection_problems holds each student's one open (served, unanswered)
+// problem; an answer moves it into projection_scores. shape_code is the
+// compact shape code (encodeShape); answer is the student's submission as
+// JSON. Tier tracking mirrors the Ruler Game (server/tieredGame.js).
+db.exec(`
+    CREATE TABLE IF NOT EXISTS projection_problems (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_key   TEXT    NOT NULL UNIQUE REFERENCES users(user_key),
+        tier       INTEGER NOT NULL,
+        task       TEXT    NOT NULL,
+        shape_code TEXT    NOT NULL,
+        issued_at  INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS projection_scores (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_key      TEXT    NOT NULL REFERENCES users(user_key),
+        class_id      INTEGER REFERENCES classes(id),
+        tier          INTEGER NOT NULL,
+        task          TEXT    NOT NULL,
+        shape_code    TEXT    NOT NULL,
+        answer        TEXT    NOT NULL,
+        hidden_graded INTEGER NOT NULL,
+        correct       INTEGER NOT NULL,
+        time_ms       INTEGER NOT NULL,
+        score         REAL    NOT NULL,
+        score_version INTEGER NOT NULL,
+        submitted_at  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_projection_user  ON projection_scores(user_key, tier, submitted_at);
+    CREATE INDEX IF NOT EXISTS idx_projection_class ON projection_scores(class_id, submitted_at);
+
+    CREATE TABLE IF NOT EXISTS projection_progress (
+        user_key        TEXT    PRIMARY KEY REFERENCES users(user_key),
+        tier            INTEGER NOT NULL DEFAULT 1,
+        tier_started_at INTEGER NOT NULL
+    );
+`);
+try { db.prepare('ALTER TABLE classes ADD COLUMN required_projection_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
+
 // Question image migration: fix truncated English skill names, clear stale
 // English and math reports once. See englishBankMigration.js.
 {

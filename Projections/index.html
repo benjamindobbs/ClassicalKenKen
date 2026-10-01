@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Projections — Classical Technology</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a class="nav-brand" href="../index.html">Classical Technology</a>
+        <div class="nav-links">
+            <a href="../KenKen/">Play KenKen</a>
+            <a href="../SAT-Questions/">SAT English</a>
+            <a href="../SAT-Math/">SAT Math</a>
+            <a href="../Measurement/">Ruler Game</a>
+            <a href="./" class="active">Projections</a>
+            <a href="../Skill-Maps/">Skill Maps</a>
+            <a href="../readme/">ReadMe</a>
+            <span id="nav-auth-slot"></span>
+        </div>
+    </nav>
+    <script src="../js/nav.js"></script>
+
+    <div id="landing" class="landing">
+        <div class="landing-card">
+            <h1>Projections</h1>
+            <p>Sign in with your school Google account to save your progress and move up through the tiers, or practice locally without an account.</p>
+            <div class="landing-actions">
+                <button class="btn btn-primary" id="authorize_button" onclick="handleAuthClick()" disabled>Sign In with Google</button>
+                <button class="btn btn-outline" id="local_button" onclick="playLocally(); onLocalMode()">Play Locally</button>
+            </div>
+            <p class="landing-status" id="landing_status">Loading&hellip;</p>
+        </div>
+    </div>
+
+    <div id="game-ui" style="display:none">
+        <div class="game-header">
+            <span class="game-title">Projections</span>
+            <div class="auth-controls">
+                <span id="playerData"></span>
+                <span id="class-picker-slot" class="class-picker-slot" style="display:none"></span>
+                <span id="daily-pill" class="daily-pill" style="display:none"><span class="dp-count"></span></span>
+                <button class="btn btn-outline" id="signout_button" onclick="handleSignoutClick()" style="display:none">Sign Out</button>
+            </div>
+        </div>
+
+        <div id="pj-start-screen" class="start-screen">
+            <div class="start-card">
+                <h2>Projections</h2>
+                <p>Turn isometric drawings into front, right side and top views &mdash; and later, build objects from their views. Faster correct answers score more, and shapes get bigger and trickier as you move up.</p>
+                <button class="btn btn-primary btn-lg" onclick="launchProjections()">Start</button>
+            </div>
+        </div>
+
+        <div id="pj-game-area" style="display:none">
+            <div class="game-controls">
+                <span id="pj-tier-label" class="rg-tier-label"></span>
+                <label id="pj-local-tier" class="rg-local-tier" style="display:none">
+                    Practice tier
+                    <select id="pj-local-tier-select" onchange="setLocalTier(this.value)"></select>
+                </label>
+                <span class="rg-spacer"></span>
+                <span class="timer-label">Time:</span>
+                <span class="timer-display" id="pj-time">0:00</span>
+            </div>
+
+            <div class="pj-stage">
+                <p id="pj-task-title" class="pj-task-title"></p>
+                <p id="pj-task-sub" class="pj-task-sub"></p>
+
+                <div id="pj-sheet" class="pj-sheet">
+                    <div class="pj-panel pj-panel--top">
+                        <div class="pj-panel-head"><span class="pj-panel-label" data-label="top">Top</span>
+                            <button class="btn btn-outline pj-clear" data-clear="top">Clear</button></div>
+                        <svg id="pj-grid-top" class="pj-grid" data-view="top" tabindex="0" aria-label="Top view grid"></svg>
+                    </div>
+                    <div class="pj-panel pj-panel--iso">
+                        <div class="pj-panel-head"><span class="pj-panel-label">Isometric</span></div>
+                        <svg id="pj-iso" class="pj-iso" aria-label="Isometric drawing of the object"></svg>
+                    </div>
+                    <div class="pj-panel pj-panel--front">
+                        <div class="pj-panel-head"><span class="pj-panel-label" data-label="front">Front</span>
+                            <button class="btn btn-outline pj-clear" data-clear="front">Clear</button></div>
+                        <svg id="pj-grid-front" class="pj-grid" data-view="front" tabindex="0" aria-label="Front view grid"></svg>
+                    </div>
+                    <div class="pj-panel pj-panel--right">
+                        <div class="pj-panel-head"><span class="pj-panel-label" data-label="right">Right side</span>
+                            <button class="btn btn-outline pj-clear" data-clear="right">Clear</button></div>
+                        <svg id="pj-grid-right" class="pj-grid" data-view="right" tabindex="0" aria-label="Right side view grid"></svg>
+                    </div>
+                </div>
+
+                <div class="pj-actions">
+                    <button id="pj-hidden-mode" class="btn btn-outline pj-mode" onclick="toggleHiddenMode()" title="When on, tapping a line makes it hidden (dashed). Same as hovering a line and pressing H.">
+                        <svg width="22" height="8" aria-hidden="true"><line x1="1" y1="4" x2="21" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>
+                        Hidden lines
+                    </button>
+                    <button id="pj-clear-all" class="btn btn-outline" onclick="clearAll()">Clear all</button>
+                    <button id="pj-submit" class="btn btn-primary" onclick="submitAnswer()">Submit</button>
+                    <button id="pj-next" class="btn btn-primary" style="display:none" onclick="nextProblem()">Next</button>
+                </div>
+                <p id="pj-feedback" class="pj-feedback" aria-live="polite"></p>
+                <div id="pj-legend" class="pj-legend" style="display:none">
+                    <span><i style="background:#f59e0b"></i>Missing (correct answer)</span>
+                    <span><i style="background:#dc2626"></i>Extra</span>
+                </div>
+
+                <p class="pj-code">Problem code: <span id="pj-code"></span>
+                    <button class="btn btn-outline pj-clear" onclick="copyProblemCode()">Copy</button></p>
+
+                <div id="pj-progress" style="display:none"></div>
+            </div>
+
+            <div class="game-footer">
+                <p id="submitMessage"></p>
+            </div>
+
+            <div class="htp-wrap"><div id="pj-help"></div></div>
+        </div>
+    </div>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/activities.js"></script>
+    <script src="../js/classpicker.js"></script>
+    <script src="../js/dailyprogress.js"></script>
+    <script src="../js/tierprogress.js"></script>
+    <script src="../js/howtoplay.js"></script>
+    <script src="../js/projection-core.js"></script>
+    <script src="../js/projection.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>

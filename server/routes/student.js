@@ -4,6 +4,7 @@ const { requireAuth } = require('../auth');
 const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 const Activities      = require('../../js/activities');
 const Measurement     = require('../measurement');
+const Projection      = require('../projection');
 
 const router = Router();
 router.use(requireAuth);
@@ -16,6 +17,7 @@ router.get('/classes', (req, res) => {
         SELECT c.id AS class_id, c.name, c.assessment_type,
                c.required_activity, c.required_kenken_count,
                c.required_sat_count, c.required_sat_math_count, c.required_measurement_count,
+               c.required_projection_count,
                c.sat_english_domains, c.sat_math_domains
         FROM class_students cs
         JOIN classes c ON c.id = cs.class_id
@@ -31,7 +33,7 @@ router.get('/classes', (req, res) => {
 function resolveScopeClass(userKey, qClass) {
     const cols = `c.id AS class_id, c.assessment_type,
                   c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count,
-                  c.required_measurement_count`;
+                  c.required_measurement_count, c.required_projection_count`;
     if (qClass != null && qClass !== '' && qClass !== 'none') {
         const row = db.prepare(`
             SELECT ${cols}
@@ -75,6 +77,7 @@ router.get('/daily-progress', (req, res) => {
         required_sat_count: classRow.required_sat_count,
         required_sat_math_count: classRow.required_sat_math_count,
         required_measurement_count: classRow.required_measurement_count,
+        required_projection_count: classRow.required_projection_count,
     };
 
     // Midnight UTC today
@@ -108,12 +111,18 @@ router.get('/daily-progress', (req, res) => {
         'SELECT COUNT(*) AS n FROM measurement_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
     ).get(req.userKey, todayStart, ...cArg).n;
 
-    const today = { kenken: kenkenToday, sat: satToday, sat_math: satMathToday, measurement: measurementToday };
+    // Projections: only count correct answers
+    const projectionToday = db.prepare(
+        'SELECT COUNT(*) AS n FROM projection_scores WHERE user_key = ? AND submitted_at >= ? AND correct = 1' + cf
+    ).get(req.userKey, todayStart, ...cArg).n;
+
+    const today = { kenken: kenkenToday, sat: satToday, sat_math: satMathToday,
+                    measurement: measurementToday, projection: projectionToday };
 
     // Legacy 'either' fills both the KenKen and SAT English rows; clients
     // treat it as done once either one is (js/activities.js).
     const required  = Activities.parse(settings.required_activity);
-    const remaining = { kenken: 0, sat: 0, sat_math: 0, measurement: 0 };
+    const remaining = { kenken: 0, sat: 0, sat_math: 0, measurement: 0, projection: 0 };
     for (const a of Activities.ACTIVITIES) {
         if (required.has(a.key)) remaining[a.todayKey] = Math.max(0, (settings[a.countField] ?? 1) - today[a.todayKey]);
     }
@@ -139,7 +148,7 @@ router.get('/kenken-leaderboard', (req, res) => {
     })));
 });
 
-// GET /api/student/scores — all KenKen, SAT and Ruler Game scores for the signed-in student
+// GET /api/student/scores — all KenKen, SAT, Ruler Game and Projections scores for the signed-in student
 router.get('/scores', (req, res) => {
     const kenken = db.prepare(
         'SELECT score, submitted_at FROM kenken_scores WHERE user_key = ? ORDER BY submitted_at'
@@ -153,7 +162,14 @@ router.get('/scores', (req, res) => {
     const measurement = db.prepare(
         'SELECT tier, target_32, correct, time_ms, score, submitted_at FROM measurement_scores WHERE user_key = ? ORDER BY submitted_at'
     ).all(req.userKey);
-    res.json({ kenken, sat, sat_math: satMath, measurement, measurement_status: Measurement.status(req.userKey) });
+    const projection = db.prepare(
+        'SELECT tier, task, correct, time_ms, score, submitted_at FROM projection_scores WHERE user_key = ? ORDER BY submitted_at'
+    ).all(req.userKey);
+    res.json({
+        kenken, sat, sat_math: satMath,
+        measurement, measurement_status: Measurement.status(req.userKey),
+        projection,  projection_status:  Projection.status(req.userKey),
+    });
 });
 
 module.exports = router;

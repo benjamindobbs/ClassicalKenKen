@@ -34,7 +34,8 @@
         // current tier (attempts from before they entered it don't count).
         // Score thresholds compare the window's average "pct" — each attempt's
         // points as a fraction of what that attempt could have earned — so one
-        // set of numbers works for every tier and any mix of targets.
+        // set of numbers works for every tier and any mix of targets. The
+        // movement itself is applied by server/tieredGame.js.
         PROGRESSION: {
             WINDOW: 20,
             PROMOTE_ACCURACY: 0.9,     // ≥ 90% correct in the window …
@@ -154,19 +155,6 @@
         return Number(r.score) / maxScore(tier, r.target_32);
     }
 
-    // Given the current tier and its recent attempts (newest first, each
-    // { correct, score, target_32 }), returns the tier the student should be on next.
-    function nextTier(tier, recent) {
-        const P = CONFIG.PROGRESSION;
-        const window = recent.slice(0, P.WINDOW);
-        if (window.length < P.WINDOW) return tier;
-        const acc = window.filter(r => r.correct).length / window.length;
-        const avgPct = window.reduce((a, r) => a + attemptPct(tier, r), 0) / window.length;
-        if (tier < MAX_TIER && acc >= P.PROMOTE_ACCURACY && avgPct >= P.PROMOTE_SCORE_PCT) return tier + 1;
-        if (tier > 1 && avgPct < P.DEMOTE_SCORE_PCT) return tier - 1;
-        return tier;
-    }
-
     // "1 3/16", "5/8", "4" — reduced mixed number, no inch mark.
     function formatLength(units) {
         const whole = Math.floor(units / UNITS_PER_INCH);
@@ -187,7 +175,7 @@
     const api = {
         RULER_INCHES, UNITS_PER_INCH, CONFIG, TIERS, MAX_TIER, DENOMINATOR_LABELS,
         clampTier, tierDef, denominatorOf, targetsFor, isValidTarget, isValidGuess,
-        pickTarget, snap, tierBase, maxScore, parMs, timeFactor, scoreAttempt, attemptPct, nextTier,
+        pickTarget, snap, tierBase, maxScore, parMs, timeFactor, scoreAttempt, attemptPct,
         formatLength, denominatorLabel,
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
