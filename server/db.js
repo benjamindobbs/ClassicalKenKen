@@ -1295,6 +1295,27 @@ db.exec(`
 `);
 try { db.prepare('ALTER TABLE classes ADD COLUMN required_projection_count INTEGER NOT NULL DEFAULT 1').run(); } catch { /* already exists */ }
 
+// SAT requirement mode (per class, covers both SAT English and SAT Math):
+// 'correct' is the original "N correct answers / day"; 'accuracy' also
+// requires sat_accuracy_pct correct over the last sat_accuracy_window answers
+// at the moment the count is reached (server/satAccuracy.js) — so
+// spam-guessing can't pile up correct answers toward the requirement.
+try { db.prepare("ALTER TABLE classes ADD COLUMN sat_requirement_mode TEXT NOT NULL DEFAULT 'correct'").run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE classes ADD COLUMN sat_accuracy_pct INTEGER NOT NULL DEFAULT 50').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE classes ADD COLUMN sat_accuracy_window INTEGER NOT NULL DEFAULT 3').run(); } catch { /* already exists */ }
+
+// When /api/sat[-math]/next last served each student a question, so /score
+// can discard answers submitted too fast to have been read (server/satPace.js).
+// One row per student per subject, overwritten on every serve.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS sat_serves (
+        user_key  TEXT    NOT NULL REFERENCES users(user_key),
+        subject   TEXT    NOT NULL CHECK(subject IN ('english', 'math')),
+        served_at INTEGER NOT NULL,
+        PRIMARY KEY (user_key, subject)
+    );
+`);
+
 // Question image migration: fix truncated English skill names, clear stale
 // English and math reports once. See englishBankMigration.js.
 {

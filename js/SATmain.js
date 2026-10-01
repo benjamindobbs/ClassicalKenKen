@@ -172,7 +172,7 @@ function renderRationale(el, text) {
     });
 }
 
-function submit() {
+async function submit() {
     document.getElementById('A').disabled = true;
     document.getElementById('B').disabled = true;
     document.getElementById('C').disabled = true;
@@ -182,13 +182,16 @@ function submit() {
     const question = json[roll];
     const correct = selectedAnswer === question.Answer;
 
-    writeScore(
+    const result = await writeScore(
         correct ? 1 : 0,
         currentDomainIdx,
         question.Skill || '',
         question.Difficulty || currentDifficulty,
         assessmentType
     );
+    // Answered too fast to have been read: the server discarded it, so
+    // don't reveal the answer; SatPace locks the next question instead.
+    if (result && result.flagged) { SatPace.showTooFast(result.min_ms); return; }
 
     if (!correct) {
         document.getElementById(selectedAnswer).closest('.answer-option').style.background = '#fecaca';
@@ -223,6 +226,7 @@ async function nextQuestion() {
     });
     selectedAnswer = '';
     document.getElementById('submit').disabled = true;
+    SatPace.onQuestionShown();
 }
 
 // ── Session summary ──────────────────────────────────────────────────────────

@@ -46,15 +46,13 @@ function _renderPill(type) {
     if (!el || !_dpData?.settings) { if (el) el.style.display = 'none'; return; }
     if (!Activities.includes(_dpData.settings.required_activity, type)) { el.style.display = 'none'; return; }
 
-    const a        = _dpActivity(type);
-    const required = _dpData.settings[a.countField] ?? 1;
-    const done     = Math.min(_dpData.today[a.todayKey] ?? 0, required);
-    const isDone   = done >= required;
+    const { isDone, text } = Activities.todayStatus(_dpData, type);
 
     el.className = 'daily-pill ' + (isDone ? 'daily-pill--done' : 'daily-pill--active');
     el.style.display = '';
     const countEl = el.querySelector('.dp-count');
-    if (countEl) countEl.textContent = isDone ? `${done} / ${required} ✓` : `${done} / ${required}`;
+    if (countEl) countEl.textContent = text;
+    el.title = Activities.accuracyRule(_dpData.settings, type);
 }
 
 function _pillPlusOne() {

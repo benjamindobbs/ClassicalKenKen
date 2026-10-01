@@ -5,6 +5,7 @@ const { firstNameLastInitial, kenkenLeaderboard } = require('../leaderboard');
 const Activities      = require('../../js/activities');
 const Measurement     = require('../measurement');
 const Projection      = require('../projection');
+const { accuracyProgress } = require('../satAccuracy');
 
 const router = Router();
 router.use(requireAuth);
@@ -18,6 +19,8 @@ router.get('/classes', (req, res) => {
                c.required_activity, c.required_kenken_count,
                c.required_sat_count, c.required_sat_math_count, c.required_measurement_count,
                c.required_projection_count,
+               c.sat_requirement_mode, c.sat_accuracy_pct,
+               c.sat_accuracy_window,
                c.sat_english_domains, c.sat_math_domains
         FROM class_students cs
         JOIN classes c ON c.id = cs.class_id
@@ -33,7 +36,9 @@ router.get('/classes', (req, res) => {
 function resolveScopeClass(userKey, qClass) {
     const cols = `c.id AS class_id, c.assessment_type,
                   c.required_activity, c.required_kenken_count, c.required_sat_count, c.required_sat_math_count,
-                  c.required_measurement_count, c.required_projection_count`;
+                  c.required_measurement_count, c.required_projection_count,
+                  c.sat_requirement_mode, c.sat_accuracy_pct,
+                  c.sat_accuracy_window`;
     if (qClass != null && qClass !== '' && qClass !== 'none') {
         const row = db.prepare(`
             SELECT ${cols}
@@ -78,6 +83,9 @@ router.get('/daily-progress', (req, res) => {
         required_sat_math_count: classRow.required_sat_math_count,
         required_measurement_count: classRow.required_measurement_count,
         required_projection_count: classRow.required_projection_count,
+        sat_requirement_mode: classRow.sat_requirement_mode || 'correct',
+        sat_accuracy_pct: classRow.sat_accuracy_pct,
+        sat_accuracy_window: classRow.sat_accuracy_window,
     };
 
     // Midnight UTC today
@@ -123,14 +131,33 @@ router.get('/daily-progress', (req, res) => {
     // treat it as done once either one is (js/activities.js).
     const required  = Activities.parse(settings.required_activity);
     const remaining = { kenken: 0, sat: 0, sat_math: 0, measurement: 0, projection: 0 };
+
+    // SAT accuracy mode: judged on today's full answer sequence, not just a
+    // count of correct ones (server/satAccuracy.js). remaining stays non-zero
+    // until it's met so "is today done" checks keep working unchanged.
+    let accuracy = null;
+    const SAT_TABLES = { sat: 'sat_scores', 'sat-math': 'sat_math_scores' };
     for (const a of Activities.ACTIVITIES) {
-        if (required.has(a.key)) remaining[a.todayKey] = Math.max(0, (settings[a.countField] ?? 1) - today[a.todayKey]);
+        if (!required.has(a.key)) continue;
+        if (Activities.usesAccuracy(settings, a.key)) {
+            const results = db.prepare(
+                `SELECT correct FROM ${SAT_TABLES[a.key]} WHERE user_key = ? AND submitted_at >= ?` + cf + ' ORDER BY submitted_at, id'
+            ).all(req.userKey, todayStart, ...cArg).map(r => r.correct);
+            const need = settings[a.countField] ?? 1;
+            accuracy = accuracy || {};
+            const acc = accuracy[a.todayKey] =
+                accuracyProgress(results, need, settings.sat_accuracy_window, settings.sat_accuracy_pct);
+            remaining[a.todayKey] = acc.met ? 0 : Math.max(1, need - acc.correct);
+        } else {
+            remaining[a.todayKey] = Math.max(0, (settings[a.countField] ?? 1) - today[a.todayKey]);
+        }
     }
 
     res.json({
         settings,
         today,
         remaining,
+        accuracy,
         assessment_type: classRow.assessment_type || 'sat',
         class_id:        scoped ? classRow.class_id : null,
     });

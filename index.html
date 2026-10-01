@@ -85,23 +85,21 @@
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (!res.ok) return;
-                const { settings, today } = await res.json();
-                if (!settings) return;
+                const data = await res.json();
+                if (!data.settings) return;
 
-                const required = Activities.parse(settings.required_activity);
+                const required = Activities.parse(data.settings.required_activity);
                 for (const a of Activities.ACTIVITIES) {
                     if (required.has(a.key))
-                        setBadge(BADGE_IDS[a.key], today[a.todayKey] ?? 0, settings[a.countField] ?? 1);
+                        setBadge(BADGE_IDS[a.key], Activities.todayStatus(data, a.key));
                 }
             } catch (_) {}
         })();
 
-        function setBadge(id, done, required) {
+        function setBadge(id, { isDone, text }) {
             const el = document.getElementById(id);
             if (!el) return;
-            const capped = Math.min(done, required);
-            const isDone = capped >= required;
-            el.textContent = isDone ? `${capped} / ${required} ✓` : `${capped} / ${required}`;
+            el.textContent = text;
             el.className   = 'daily-badge ' + (isDone ? 'daily-badge--done' : 'daily-badge--remaining');
             el.style.display = '';
         }

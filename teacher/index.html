@@ -112,8 +112,8 @@
         .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
         .settings-field { display: flex; flex-direction: column; gap: 0.375rem; }
         .settings-label { font-size: 0.8125rem; font-weight: 600; color: #475569; }
-        .settings-field input[type="number"] { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; width: 100%; box-sizing: border-box; }
-        .settings-field input[type="number"]:focus { border-color: var(--accent); }
+        .settings-field input[type="number"], .settings-field select { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9375rem; outline: none; width: 100%; box-sizing: border-box; }
+        .settings-field input[type="number"]:focus, .settings-field select:focus { border-color: var(--accent); }
         .settings-input-pct { display: flex; align-items: center; gap: 0.375rem; }
         .settings-input-pct input { flex: 1; }
         .settings-input-pct span { font-size: 0.9375rem; color: #64748b; }
@@ -1556,9 +1556,15 @@
             const e = document.getElementById('req-sat-english').checked;
             const r = document.getElementById('req-measurement').checked;
             const p = document.getElementById('req-projection').checked;
+            // SAT accuracy mode adds a required accuracy over the last N
+            // answers on top of the "correct / day" counts (server/satAccuracy.js).
+            const acc = document.getElementById('ar-sat-mode').value === 'accuracy';
             document.getElementById('ar-kenken-field').style.display      = k ? '' : 'none';
+            document.getElementById('ar-sat-mode-field').style.display    = m || e ? '' : 'none';
             document.getElementById('ar-sat-math-field').style.display    = m ? '' : 'none';
             document.getElementById('ar-sat-field').style.display         = e ? '' : 'none';
+            document.getElementById('ar-sat-accuracy-field').style.display = (m || e) && acc ? '' : 'none';
+            document.getElementById('ar-sat-window-field').style.display   = (m || e) && acc ? '' : 'none';
             document.getElementById('ar-measurement-field').style.display = r ? '' : 'none';
             document.getElementById('ar-projection-field').style.display  = p ? '' : 'none';
         }
@@ -1578,15 +1584,22 @@
             const required_sat_math_count    = parseInt(document.getElementById('ar-sat-math-count').value)    || 1;
             const required_measurement_count = parseInt(document.getElementById('ar-measurement-count').value) || 1;
             const required_projection_count  = parseInt(document.getElementById('ar-projection-count').value)  || 1;
-            await teacherFetch(`/api/teacher/classes/${classId}`, {
+            const sat_requirement_mode       = document.getElementById('ar-sat-mode').value;
+            const sat_accuracy_window        = parseInt(document.getElementById('ar-sat-window').value)        || 3;
+            const sat_accuracy_pct = Math.min(100, Math.max(1, parseInt(document.getElementById('ar-sat-accuracy').value) || 50));
+            document.getElementById('ar-sat-accuracy').value = sat_accuracy_pct;
+            const res = await teacherFetch(`/api/teacher/classes/${classId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     required_activity, required_kenken_count, required_sat_count,
                     required_sat_math_count, required_measurement_count, required_projection_count,
+                    sat_requirement_mode, sat_accuracy_pct, sat_accuracy_window,
                 }),
             });
             const msg = document.getElementById('ar-saved-msg');
+            msg.textContent = res.ok ? 'Saved' : 'Save failed';
+            msg.style.color = res.ok ? '#10b981' : '#dc2626';
             msg.style.display = '';
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }
@@ -1718,6 +1731,7 @@
             const reqSatEnglish  = reqSet.has('sat');
             const reqMeasurement = reqSet.has('measurement');
             const reqProjection  = reqSet.has('projection');
+            const satAccuracy    = cls.sat_requirement_mode === 'accuracy';
 
             const activeStudents    = cls.students.filter(s => !s.exited_on);
             const withdrawnCount    = cls.students.length - activeStudents.length;
@@ -1965,6 +1979,13 @@
                             <label class="settings-label">KenKen Correct / Day</label>
                             <input type="number" id="ar-kenken-count" min="1" step="1" value="${cls.required_kenken_count ?? 1}" />
                         </div>
+                        <div class="settings-field" id="ar-sat-mode-field" style="display:${reqSatMath || reqSatEnglish ? '' : 'none'}">
+                            <label class="settings-label">SAT Requirement</label>
+                            <select id="ar-sat-mode" onchange="updateActivityUI()">
+                                <option value="correct" ${satAccuracy ? '' : 'selected'}>Number correct</option>
+                                <option value="accuracy" ${satAccuracy ? 'selected' : ''}>Number correct + accuracy</option>
+                            </select>
+                        </div>
                         <div class="settings-field" id="ar-sat-math-field" style="display:${reqSatMath ? '' : 'none'}">
                             <label class="settings-label">SAT Math Correct / Day</label>
                             <input type="number" id="ar-sat-math-count" min="1" step="1" value="${cls.required_sat_math_count ?? 1}" />
@@ -1972,6 +1993,14 @@
                         <div class="settings-field" id="ar-sat-field" style="display:${reqSatEnglish ? '' : 'none'}">
                             <label class="settings-label">SAT English Correct / Day</label>
                             <input type="number" id="ar-sat-count" min="1" step="1" value="${cls.required_sat_count ?? 1}" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-accuracy-field" style="display:${(reqSatMath || reqSatEnglish) && satAccuracy ? '' : 'none'}">
+                            <label class="settings-label">SAT Minimum Accuracy (%)</label>
+                            <input type="number" id="ar-sat-accuracy" min="1" max="100" step="1" value="${cls.sat_accuracy_pct ?? 50}" />
+                        </div>
+                        <div class="settings-field" id="ar-sat-window-field" style="display:${(reqSatMath || reqSatEnglish) && satAccuracy ? '' : 'none'}">
+                            <label class="settings-label">Accuracy Over Last N Answers</label>
+                            <input type="number" id="ar-sat-window" min="1" step="1" value="${cls.sat_accuracy_window ?? 3}" />
                         </div>
                         <div class="settings-field" id="ar-measurement-field" style="display:${reqMeasurement ? '' : 'none'}">
                             <label class="settings-label">Ruler Game Correct / Day</label>
