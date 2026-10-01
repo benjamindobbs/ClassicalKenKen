@@ -68,32 +68,59 @@ test('depth step between side-by-side stacks is a visible line in the front view
 });
 
 // ── Isometric ────────────────────────────────────────────────────────────────
-test('isometric single cube: 9 visible edges, 3 hidden, 3 faces', () => {
+test('isometric single cube: 9 visible edges, no hidden ones needed', () => {
     const s = shape([1, 1, 1], [[0, 0, 0]]);
-    const edges = P.isoEdges(s);
-    assert.strictEqual(edges.length, 12);
-    assert.strictEqual(edges.filter(e => e.hidden).length, 3);
+    assert.strictEqual(P.isoEdges(s).length, 9);
+    assert.ok(P.isoEdges(s).every(e => !e.hidden));
+    assert.strictEqual(P.isoEdges(s, { allHidden: true }).filter(e => e.hidden).length, 3);
     assert.strictEqual(P.isoFaces(s.cubes).length, 3);
 });
 
-test('isometric: a cube hidden behind another has only hidden edges', () => {
-    // (0,1,0) is directly behind-left-below along the view line of (1,0,1)? Use a
-    // cube fully enclosed from the viewer's side by a 2×2×2 block's front.
+test('isometric 2×2×2 block: only the fully hidden back corner cube gets hidden lines', () => {
     const block = [];
     for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) block.push([x, y, z]);
-    const edges = P.isoEdges(shape([2, 2, 2], block));
-    // A solid 2×2×2 cube draws like one big cube: 9 visible long edges (18 unit
-    // segments) and 3 hidden long edges (6 unit segments).
-    assert.strictEqual(edges.filter(e => !e.hidden).length, 18);
-    assert.strictEqual(edges.filter(e => e.hidden).length, 6);
+    const s = shape([2, 2, 2], block);
+    assert.deepStrictEqual(P.isoObscuredCubes(block), [[0, 1, 0]]);
+    const edges = P.isoEdges(s);
+    assert.strictEqual(edges.filter(e => !e.hidden).length, 18);   // 9 long edges
+    assert.strictEqual(edges.filter(e => e.hidden).length, 3);     // the corner cube's 3 back edges
+    assert.strictEqual(P.isoEdges(s, { allHidden: true }).filter(e => e.hidden).length, 6);
+});
+
+test('isometric: a one-deep hole in a 3×3×2 block shows the hidden cube at its bottom', () => {
+    const cubes = [];
+    for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) for (let z = 0; z < 2; z++)
+        if (!(x === 1 && y === 1 && z === 1)) cubes.push([x, y, z]);
+    const obscured = P.isoObscuredCubes(cubes).map(c => c.join(','));
+    assert.ok(obscured.includes('1,1,0'), 'cube under the hole is fully hidden');
+    // Its top face (the hole's floor) is outlined in hidden lines.
+    const floor = [[1, 1, 1], [2, 1, 1], [2, 2, 1], [1, 2, 1]].map(P.isoXY);
+    const near = (p, q) => Math.abs(p[0] - q[0]) < 1e-9 && Math.abs(p[1] - q[1]) < 1e-9;
+    const rim = P.isoEdges(shape([3, 3, 2], cubes)).filter(e => e.hidden &&
+        floor.some(q => near(q, e.a)) && floor.some(q => near(q, e.b)));
+    assert.ok(rim.length >= 2, `hole floor edges drawn hidden (${rim.length})`);
+    // Without the cube under the hole (a hole to the ground) nothing marks a floor there.
+    const through = cubes.filter(c => c.join(',') !== '1,1,0');
+    assert.ok(!P.isoObscuredCubes(through).map(c => c.join(',')).includes('1,1,0'));
+});
+
+test('isometric: a partly hidden cube gets no hidden lines', () => {
+    // A cube directly behind a two-high stack: part of its top still shows,
+    // so its hidden edges aren't drawn.
+    const cubes = [[0, 0, 0], [0, 0, 1], [0, 1, 0]];
+    assert.deepStrictEqual(P.isoObscuredCubes(cubes), []);
+    assert.ok(P.isoEdges(shape([2, 2, 2], cubes)).every(e => !e.hidden));
+    assert.ok(P.isoEdges(shape([2, 2, 2], cubes), { allHidden: true }).some(e => e.hidden), 'it does have hidden edges');
+    // One step left, back and down from a cube is exactly behind it — fully hidden.
+    assert.deepStrictEqual(P.isoObscuredCubes([[1, 0, 0], [1, 0, 1], [0, 1, 0]]), [[0, 1, 0]]);
 });
 
 test('isometric concave corner edges are visible', () => {
-    // L-shape on the floor: the inside corner edge faces the viewer.
-    const edges = P.isoEdges(shape([2, 2, 1], [[0, 0, 0], [1, 0, 0], [1, 1, 0]]));
+    // L-shape on the floor with the open corner at the front right, facing the viewer.
+    const edges = P.isoEdges(shape([2, 2, 1], [[0, 0, 0], [0, 1, 0], [1, 1, 0]]));
     const inner = P.isoXY([1, 1, 0]), innerTop = P.isoXY([1, 1, 1]);
     const e = edges.find(x => [x.a, x.b].every(pt => [inner, innerTop].some(q => Math.abs(q[0] - pt[0]) < 1e-9 && Math.abs(q[1] - pt[1]) < 1e-9)));
-    assert.ok(e, 'inside corner edge exists');
+    assert.ok(e && !e.hidden, 'inside corner edge is drawn and visible');
 });
 
 // ── Grading ──────────────────────────────────────────────────────────────────

@@ -28,7 +28,8 @@
     //       'mixed' (either, at random)
     // box: largest shape [W, D, H]; cubes: [min, max]
     // stacksOnly: every cube sits directly on the floor or another cube
-    // noHidden: generated shapes have no hidden lines in any view
+    // noHidden: generated shapes have no hidden lines in any view, and no
+    //           cube fully hidden in the isometric drawing
     // hiddenGraded: hidden lines must match in drawn answers
     // align: drawn views must line up with each other (drafting alignment)
     const TIERS = [
@@ -253,22 +254,55 @@
         return faces;
     }
 
+    // Cubes with no part of any face showing in the isometric drawing — the
+    // only cubes you couldn't know are there without hidden lines. On the
+    // isometric grid every face is exactly two triangles, each either fully
+    // seen or fully covered, so one point per triangle decides it.
+    const FACE_SAMPLES = {
+        //       which face             points on it (two triangle centres)
+        top:   { open: [0, 0, 1],  pts: (x, y, z) => [[x + 1/3, y + 1/3, z + 1], [x + 2/3, y + 2/3, z + 1]] },
+        front: { open: [0, -1, 0], pts: (x, y, z) => [[x + 2/3, y, z + 1/3], [x + 1/3, y, z + 2/3]] },
+        right: { open: [1, 0, 0],  pts: (x, y, z) => [[x + 1, y + 1/3, z + 1/3], [x + 1, y + 2/3, z + 2/3]] },
+    };
+    function isoObscuredCubes(cubes) {
+        const set = cubeSet(cubes);
+        return cubes.filter(([x, y, z]) => Object.values(FACE_SAMPLES).every(f =>
+            set.has(key3(x + f.open[0], y + f.open[1], z + f.open[2])) ||
+            f.pts(x, y, z).every(p => blocked(p, ISO_DIR, cubes))));
+    }
+
     // Edges of the drawing: [{ a: [x, y], b: [x, y], hidden }], visible winning
-    // over hidden where two land on the same spot.
-    function isoEdges(shape) {
+    // over hidden where two land on the same spot. Hidden edges are only kept
+    // when they belong to a fully obscured cube (isoObscuredCubes) — like a
+    // drafter, show what the drawing couldn't tell you otherwise. Pass
+    // { allHidden: true } to keep every hidden edge.
+    function isoEdges(shape, opts) {
+        const all = !!(opts && opts.allHidden);
+        const obscured = cubeSet(isoObscuredCubes(shape.cubes));
         const byKey = new Map();
         // Lattice coordinates (x + y, −x + y + 2z) are integers — exact keys.
         const lat = ([x, y, z]) => `${x + y},${-x + y + 2 * z}`;
         for (const edge of featureEdges(shape)) {
             const end = edge.p.slice(); end[edge.axis] += 1;
+            const hidden = edgeHidden(edge, ISO_DIR, shape.cubes);
+            if (hidden && !all && !touchesCube(edge, obscured)) continue;
             const [ka, kb] = [lat(edge.p), lat(end)].sort();
             const k = ka + '|' + kb;
-            const hidden = edgeHidden(edge, ISO_DIR, shape.cubes);
             const prev = byKey.get(k);
             if (!prev) byKey.set(k, { a: isoXY(edge.p), b: isoXY(end), hidden });
             else if (!hidden) prev.hidden = false;
         }
         return [...byKey.values()];
+    }
+
+    // Is any of the four cube positions around this edge in the set?
+    function touchesCube(edge, set) {
+        const [a, b] = [0, 1, 2].filter(i => i !== edge.axis);
+        for (const da of [-1, 0]) for (const db of [-1, 0]) {
+            const c = edge.p.slice(); c[a] += da; c[b] += db;
+            if (set.has(key3(...c))) return true;
+        }
+        return false;
     }
 
     // ── Grading ──────────────────────────────────────────────────────────────
@@ -403,7 +437,7 @@
 
     function meetsTier(shape, def, views, strict) {
         if (VIEW_NAMES.filter(n => !plainView(views[n])).length < 2) return false;
-        if (strict && def.noHidden && hasHiddenLines(views)) return false;
+        if (strict && def.noHidden && (hasHiddenLines(views) || isoObscuredCubes(shape.cubes).length)) return false;
         return true;
     }
 
@@ -459,7 +493,7 @@
         clampTier, tierDef, tierBase, maxScore, parMs, timeFactor, scoreAttempt, attemptPct,
         cubeSet, floatingCubes, rotateZ, featureEdges,
         computeView, computeViews, hasHiddenLines, segKey,
-        isoXY, isoFaces, isoEdges,
+        isoXY, isoFaces, isoEdges, isoObscuredCubes,
         offsetOf, viewsMatch, viewsAligned, diffView, gradeDrawing, gradeBuild,
         generateShape, pickTask, isValidShape, plainView,
         viewToJSON, viewFromJSON,

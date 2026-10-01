@@ -393,7 +393,6 @@ function renderGrid(name) {
 function drawIso() {
     const svg = document.getElementById('pj-iso');
     svg.innerHTML = '';
-    const def = PC.tierDef(pj.tier);
     const [W, D, H] = pj.shape.box;
     // Scale from the tier's whole box (so cube size is steady within a tier),
     // framed tightly on this shape.
@@ -417,13 +416,11 @@ function drawIso() {
     for (const f of PC.isoFaces(pj.shape.cubes)) {
         svgEl('polygon', { points: f.pts.map(T).map(p => p.join(',')).join(' '), class: `pj-face-${f.face}` }, svg);
     }
+    // Only hidden lines that matter: edges of cubes the drawing hides completely.
     const edges = PC.isoEdges(pj.shape);
-    // Hidden lines appear from the tier where they're introduced.
-    if (!def.noHidden) {
-        for (const e of edges.filter(e => e.hidden)) {
-            const [a, b] = [T(e.a), T(e.b)];
-            svgEl('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'pj-iso-line pj-iso-line--hidden' }, svg);
-        }
+    for (const e of edges.filter(e => e.hidden)) {
+        const [a, b] = [T(e.a), T(e.b)];
+        svgEl('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'pj-iso-line pj-iso-line--hidden' }, svg);
     }
     for (const e of edges.filter(e => !e.hidden)) {
         const [a, b] = [T(e.a), T(e.b)];
