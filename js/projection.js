@@ -90,10 +90,12 @@ function emptyAnswerView(size) {
 
 function nextProblem() {
     clearTimeout(pj.advanceId);
+    const linked = takeLinkedShape();   // may switch the tier
     const def = PC.tierDef(pj.tier);
     // Builder tiers arrive with the build task; until then practice drawing.
     pj.task = 'draw';
-    pj.shape = PC.generateShape(pj.tier);
+    pj.shape = linked || PC.generateShape(pj.tier);
+    document.getElementById('pj-code').textContent = PC.encodeShape(pj.shape);
     pj.views = PC.computeViews(pj.shape);
     pj.answer = Object.fromEntries(PC.VIEW_NAMES.map(n => [n, emptyAnswerView(pj.views[n].size)]));
     pj.diffs = null;
@@ -121,6 +123,38 @@ function nextProblem() {
     clearInterval(pj.timerId);
     pj.timerId = setInterval(renderTimer, 500);
     renderTimer();
+}
+
+// A problem opened from a link (?shape=CODE[&tier=N]) is used once, for the
+// first problem — for reporting and replaying a specific shape.
+let _linkedShape = (() => {
+    try {
+        const q = new URLSearchParams(location.search);
+        const shape = PC.decodeShape(q.get('shape'));
+        if (!shape) return null;
+        const byBox = PC.TIERS.find(t => t && t.box.join() === shape.box.join());
+        const tier = PC.clampTier(q.get('tier') || (byBox ? byBox.tier : 1));
+        return { shape, tier };
+    } catch (_) { return null; }
+})();
+
+function takeLinkedShape() {
+    if (!_linkedShape) return null;
+    const { shape, tier } = _linkedShape;
+    _linkedShape = null;
+    if (tier !== pj.tier) {
+        pj.tier = tier;
+        const sel = document.getElementById('pj-local-tier-select');
+        if (sel) sel.value = String(tier);
+        renderTierLabel();
+    }
+    return shape;
+}
+
+function copyProblemCode() {
+    const code = document.getElementById('pj-code').textContent;
+    const done = () => setFeedback(`Copied problem code ${code}`, '');
+    try { navigator.clipboard.writeText(code).then(done, done); } catch (_) { done(); }
 }
 
 function subtitleFor(def) {

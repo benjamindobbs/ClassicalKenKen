@@ -1822,3 +1822,5 @@ body.skill-map {
 @media (max-width: 720px) {
     .pj-sheet { grid-template-columns: auto; grid-template-areas: "iso" "top" "front" "right"; justify-items: center; }
 }
+.pj-code { text-align: center; font-size: 0.75rem; color: #94a3b8; margin: 0.75rem 0 0; font-variant-numeric: tabular-nums; }
+.pj-code span { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #64748b; user-select: all; }

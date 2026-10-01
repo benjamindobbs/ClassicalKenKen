@@ -472,6 +472,27 @@
         return floatingCubes(shape.cubes).length === 0;
     }
 
+    // ── Problem codes ────────────────────────────────────────────────────────
+    // A short code for a shape, for reporting and reloading a problem:
+    // 'WDH-<base36 bitmask>', bit index x + W·(y + D·z).
+    function encodeShape(shape) {
+        const [W, D] = shape.box;
+        let bits = 0n;
+        for (const [x, y, z] of shape.cubes) bits |= 1n << BigInt(x + W * (y + D * z));
+        return `${shape.box.join('')}-${bits.toString(36)}`;
+    }
+    function decodeShape(code) {
+        const m = /^(\d)(\d)(\d)-([0-9a-z]+)$/i.exec(String(code || '').trim());
+        if (!m) return null;
+        const [W, D, H] = [m[1], m[2], m[3]].map(Number);
+        let bits = 0n;
+        for (const ch of m[4].toLowerCase()) bits = bits * 36n + BigInt(parseInt(ch, 36));
+        const cubes = [];
+        for (let z = 0; z < H; z++) for (let y = 0; y < D; y++) for (let x = 0; x < W; x++)
+            if ((bits >> BigInt(x + W * (y + D * z))) & 1n) cubes.push([x, y, z]);
+        return cubes.length ? { box: [W, D, H], cubes } : null;
+    }
+
     // ── JSON forms (for storage and the API) ─────────────────────────────────
     function viewToJSON(view) {
         return {
@@ -496,7 +517,7 @@
         isoXY, isoFaces, isoEdges, isoObscuredCubes,
         offsetOf, viewsMatch, viewsAligned, diffView, gradeDrawing, gradeBuild,
         generateShape, pickTask, isValidShape, plainView,
-        viewToJSON, viewFromJSON,
+        encodeShape, decodeShape, viewToJSON, viewFromJSON,
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.ProjectionCore = api;
