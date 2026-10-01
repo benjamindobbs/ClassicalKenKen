@@ -358,6 +358,28 @@
                 <div class="section-title">Ruler Game Tier Distribution</div>
                 <p class="lookup-note">Number of students currently on each tier.</p>
                 <div class="chart-card"><canvas id="all-rg-tier-chart"></canvas></div>
+
+                <div class="section-title">Projections Score Over Time</div>
+                <p class="lookup-note">Average score per day across all students (incorrect answers score 0).</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-pj-score-from" />
+                    <label>to</label><input type="date" id="all-pj-score-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllProjectionCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-pj-score-chart"></canvas></div>
+
+                <div class="section-title">Projections Accuracy by Tier</div>
+                <p class="lookup-note">Accuracy % on each tier, split into drawing views from an isometric and building an object from its views.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="all-pj-acc-from" />
+                    <label>to</label><input type="date" id="all-pj-acc-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderAllProjectionCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="all-pj-acc-chart"></canvas></div>
+
+                <div class="section-title">Projections Tier Distribution</div>
+                <p class="lookup-note">Number of students currently on each tier.</p>
+                <div class="chart-card"><canvas id="all-pj-tier-chart"></canvas></div>
             </div>
         </div>
 
@@ -446,9 +468,36 @@
                     </div>
                     <div class="chart-card"><canvas id="rg-tier-chart"></canvas></div>
 
+                    <div class="section-title">Projections Score Over Time <span class="section-count" id="pj-meta"></span></div>
+                    <p class="lookup-note">Average score per day (incorrect answers score 0).</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="pj-score-from" />
+                        <label>to</label><input type="date" id="pj-score-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-score-chart"></canvas></div>
+
+                    <div class="section-title">Projections Accuracy by Tier</div>
+                    <p class="lookup-note">Accuracy % on each tier, drawing views and building from views.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="pj-acc-from" />
+                        <label>to</label><input type="date" id="pj-acc-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-acc-chart"></canvas></div>
+
+                    <div class="section-title">Projections Tier Over Time</div>
+                    <p class="lookup-note">Highest tier played each day.</p>
+                    <div class="date-range-row">
+                        <label>From</label><input type="date" id="pj-tier-from" />
+                        <label>to</label><input type="date" id="pj-tier-to" />
+                        <button class="btn btn-outline btn-sm" onclick="renderStudentProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-tier-chart"></canvas></div>
+
                     <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
                         <div class="section-title" style="color:#dc2626">Danger Zone</div>
-                        <p style="font-size:0.875rem;color:#64748b;margin:0.375rem 0 0.875rem">Permanently deletes all KenKen, SAT and Ruler Game scores for this user. The student will need to sign in again and will start fresh. This cannot be undone.</p>
+                        <p style="font-size:0.875rem;color:#64748b;margin:0.375rem 0 0.875rem">Permanently deletes all KenKen, SAT, Ruler Game and Projections scores for this user. The student will need to sign in again and will start fresh. This cannot be undone.</p>
                         <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="clearUserData()">Clear All Data for This Student</button>
                     </div>
                 </div>
@@ -726,6 +775,7 @@
 
     <script src="../js/activities.js"></script>
     <script src="../js/measurement-core.js"></script>
+    <script src="../js/projection-core.js"></script>
     <script src="../js/tiercharts.js"></script>
     <script>
         // ── Teacher Auth ──────────────────────────────────────────────────────
@@ -866,6 +916,19 @@
                 document.getElementById(id + '-to').value   = syTo;
             }
             renderAllRulerCharts();
+
+            for (const id of ['all-pj-score', 'all-pj-acc']) {
+                document.getElementById(id + '-from').value = syFrom;
+                document.getElementById(id + '-to').value   = syTo;
+            }
+            renderAllProjectionCharts();
+        }
+
+        function renderAllProjectionCharts() {
+            const rows = rawData.projection || [];
+            buildKenKenChart('all-pj-score-chart', rows, 'all-pj-score-from', 'all-pj-score-to');
+            buildProjectionAccuracyChart('all-pj-acc-chart', rows, 'all-pj-acc-from', 'all-pj-acc-to');
+            buildTierChart('all-pj-tier-chart', TierCharts.tierDistribution(rawData.projection_progress || [], ProjectionCore.MAX_TIER));
         }
 
         function renderAllRulerCharts() {
@@ -1077,6 +1140,10 @@
 
         function buildRulerTierDistChart(canvasId, progressRows) {
             buildTierChart(canvasId, TierCharts.tierDistribution(progressRows, MeasurementCore.MAX_TIER));
+        }
+
+        function buildProjectionAccuracyChart(canvasId, rows, fromId, toId) {
+            buildTierChart(canvasId, TierCharts.projectionAccuracy(filterByDateRange(rows, fromId, toId), ProjectionCore.MAX_TIER));
         }
 
         function buildRulerTierTimeChart(canvasId, rows, fromId, toId) {
@@ -1332,6 +1399,7 @@
         let kenkenRows = [];
         let mathRows   = [];
         let rulerRows  = [];
+        let projRows   = [];
 
         function doLookup() {
             const key   = document.getElementById('lookup-input').value.trim();
@@ -1344,8 +1412,9 @@
             kenkenRows = rawData.kenken.filter(r => r.user_key === key);
             mathRows   = (rawData.sat_math || []).filter(r => r.user_key === key);
             rulerRows  = (rawData.measurement || []).filter(r => r.user_key === key);
+            projRows   = (rawData.projection  || []).filter(r => r.user_key === key);
 
-            if (lookupRows.length === 0 && kenkenRows.length === 0 && mathRows.length === 0 && rulerRows.length === 0) {
+            if (lookupRows.length === 0 && kenkenRows.length === 0 && mathRows.length === 0 && rulerRows.length === 0 && projRows.length === 0) {
                 resEl.style.display = 'none';
                 msgEl.textContent = `No data found for user key "${key}".`;
                 msgEl.style.display = '';
@@ -1388,6 +1457,18 @@
             } else {
                 document.getElementById('rg-meta').textContent = '';
             }
+            if (projRows.length > 0) {
+                const pDates = projRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                for (const id of ['pj-score', 'pj-acc', 'pj-tier']) {
+                    document.getElementById(id + '-from').value = pDates[0];
+                    document.getElementById(id + '-to').value   = pDates[pDates.length - 1];
+                }
+                const cur = (rawData.projection_progress || []).find(p => p.user_key === key);
+                document.getElementById('pj-meta').textContent =
+                    `(${projRows.length} answers${cur ? ` · currently Tier ${cur.tier}` : ''})`;
+            } else {
+                document.getElementById('pj-meta').textContent = '';
+            }
 
             renderStudentKenKenChart();
             buildSATLineChart('line-chart', lookupRows, 'line-from', 'line-to');
@@ -1395,6 +1476,13 @@
             buildSATLineChart('math-line-chart', mathRows, 'math-line-from', 'math-line-to', MATH_DOMAIN_DISPLAY);
             renderStudentMathBarChart();
             renderStudentRulerCharts();
+            renderStudentProjectionCharts();
+        }
+
+        function renderStudentProjectionCharts() {
+            buildKenKenChart('pj-score-chart', projRows, 'pj-score-from', 'pj-score-to');
+            buildProjectionAccuracyChart('pj-acc-chart', projRows, 'pj-acc-from', 'pj-acc-to');
+            buildTierChart('pj-tier-chart', TierCharts.tierOverTime(filterByDateRange(projRows, 'pj-tier-from', 'pj-tier-to'), ProjectionCore.MAX_TIER));
         }
 
         function renderStudentRulerCharts() {
@@ -1588,7 +1676,8 @@
         function showClassesList() {
             // Destroy any class charts
             ['class-kenken-chart','class-line-chart','class-bar-chart','class-math-line-chart','class-math-bar-chart',
-             'class-rg-score-chart','class-rg-acc-chart','class-rg-tier-chart'].forEach(destroyChart);
+             'class-rg-score-chart','class-rg-acc-chart','class-rg-tier-chart',
+             'class-pj-score-chart','class-pj-acc-chart','class-pj-tier-chart'].forEach(destroyChart);
             currentClassId = null;
             classStudents  = [];
             showWithdrawn  = false;
@@ -1740,6 +1829,28 @@
                 <div class="section-title">Class Ruler Game Tier Distribution</div>
                 <p class="lookup-note">Number of linked students currently on each tier.</p>
                 <div class="chart-card"><canvas id="class-rg-tier-chart"></canvas></div>
+
+                <div class="section-title">Class Projections Score Over Time</div>
+                <p class="lookup-note">Average daily score across all linked students (incorrect answers score 0).</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-pj-score-from" />
+                    <label>to</label><input type="date" id="class-pj-score-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassProjectionCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-pj-score-chart"></canvas></div>
+
+                <div class="section-title">Class Projections Accuracy by Tier</div>
+                <p class="lookup-note">Accuracy % on each tier across all linked students, drawing views and building from views.</p>
+                <div class="date-range-row">
+                    <label>From</label><input type="date" id="class-pj-acc-from" />
+                    <label>to</label><input type="date" id="class-pj-acc-to" />
+                    <button class="btn btn-outline btn-sm" onclick="renderClassProjectionCharts()">Apply</button>
+                </div>
+                <div class="chart-card"><canvas id="class-pj-acc-chart"></canvas></div>
+
+                <div class="section-title">Class Projections Tier Distribution</div>
+                <p class="lookup-note">Number of linked students currently on each tier.</p>
+                <div class="chart-card"><canvas id="class-pj-tier-chart"></canvas></div>
             ` : '';
 
             const exportHTML = cls.students.length > 0 ? `
@@ -2119,6 +2230,25 @@
                 }
             }
             renderClassRulerCharts();
+
+            const pjRows = (rawData.projection || []).filter(r => userKeys.has(r.user_key));
+            if (pjRows.length > 0) {
+                const pDates = pjRows.map(r => new Date(r.submitted_at).toISOString().substring(0, 10)).sort();
+                for (const id of ['class-pj-score', 'class-pj-acc']) {
+                    document.getElementById(id + '-from').value = pDates[0];
+                    document.getElementById(id + '-to').value   = pDates[pDates.length - 1];
+                }
+            }
+            renderClassProjectionCharts();
+        }
+
+        function renderClassProjectionCharts() {
+            const userKeys = new Set(classStudents.filter(s => s.user_key).map(s => s.user_key));
+            const rows = (rawData.projection || []).filter(r => userKeys.has(r.user_key));
+            buildKenKenChart('class-pj-score-chart', rows, 'class-pj-score-from', 'class-pj-score-to');
+            buildProjectionAccuracyChart('class-pj-acc-chart', rows, 'class-pj-acc-from', 'class-pj-acc-to');
+            buildTierChart('class-pj-tier-chart', TierCharts.tierDistribution(
+                (rawData.projection_progress || []).filter(p => userKeys.has(p.user_key)), ProjectionCore.MAX_TIER));
         }
 
         function renderClassRulerCharts() {

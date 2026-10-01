@@ -318,6 +318,35 @@
                     </div>
                     <div class="chart-card"><canvas id="rg-tier-chart"></canvas></div>
                 </div>
+
+                <div id="pj-charts" style="display:none">
+                    <div class="section-heading">Projections Score Over Time <span id="pj-current-tier" class="chart-subtitle"></span></div>
+                    <p class="chart-subtitle">Average score per day (incorrect answers score 0)</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="pj-score-from" />
+                        <label>to</label><input type="date" id="pj-score-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-score-chart"></canvas></div>
+
+                    <div class="section-heading">Projections Accuracy by Tier</div>
+                    <p class="chart-subtitle">Accuracy % on each tier, drawing views and building from views</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="pj-acc-from" />
+                        <label>to</label><input type="date" id="pj-acc-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-acc-chart"></canvas></div>
+
+                    <div class="section-heading">Projections Tier Over Time</div>
+                    <p class="chart-subtitle">Highest tier played each day</p>
+                    <div class="date-row">
+                        <label>From</label><input type="date" id="pj-tier-from" />
+                        <label>to</label><input type="date" id="pj-tier-to" />
+                        <button class="btn btn-outline btn-xs" onclick="renderProjectionCharts()">Apply</button>
+                    </div>
+                    <div class="chart-card"><canvas id="pj-tier-chart"></canvas></div>
+                </div>
             </div>
 
         </div>
@@ -326,6 +355,7 @@
     <script src="../js/auth.js"></script>
     <script src="../js/activities.js"></script>
     <script src="../js/measurement-core.js"></script>
+    <script src="../js/projection-core.js"></script>
     <script src="../js/tiercharts.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
@@ -349,6 +379,7 @@
         let satData    = [];
         let mathData   = [];
         let rulerData  = [];
+        let projData   = [];
         const chartInst = {};
 
         function hexToRgba(hex, alpha) {
@@ -474,8 +505,9 @@
             satData    = data.sat       || [];
             mathData   = data.sat_math  || [];
             rulerData  = data.measurement || [];
+            projData   = data.projection  || [];
 
-            if (!kenkenData.length && !satData.length && !mathData.length && !rulerData.length) return;
+            if (!kenkenData.length && !satData.length && !mathData.length && !rulerData.length && !projData.length) return;
             document.getElementById('charts-section').style.display = '';
 
             const { from: syFrom, to: syTo } = schoolYearRange();
@@ -514,13 +546,23 @@
                 document.getElementById('rg-charts').style.display = '';
                 renderRulerCharts();
             }
+            if (projData.length) {
+                for (const id of ['pj-score', 'pj-acc', 'pj-tier']) {
+                    document.getElementById(id + '-from').value = syFrom;
+                    document.getElementById(id + '-to').value   = syTo;
+                }
+                const st = data.projection_status;
+                document.getElementById('pj-current-tier').textContent = st ? `· currently Tier ${st.tier} of ${st.max_tier}` : '';
+                document.getElementById('pj-charts').style.display = '';
+                renderProjectionCharts();
+            }
         }
 
-        // ── Ruler Game charts ─────────────────────────────────────────────────
-        function rulerRowsIn(fromId, toId) {
+        // ── Tiered game charts (Ruler Game, Projections) ──────────────────────
+        function rowsInRange(data, fromId, toId) {
             const from = document.getElementById(fromId).value;
             const to   = document.getElementById(toId).value;
-            return rulerData.filter(r => {
+            return data.filter(r => {
                 const d = new Date(r.submitted_at).toISOString().slice(0,10);
                 return (!from || d >= from) && (!to || d <= to);
             });
@@ -531,9 +573,20 @@
                 destroyChart(id);
                 chartInst[id] = new Chart(document.getElementById(id).getContext('2d'), config);
             };
-            draw('rg-score-chart', TierCharts.scoreOverTime(rulerRowsIn('rg-score-from', 'rg-score-to')));
-            draw('rg-acc-chart',   TierCharts.rulerAccuracy(rulerRowsIn('rg-acc-from', 'rg-acc-to')));
-            draw('rg-tier-chart',  TierCharts.tierOverTime(rulerRowsIn('rg-tier-from', 'rg-tier-to'), MeasurementCore.MAX_TIER));
+            draw('rg-score-chart', TierCharts.scoreOverTime(rowsInRange(rulerData, 'rg-score-from', 'rg-score-to')));
+            draw('rg-acc-chart',   TierCharts.rulerAccuracy(rowsInRange(rulerData, 'rg-acc-from', 'rg-acc-to')));
+            draw('rg-tier-chart',  TierCharts.tierOverTime(rowsInRange(rulerData, 'rg-tier-from', 'rg-tier-to'), MeasurementCore.MAX_TIER));
+        }
+
+        // ── Projections charts ────────────────────────────────────────────────
+        function renderProjectionCharts() {
+            const draw = (id, config) => {
+                destroyChart(id);
+                chartInst[id] = new Chart(document.getElementById(id).getContext('2d'), config);
+            };
+            draw('pj-score-chart', TierCharts.scoreOverTime(rowsInRange(projData, 'pj-score-from', 'pj-score-to')));
+            draw('pj-acc-chart',   TierCharts.projectionAccuracy(rowsInRange(projData, 'pj-acc-from', 'pj-acc-to'), ProjectionCore.MAX_TIER));
+            draw('pj-tier-chart',  TierCharts.tierOverTime(rowsInRange(projData, 'pj-tier-from', 'pj-tier-to'), ProjectionCore.MAX_TIER));
         }
 
         function renderKenKenChart() {

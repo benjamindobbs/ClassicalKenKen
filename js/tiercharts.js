@@ -126,5 +126,47 @@ const TierCharts = (function () {
         return accuracyBars(rows, buckets, r => MeasurementCore.denominatorLabel(Number(r.target_32)), 'Target fraction');
     }
 
-    return { scoreOverTime, accuracyBars, tierDistribution, tierOverTime, rulerAccuracy };
+    // Projections: accuracy per tier, drawing views and building side by side
+    // (rows carry task 'draw' | 'build'). Tiers with no answers of a kind
+    // leave that bar out.
+    function projectionAccuracy(rows, maxTier) {
+        const tiers = Array.from({ length: maxTier }, (_, i) => i + 1);
+        const tasks = [
+            { key: 'draw',  label: 'Draw the views', color: '#10b981' },
+            { key: 'build', label: 'Build from views', color: '#0ea5e9' },
+        ];
+        const agg = {};
+        rows.forEach(r => {
+            const a = (agg[`${r.task}|${Number(r.tier)}`] ||= { correct: 0, total: 0 });
+            a.correct += Number(r.correct);
+            a.total   += 1;
+        });
+        const cell = (task, tier) => agg[`${task}|${tier}`];
+        return {
+            type: 'bar',
+            data: {
+                labels: tiers.map(t => 'Tier ' + t),
+                datasets: tasks.map(t => ({
+                    label: t.label, backgroundColor: t.color, borderRadius: 4, skipNull: true,
+                    data: tiers.map(tier => { const a = cell(t.key, tier); return a ? Math.round(a.correct / a.total * 100) : null; }),
+                })),
+            },
+            options: {
+                ...base,
+                plugins: {
+                    legend: { display: true, position: 'bottom' },
+                    tooltip: { callbacks: { label: i => {
+                        const a = cell(tasks[i.datasetIndex].key, tiers[i.dataIndex]);
+                        return `${tasks[i.datasetIndex].label}: ${i.raw}% correct (${a.correct}/${a.total})`;
+                    } } },
+                },
+                scales: {
+                    y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Accuracy' } },
+                    x: { title: { display: true, text: 'Tier' } },
+                },
+            },
+        };
+    }
+
+    return { scoreOverTime, accuracyBars, tierDistribution, tierOverTime, rulerAccuracy, projectionAccuracy };
 })();
