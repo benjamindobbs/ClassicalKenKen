@@ -32,13 +32,16 @@
     //           cube fully hidden in the isometric drawing
     // hiddenGraded: hidden lines must match in drawn answers
     // align: drawn views must line up with each other (drafting alignment)
+    // hiddenBehind: false → no fully hidden cube sits exactly behind a visible
+    //           one in the isometric drawing (its dashes would trace that
+    //           cube's outline) — kept out of the tiers that introduce hidden lines
     const TIERS = [
         null,
         { tier: 1, task: 'draw',  box: [2, 2, 2], cubes: [3, 4],   stacksOnly: true,  noHidden: true,  hiddenGraded: false, align: false },
         { tier: 2, task: 'draw',  box: [3, 3, 2], cubes: [4, 8],   stacksOnly: true,  noHidden: true,  hiddenGraded: false, align: false },
         { tier: 3, task: 'build', box: [3, 3, 2], cubes: [4, 8],   stacksOnly: true,  noHidden: true,  hiddenGraded: false, align: false },
-        { tier: 4, task: 'draw',  box: [3, 3, 3], cubes: [6, 12],  stacksOnly: false, noHidden: false, hiddenGraded: false, align: false },
-        { tier: 5, task: 'build', box: [3, 3, 3], cubes: [6, 12],  stacksOnly: false, noHidden: false, hiddenGraded: false, align: false },
+        { tier: 4, task: 'draw',  box: [3, 3, 3], cubes: [6, 12],  stacksOnly: false, noHidden: false, hiddenGraded: false, align: false, hiddenBehind: false },
+        { tier: 5, task: 'build', box: [3, 3, 3], cubes: [6, 12],  stacksOnly: false, noHidden: false, hiddenGraded: false, align: false, hiddenBehind: false },
         { tier: 6, task: 'draw',  box: [4, 4, 3], cubes: [8, 16],  stacksOnly: false, noHidden: false, hiddenGraded: true,  align: false },
         { tier: 7, task: 'mixed', box: [4, 4, 4], cubes: [10, 20], stacksOnly: false, noHidden: false, hiddenGraded: true,  align: true  },
         { tier: 8, task: 'mixed', box: [5, 5, 4], cubes: [12, 28], stacksOnly: false, noHidden: false, hiddenGraded: true,  align: true  },
@@ -271,6 +274,31 @@
             f.pts(x, y, z).every(p => blocked(p, ISO_DIR, cubes))));
     }
 
+    // Fully hidden cubes that sit exactly behind another cube in the drawing —
+    // a cube k steps along (+1, −1, +1) lands on the same spot on paper.
+    function isoHiddenBehind(cubes) {
+        const set = cubeSet(cubes);
+        const [W, D, H] = cubes.reduce((m, c) => m.map((v, i) => Math.max(v, c[i] + 1)), [0, 0, 0]);
+        const reach = Math.max(W, D, H);
+        return isoObscuredCubes(cubes).filter(([x, y, z]) => {
+            for (let k = 1; k <= reach; k++) if (set.has(key3(x + k, y - k, z + k))) return true;
+            return false;
+        });
+    }
+
+    // Floor squares with no cube on them, as isometric polygons — drawn first
+    // as a light grid so the drawing shows where the box's floor is.
+    function isoFloorTiles(shape) {
+        const set = cubeSet(shape.cubes);
+        const [W, D] = shape.box;
+        const tiles = [];
+        for (let x = 0; x < W; x++) for (let y = 0; y < D; y++) {
+            if (set.has(key3(x, y, 0))) continue;
+            tiles.push([[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]].map(isoXY));
+        }
+        return tiles;
+    }
+
     // Edges of the drawing: [{ a: [x, y], b: [x, y], hidden }], visible winning
     // over hidden where two land on the same spot. Hidden edges are only kept
     // when they belong to a fully obscured cube (isoObscuredCubes) — like a
@@ -438,6 +466,7 @@
     function meetsTier(shape, def, views, strict) {
         if (VIEW_NAMES.filter(n => !plainView(views[n])).length < 2) return false;
         if (strict && def.noHidden && (hasHiddenLines(views) || isoObscuredCubes(shape.cubes).length)) return false;
+        if (strict && def.hiddenBehind === false && isoHiddenBehind(shape.cubes).length) return false;
         return true;
     }
 
@@ -514,7 +543,7 @@
         clampTier, tierDef, tierBase, maxScore, parMs, timeFactor, scoreAttempt, attemptPct,
         cubeSet, floatingCubes, rotateZ, featureEdges,
         computeView, computeViews, hasHiddenLines, segKey,
-        isoXY, isoFaces, isoEdges, isoObscuredCubes,
+        isoXY, isoFaces, isoEdges, isoObscuredCubes, isoHiddenBehind, isoFloorTiles,
         offsetOf, viewsMatch, viewsAligned, diffView, gradeDrawing, gradeBuild,
         generateShape, pickTask, isValidShape, plainView,
         encodeShape, decodeShape, viewToJSON, viewFromJSON,

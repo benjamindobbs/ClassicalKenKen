@@ -429,7 +429,7 @@ function drawIso() {
     svg.innerHTML = '';
     const [W, D, H] = pj.shape.box;
     // Scale from the tier's whole box (so cube size is steady within a tier),
-    // framed tightly on this shape.
+    // framed on this shape and its floor.
     const extent = pts => [Math.min(...pts.map(c => c[0])), Math.max(...pts.map(c => c[0])),
                            Math.min(...pts.map(c => c[1])), Math.max(...pts.map(c => c[1]))];
     const boxCorners = [];
@@ -439,7 +439,9 @@ function drawIso() {
     const shapeCorners = pj.shape.cubes.flatMap(([x, y, z]) =>
         [[x, y, z], [x + 1, y, z], [x, y + 1, z], [x + 1, y + 1, z], [x, y, z + 1], [x + 1, y, z + 1], [x, y + 1, z + 1], [x + 1, y + 1, z + 1]]
             .map(PC.isoXY));
-    const [minX, maxX, minY, maxY] = extent(shapeCorners);
+    // …plus the floor grid, which covers the whole box footprint.
+    const floorCorners = [[0, 0, 0], [W, 0, 0], [W, D, 0], [0, D, 0]].map(PC.isoXY);
+    const [minX, maxX, minY, maxY] = extent(shapeCorners.concat(floorCorners));
     const pad = 8;
     const w = (maxX - minX) * scale + 2 * pad, h = (maxY - minY) * scale + 2 * pad;
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -447,6 +449,10 @@ function drawIso() {
     svg.setAttribute('height', h);
     const T = ([x, y]) => [pad + (x - minX) * scale, pad + (maxY - y) * scale];
 
+    // Light floor grid on the empty bottom-layer squares, drawn first so cubes cover it.
+    for (const tile of PC.isoFloorTiles(pj.shape)) {
+        svgEl('polygon', { points: tile.map(T).map(p => p.join(',')).join(' '), class: 'pj-floor' }, svg);
+    }
     for (const f of PC.isoFaces(pj.shape.cubes)) {
         svgEl('polygon', { points: f.pts.map(T).map(p => p.join(',')).join(' '), class: `pj-face-${f.face}` }, svg);
     }

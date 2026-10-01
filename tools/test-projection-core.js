@@ -123,6 +123,38 @@ test('isometric concave corner edges are visible', () => {
     assert.ok(e && !e.hidden, 'inside corner edge is drawn and visible');
 });
 
+test('isometric: a hidden cube exactly behind a visible one is detected (333-141py8)', () => {
+    const s = P.decodeShape('333-141py8');
+    assert.deepStrictEqual(P.isoHiddenBehind(s.cubes), [[1, 2, 0]]);
+    // A 2×2×2 block's hidden back corner is exactly behind its front-top-right cube.
+    const block = [];
+    for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) block.push([x, y, z]);
+    assert.deepStrictEqual(P.isoHiddenBehind(block), [[0, 1, 0]]);
+    // The one-deep hole's floor cube lines up behind the front-right top cube too —
+    // in solid blocks most fully hidden cubes do, so T4–5 rarely have any.
+    const holed = [];
+    for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) for (let z = 0; z < 2; z++)
+        if (!(x === 1 && y === 1 && z === 1)) holed.push([x, y, z]);
+    assert.ok(P.isoHiddenBehind(holed).some(c => c.join() === '1,1,0'));
+});
+
+test('isometric floor grid: one tile per empty floor square', () => {
+    const s = shape([3, 3, 2], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [2, 2, 1], [2, 2, 0]]);
+    assert.strictEqual(P.isoFloorTiles(s).length, 9 - 3);
+    // An overhang's floor square is still empty floor.
+    assert.strictEqual(P.isoFloorTiles(shape([2, 1, 2], [[0, 0, 0], [0, 0, 1], [1, 0, 1]])).length, 1);
+});
+
+test('problem codes round-trip', () => {
+    for (let t = 1; t <= P.MAX_TIER; t++) {
+        const s = P.generateShape(t);
+        const back = P.decodeShape(P.encodeShape(s));
+        assert.deepStrictEqual(back.box, s.box);
+        assert.deepStrictEqual(sorted(P.cubeSet(back.cubes)), sorted(P.cubeSet(s.cubes)));
+    }
+    assert.strictEqual(P.decodeShape('nonsense'), null);
+});
+
 // ── Grading ──────────────────────────────────────────────────────────────────
 const L = shape([3, 3, 3], [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]]);
 
@@ -218,6 +250,8 @@ test('generator meets each tier\'s rules', () => {
             const views = P.computeViews(s);
             assert.ok(P.VIEW_NAMES.filter(n => !P.plainView(views[n])).length >= 2, `T${tier} not trivial`);
             if (def.noHidden && P.hasHiddenLines(views)) relaxed++;
+            if (def.noHidden && P.isoObscuredCubes(s.cubes).length) relaxed++;
+            if (def.hiddenBehind === false && P.isoHiddenBehind(s.cubes).length) relaxed++;
         }
         assert.strictEqual(relaxed, 0, `T${tier}: no-hidden rule had to be relaxed ${relaxed}/40 times`);
     }
