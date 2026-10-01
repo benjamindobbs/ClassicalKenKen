@@ -199,6 +199,7 @@
             <a href="../SAT-Questions/">SAT English</a>
             <a href="../SAT-Math/">SAT Math</a>
             <a href="../Measurement/">Ruler Game</a>
+            <a href="../Projections/">Projections</a>
             <a href="../Skill-Maps/">Skill Maps</a>
             <a href="../readme/">ReadMe</a>
             <a href="./index.html" class="active nav-teacher">Teacher</a>
@@ -1466,10 +1467,12 @@
             const m = document.getElementById('req-sat-math').checked;
             const e = document.getElementById('req-sat-english').checked;
             const r = document.getElementById('req-measurement').checked;
+            const p = document.getElementById('req-projection').checked;
             document.getElementById('ar-kenken-field').style.display      = k ? '' : 'none';
             document.getElementById('ar-sat-math-field').style.display    = m ? '' : 'none';
             document.getElementById('ar-sat-field').style.display         = e ? '' : 'none';
             document.getElementById('ar-measurement-field').style.display = r ? '' : 'none';
+            document.getElementById('ar-projection-field').style.display  = p ? '' : 'none';
         }
 
         async function saveClassAssignmentSettings(classId) {
@@ -1478,6 +1481,7 @@
                 ['sat-math',    'req-sat-math'],
                 ['sat',         'req-sat-english'],
                 ['measurement', 'req-measurement'],
+                ['projection',  'req-projection'],
             ].filter(([, id]) => document.getElementById(id).checked).map(([key]) => key);
             // Nothing checked saves the legacy 'either' (js/activities.js).
             const required_activity = Activities.serialize(checked);
@@ -1485,12 +1489,13 @@
             const required_sat_count         = parseInt(document.getElementById('ar-sat-count').value)         || 1;
             const required_sat_math_count    = parseInt(document.getElementById('ar-sat-math-count').value)    || 1;
             const required_measurement_count = parseInt(document.getElementById('ar-measurement-count').value) || 1;
+            const required_projection_count  = parseInt(document.getElementById('ar-projection-count').value)  || 1;
             await teacherFetch(`/api/teacher/classes/${classId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     required_activity, required_kenken_count, required_sat_count,
-                    required_sat_math_count, required_measurement_count,
+                    required_sat_math_count, required_measurement_count, required_projection_count,
                 }),
             });
             const msg = document.getElementById('ar-saved-msg');
@@ -1623,6 +1628,7 @@
             const reqSatMath     = reqSet.has('sat-math');
             const reqSatEnglish  = reqSet.has('sat');
             const reqMeasurement = reqSet.has('measurement');
+            const reqProjection  = reqSet.has('projection');
 
             const activeStudents    = cls.students.filter(s => !s.exited_on);
             const withdrawnCount    = cls.students.length - activeStudents.length;
@@ -1837,6 +1843,10 @@
                                 <input type="checkbox" id="req-measurement" onchange="updateActivityUI()" ${reqMeasurement ? 'checked' : ''}>
                                 <span>Ruler Game</span>
                             </label>
+                            <label class="activity-option">
+                                <input type="checkbox" id="req-projection" onchange="updateActivityUI()" ${reqProjection ? 'checked' : ''}>
+                                <span>Projections</span>
+                            </label>
                         </div>
                     </div>
                     <div class="settings-grid">
@@ -1855,6 +1865,10 @@
                         <div class="settings-field" id="ar-measurement-field" style="display:${reqMeasurement ? '' : 'none'}">
                             <label class="settings-label">Ruler Game Correct / Day</label>
                             <input type="number" id="ar-measurement-count" min="1" step="1" value="${cls.required_measurement_count ?? 1}" />
+                        </div>
+                        <div class="settings-field" id="ar-projection-field" style="display:${reqProjection ? '' : 'none'}">
+                            <label class="settings-label">Projections Correct / Day</label>
+                            <input type="number" id="ar-projection-count" min="1" step="1" value="${cls.required_projection_count ?? 1}" />
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem">

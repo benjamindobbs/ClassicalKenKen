@@ -387,6 +387,9 @@ router.delete('/users/:userKey', requireTeacher, (req, res) => {
     db.prepare('DELETE FROM sat_math_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM measurement_scores WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM measurement_progress WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM projection_scores WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM projection_progress WHERE user_key = ?').run(userKey);
+    db.prepare('DELETE FROM projection_problems WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM sessions WHERE user_key = ?').run(userKey);
     db.prepare('UPDATE class_students SET user_key = NULL WHERE user_key = ?').run(userKey);
     db.prepare('DELETE FROM users WHERE user_key = ?').run(userKey);
@@ -519,7 +522,13 @@ router.get('/grades', requireTeacher, (req, res) => {
             GROUP BY day
         `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
 
-        let kenkenTotal = 0, satTotal = 0, satMathTotal = 0, measurementTotal = 0;
+        const projectionByDay = new Map(db.prepare(`
+            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM projection_scores
+            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
+            GROUP BY day
+        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
+
+        let kenkenTotal = 0, satTotal = 0, satMathTotal = 0, measurementTotal = 0, projectionTotal = 0;
         const dayGrades = [];
 
         for (const date of countedDates) {
@@ -528,9 +537,11 @@ router.get('/grades', requireTeacher, (req, res) => {
                 'sat':         satByDay.get(date) ?? 0,
                 'sat-math':    satMathByDay.get(date) ?? 0,
                 'measurement': measurementByDay.get(date) ?? 0,
+                'projection':  projectionByDay.get(date) ?? 0,
             };
             kenkenTotal += done.kenken; satTotal += done.sat;
             satMathTotal += done['sat-math']; measurementTotal += done.measurement;
+            projectionTotal += done.projection;
 
             // Required activities pool together: the day's requirement is the
             // sum of their counts, met by the sum of their completions.
@@ -574,6 +585,7 @@ router.get('/grades', requireTeacher, (req, res) => {
             sat_count:       satTotal,
             sat_math_count:  satMathTotal,
             measurement_count: measurementTotal,
+            projection_count:  projectionTotal,
             enrolled_on:    student.enrolled_on,
             exited_on:       student.exited_on,
             days_counted:    countedDates.length,
@@ -605,7 +617,12 @@ router.get('/data', requireTeacher, (_req, res) => {
         'SELECT m.*, u.email FROM measurement_scores m JOIN users u ON m.user_key = u.user_key ORDER BY m.submitted_at DESC'
     ).all();
     const measurement_progress = db.prepare('SELECT user_key, tier, tier_started_at FROM measurement_progress').all();
-    res.json({ users, kenken, sat, sat_math, measurement, measurement_progress });
+    const projection = db.prepare(
+        'SELECT p.id, p.user_key, p.class_id, p.tier, p.task, p.shape_code, p.hidden_graded, p.correct, p.time_ms, p.score, p.submitted_at, u.email '
+        + 'FROM projection_scores p JOIN users u ON p.user_key = u.user_key ORDER BY p.submitted_at DESC'
+    ).all();
+    const projection_progress = db.prepare('SELECT user_key, tier, tier_started_at FROM projection_progress').all();
+    res.json({ users, kenken, sat, sat_math, measurement, measurement_progress, projection, projection_progress });
 });
 
 // GET /api/teacher/kenken-leaderboard — top 10 average KenKen scores among

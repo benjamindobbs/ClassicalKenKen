@@ -17,6 +17,7 @@
         { key: 'sat-math',    label: 'SAT Math',    countField: 'required_sat_math_count',    todayKey: 'sat_math' },
         { key: 'sat',         label: 'SAT English', countField: 'required_sat_count',         todayKey: 'sat' },
         { key: 'measurement', label: 'Ruler Game',  countField: 'required_measurement_count', todayKey: 'measurement' },
+        { key: 'projection',  label: 'Projections', countField: 'required_projection_count',  todayKey: 'projection' },
     ];
     const KEYS = ACTIVITIES.map(a => a.key);
 

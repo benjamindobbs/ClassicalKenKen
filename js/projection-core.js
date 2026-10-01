@@ -68,6 +68,9 @@
             STREAK: 5,
         },
         GENERATE_TRIES: 2000,
+        // Build problems (three views → cubes) switch on when the builder ships;
+        // until then every tier serves drawing problems.
+        BUILD_ENABLED: false,
     };
 
     function clampTier(t) {
@@ -488,6 +491,7 @@
     // Task for one problem at this tier.
     function pickTask(tier, rand) {
         const t = tierDef(tier).task;
+        if (!CONFIG.BUILD_ENABLED) return 'draw';
         return t === 'mixed' ? ((rand || Math.random)() < 0.5 ? 'draw' : 'build') : t;
     }
 

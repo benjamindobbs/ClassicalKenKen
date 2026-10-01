@@ -1,5 +1,8 @@
 // Projections page. Rules, geometry and grading come from
-// js/projection-core.js. Local mode picks a practice tier and saves nothing.
+// js/projection-core.js. Signed in, the server serves, times and grades each
+// problem and owns the student's tier (server/projection.js); the page uses
+// the same core to draw the gold/red feedback. Local mode picks a practice
+// tier and saves nothing.
 //
 // Answer grids: click a square to shade it (its outline appears on its own),
 // click a line to add or remove it, hover a line and press H (or use the
@@ -33,12 +36,37 @@ const pj = {
     timerId: null,
     advanceId: null,
     helpMounted: false,
+    problemId: null,      // server problem being answered (signed in)
+    loading: false,
 };
 
 // ── Sign-in / local mode ─────────────────────────────────────────────────────
-// Saving progress arrives with the server work; until then signed-in
-// students practice like local mode.
-function onSignedIn() { onLocalMode(); }
+async function onSignedIn() {
+    pj.local = false;
+    document.getElementById('pj-local-tier').style.display = 'none';
+    try {
+        const res = await authFetch('/api/projection/status');
+        if (res.ok) applyStatus(await res.json());
+    } catch (_) {}
+
+    await ClassPicker.init('projection');
+    const slot = document.getElementById('class-picker-slot');
+    if (slot) ClassPicker.render(slot);
+    ClassPicker.onChange(cid => initDailyProgress('projection', cid));
+    initDailyProgress('projection', ClassPicker.activeClassId());
+}
+
+// Tier label, header and progress bar from a server status object.
+function applyStatus(s) {
+    if (!s || !s.tier) return;
+    pj.tier = PC.clampTier(s.tier);
+    renderTierLabel();
+    if (pj.local) return;
+    const pd = document.getElementById('playerData');
+    if (pd) pd.textContent = `Tier ${pj.tier}`;
+    TierProgress.render(document.getElementById('pj-progress'), s,
+        { progression: PC.CONFIG.PROGRESSION, maxTier: PC.MAX_TIER });
+}
 
 function onLocalMode() {
     pj.local = true;
@@ -88,13 +116,37 @@ function emptyAnswerView(size) {
     return { size, cells: new Set(), lines: new Map(), auto: new Set(), suppressed: new Set() };
 }
 
-function nextProblem() {
+async function nextProblem() {
     clearTimeout(pj.advanceId);
-    const linked = takeLinkedShape();   // may switch the tier
+    if (pj.loading) return;
+    if (pj.local) {
+        const linked = takeLinkedShape();   // may switch the tier
+        showProblem({ shape: linked || PC.generateShape(pj.tier), task: PC.pickTask(pj.tier), elapsedMs: 0 });
+        return;
+    }
+    // Signed in: the server hands out (and times) the problem.
+    pj.loading = true;
+    setFeedback('Loading…', '');
+    try {
+        const res = await authFetch('/api/projection/next');
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        applyStatus(data);
+        pj.problemId = data.problem_id;
+        showProblem({ shape: data.shape, task: data.task, elapsedMs: data.elapsed_ms });
+    } catch (err) {
+        console.error(err);
+        setFeedback('Couldn\'t load a problem — check your connection and press Next.', 'wrong');
+        document.getElementById('pj-next').style.display = '';
+    } finally {
+        pj.loading = false;
+    }
+}
+
+function showProblem({ shape, task, elapsedMs }) {
     const def = PC.tierDef(pj.tier);
-    // Builder tiers arrive with the build task; until then practice drawing.
-    pj.task = 'draw';
-    pj.shape = linked || PC.generateShape(pj.tier);
+    pj.task = task;   // build problems get the builder when it ships (PC.CONFIG.BUILD_ENABLED)
+    pj.shape = shape;
     document.getElementById('pj-code').textContent = PC.encodeShape(pj.shape);
     pj.views = PC.computeViews(pj.shape);
     pj.answer = Object.fromEntries(PC.VIEW_NAMES.map(n => [n, emptyAnswerView(pj.views[n].size)]));
@@ -119,7 +171,8 @@ function nextProblem() {
     renderLabels();
 
     pj.phase = 'answer';
-    pj.startedAt = performance.now();
+    // A problem resumed from the server keeps the time it's already been open.
+    pj.startedAt = performance.now() - (elapsedMs || 0);
     clearInterval(pj.timerId);
     pj.timerId = setInterval(renderTimer, 500);
     renderTimer();
@@ -191,9 +244,8 @@ function toggleHiddenMode() {
     document.getElementById('pj-hidden-mode').classList.toggle('active', pj.hiddenMode);
 }
 
-function submitAnswer() {
+async function submitAnswer() {
     if (pj.phase !== 'answer') return;
-    const def = PC.tierDef(pj.tier);
     if (!PC.VIEW_NAMES.every(n => pj.answer[n].cells.size)) {
         setFeedback('Shade at least one square in each view first.', 'wrong');
         return;
@@ -201,15 +253,65 @@ function submitAnswer() {
 
     pj.phase = 'feedback';
     clearInterval(pj.timerId);
-    const timeMs = Math.round(performance.now() - pj.startedAt);
-    const result = PC.gradeDrawing(pj.shape, pj.answer, pj.tier);
-    pj.perView = result.perView;
     pj.hover = null;
     document.getElementById('pj-submit').style.display = 'none';
     document.getElementById('pj-clear-all').disabled = true;
 
+    if (pj.local) {
+        const timeMs = Math.round(performance.now() - pj.startedAt);
+        const result = PC.gradeDrawing(pj.shape, pj.answer, pj.tier);
+        showResult(result, PC.scoreAttempt(pj.tier, result.correct, timeMs));
+        return;
+    }
+
+    // Signed in: the server's grade and score are the ones that count.
+    const msg = document.getElementById('submitMessage');
+    const classId = ClassPicker.activeClassId();
+    const tierBefore = pj.tier;
+    setFeedback('Checking…', '');
+    try {
+        const res = await authFetch('/api/projection/attempt', {
+            method: 'POST',
+            body: JSON.stringify({
+                problem_id: pj.problemId,
+                answer: Object.fromEntries(PC.VIEW_NAMES.map(n => [n, PC.viewToJSON(pj.answer[n])])),
+                class_id: classId,
+            }),
+        });
+        const data = await res.json();
+        if (res.status === 409) {
+            // Answered in another tab, or the tier moved — this one didn't count.
+            applyStatus(data);
+            setFeedback('That problem was already closed (another tab?) — it wasn\'t recorded. Here\'s a new one.', 'wrong');
+            pj.phase = 'idle';
+            setTimeout(nextProblem, PJ.ADVANCE_MS);
+            return;
+        }
+        if (!res.ok) throw new Error(data.error || res.status);
+        showResult({ correct: data.correct, perView: data.per_view, aligned: data.aligned }, data.score);
+        applyStatus(data);
+        if (data.tier > tierBefore)      msg.textContent = `Moved up to Tier ${data.tier}!`;
+        else if (data.tier < tierBefore) msg.textContent = `Moved back to Tier ${data.tier} — keep practicing.`;
+        else                             msg.textContent = '';
+        if (data.correct) refreshDailyProgress('projection', classId);
+    } catch (err) {
+        console.error(err);
+        // Let them try submitting again — nothing was recorded.
+        pj.phase = 'answer';
+        document.getElementById('pj-submit').style.display = '';
+        document.getElementById('pj-clear-all').disabled = false;
+        setFeedback('Couldn\'t reach the server — your answer wasn\'t saved. Try Submit again.', 'wrong');
+    }
+}
+
+// Feedback for a graded drawing: ✓/✗ per view, and on a wrong answer the
+// correct marks in gold and extra ones in red (held until Next).
+function showResult(result, score) {
+    const def = PC.tierDef(pj.tier);
+    pj.perView = result.perView;
+
     if (result.correct) {
-        setFeedback(`Correct! +${PC.scoreAttempt(pj.tier, true, timeMs)}`, 'correct');
+        setFeedback(`Correct! +${score}`, 'correct');
         PC.VIEW_NAMES.forEach(renderGrid);
         renderLabels();
         pj.advanceId = setTimeout(nextProblem, PJ.ADVANCE_MS);
