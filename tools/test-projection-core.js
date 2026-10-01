@@ -207,6 +207,15 @@ test('diffView reports missing and extra marks in the student grid position', ()
     assert.deepStrictEqual(d.extraCells, []);
 });
 
+test('diffView keeps the correct view on the grid (222-1x, top row shaded)', () => {
+    const v = P.computeViews(P.decodeShape('222-1x'));
+    const student = { cells: new Set(['0,1', '1,1']), lines: new Map() };
+    const d = P.diffView(v.top, student, false);
+    assert.deepStrictEqual([...d.correct.cells].sort(), ['0,0', '0,1']);
+    assert.deepStrictEqual(d.missingCells, ['0,0']);
+    assert.deepStrictEqual(d.extraCells, ['1,1']);
+});
+
 test('builds: matching views are accepted anywhere in the box; wrong or floating builds are not', () => {
     const target = shape([3, 3, 2], [[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]);
     assert.ok(P.gradeBuild(target, { cubes: target.cubes }).correct);

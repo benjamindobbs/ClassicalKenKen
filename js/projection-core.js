@@ -367,22 +367,49 @@
 
     const setDiff = (a, b) => [...a].filter(x => !b.has(x));
 
-    // Differences between the correct view and the student's, in the
-    // student's own grid position (for drawing feedback on their grid).
-    function diffView(correct, student, hiddenGraded) {
-        const off = offsetOf(student) || offsetOf(correct) || [0, 0];
-        const cOff = offsetOf(correct) || [0, 0];
-        const shift = [off[0] - cOff[0], off[1] - cOff[1]];
-        const moved = {
-            cells: new Set([...correct.cells].map(c => {
+    function shiftView(view, [du, dv]) {
+        return {
+            cells: new Set([...view.cells].map(c => {
                 const [u, v] = c.split(',').map(Number);
-                return `${u + shift[0]},${v + shift[1]}`;
+                return `${u + du},${v + dv}`;
             })),
-            lines: new Map([...correct.lines].map(([k, kind]) => {
+            lines: new Map([...view.lines].map(([k, kind]) => {
                 const [u1, v1, u2, v2] = k.split(',').map(Number);
-                return [segKey(u1 + shift[0], v1 + shift[1], u2 + shift[0], v2 + shift[1]), kind];
+                return [segKey(u1 + du, v1 + dv, u2 + du, v2 + dv), kind];
             })),
         };
+    }
+
+    // Where to draw the correct view on the student's grid: the in-bounds
+    // position that overlaps the student's answer most, preferring the one
+    // that lines up lowest-left corners when several tie.
+    function feedbackShift(correct, student) {
+        const pts = [...correct.cells].map(c => c.split(',').map(Number));
+        if (!pts.length) return [0, 0];
+        const minU = Math.min(...pts.map(p => p[0])), maxU = Math.max(...pts.map(p => p[0]));
+        const minV = Math.min(...pts.map(p => p[1])), maxV = Math.max(...pts.map(p => p[1]));
+        const off = offsetOf(student) || [minU, minV];
+        const pref = [off[0] - minU, off[1] - minV];
+        const [U, V] = correct.size;
+        let best = [0, 0], bestScore = -1, bestDist = Infinity;
+        for (let du = -minU; du <= U - 1 - maxU; du++) {
+            for (let dv = -minV; dv <= V - 1 - maxV; dv++) {
+                const m = shiftView(correct, [du, dv]);
+                const score = [...m.cells].filter(c => student.cells.has(c)).length
+                    + [...m.lines.keys()].filter(k => student.lines.has(k)).length;
+                const dist = Math.abs(du - pref[0]) + Math.abs(dv - pref[1]);
+                if (score > bestScore || (score === bestScore && dist < bestDist)) {
+                    best = [du, dv]; bestScore = score; bestDist = dist;
+                }
+            }
+        }
+        return best;
+    }
+
+    // Differences between the correct view and the student's, drawn on the
+    // student's grid where it best matches their answer (always in bounds).
+    function diffView(correct, student, hiddenGraded) {
+        const moved = shiftView(correct, feedbackShift(correct, student));
         const want = (kind) => new Set([...moved.lines].filter(([, k]) => k === kind).map(([k]) => k));
         const have = (kind) => new Set([...student.lines].filter(([, k]) => k === kind).map(([k]) => k));
         const kinds = hiddenGraded ? ['visible', 'hidden'] : ['visible'];
