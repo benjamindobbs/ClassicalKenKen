@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student Lists · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate } = Hub;
+// The tabs from the old sheet. IEP/504 flags show on student pages only.
+const TABS = [
+    ['pass_restriction', 'Pass restrictions'], ['elevator_pass', 'Elevator passes'], ['tech_restriction', 'Tech restrictions'],
+    ['morning_search', 'Morning search'], ['accommodation', 'Accommodations'], ['has_safety_plan', 'Safety plans'],
+    ['student_senate', 'Student Senate'],
+];
+
+Hub.start('view_flags', async () => {
+    const editFlags = Hub.can('edit_flags');
+    const main = document.querySelector('main');
+    let tab = location.hash.slice(1) || TABS[0][0], showExpired = false, rows = [], picked = null;
+
+    main.innerHTML = `
+        <div class="page-head"><h1>Student lists</h1><label class="small"><input type="checkbox" id="exp"> Show expired</label></div>
+        <div class="tabs" id="tabs"></div>
+        <div class="card">
+            <div class="table-wrap"><table class="data"><thead><tr><th>Student</th><th>ID</th><th>Gr</th><th>Note</th><th>Start</th><th>End</th><th>Added by</th>${editFlags ? '<th></th>' : ''}</tr></thead>
+            <tbody id="rows"></tbody></table></div>
+            ${editFlags ? `<form id="add" class="form-grid" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+                <label>Student <input type="text" id="stu" placeholder="Search name or ID…" autocomplete="off"></label>
+                <label>Start <input type="date" name="start_date" value="${Hub.today()}"></label>
+                <label>End (optional) <input type="date" name="end_date"></label>
+                <label>Note <input type="text" name="note" maxlength="120"></label>
+                <div style="align-self:end"><button class="btn primary">Add to list</button></div>
+            </form><div id="alert" style="margin-top:10px"></div>` : '<p class="muted small" style="margin-top:8px">Read-only for your role.</p>'}
+        </div>`;
+
+    const renderTabs = () => {
+        document.getElementById('tabs').innerHTML = TABS.map(([k, l]) => `<button data-k="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('');
+        document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.k; location.hash = tab; load(); });
+    };
+    const render = () => {
+        const shown = rows.filter(f => showExpired || !f.expired);
+        document.getElementById('rows').innerHTML = shown.map(f => `<tr class="${f.expired ? 'dim' : ''}">
+            <td><a href="students.html?dcid=${f.student_dcid}">${esc(f.last)}, ${esc(f.first)}</a>${f.expired ? ' <span class="badge">Expired</span>' : ''}</td>
+            <td>${esc(f.student_number)}</td><td>${f.grade}</td><td>${esc(f.note || '')}</td>
+            <td class="nowrap">${fmtDate(f.start_date)}</td><td class="nowrap">${f.end_date ? fmtDate(f.end_date) : '—'}</td>
+            <td class="small">${esc(f.created_by_name || '')}</td>
+            ${editFlags ? `<td>${f.expired ? '' : `<button class="btn sm" data-end="${f.id}">End</button>`}</td>` : ''}</tr>`).join('')
+            || `<tr><td colspan="8" class="muted">No ${showExpired ? '' : 'active '}entries.</td></tr>`;
+        document.querySelectorAll('[data-end]').forEach(b => b.onclick = async () => {
+            await Hub.api(`/flags/${b.dataset.end}/end`, { body: {} });
+            Hub.toast('Ended');
+            load();
+        });
+    };
+    async function load() {
+        renderTabs();
+        rows = await Hub.api(`/flags?type=${tab}`);
+        render();
+    }
+    document.getElementById('exp').onchange = e => { showExpired = e.target.checked; render(); };
+
+    const form = document.getElementById('add');
+    if (form) {
+        const stu = document.getElementById('stu');
+        Hub.studentPicker(stu, s => { picked = s; stu.value = `${s.first} ${s.last} (#${s.student_number})`; });
+        form.onsubmit = async e => {
+            e.preventDefault();
+            if (!picked) return Hub.toast('Pick a student first');
+            const f = form.elements;
+            try {
+                const r = await Hub.api('/flags', { body: { student_dcid: picked.dcid, type: tab, start_date: f.start_date.value,
+                                                            end_date: f.end_date.value || null, note: f.note.value } });
+                document.getElementById('alert').innerHTML = Hub.alertHtml(r.alert) || '<p class="muted small">Added (not active today, so no same-day alert).</p>';
+                form.reset(); stu.value = ''; picked = null; f.start_date.value = Hub.today();
+                load();
+            } catch (err) { Hub.toast(err.message); }
+        };
+    }
+    load();
+});
+</script>
+</body>
+</html>

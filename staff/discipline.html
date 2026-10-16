@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Discipline · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+
+<dialog id="resched-dlg">
+    <form id="resched-form">
+        <h2>Reschedule serve</h2>
+        <p class="muted small" id="resched-who"></p>
+        <div class="form-grid" style="margin-top:8px">
+            <label>New date <input type="date" name="serve_date" required></label>
+        </div>
+        <div class="row" style="margin-top:14px"><span class="spacer"></span>
+            <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button class="btn primary">Reschedule</button></div>
+    </form>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate, periods } = Hub;
+const STATUS_BADGE = { scheduled: 'info', served: 'ok', missed: 'danger', rescheduled: 'warn' };
+
+Hub.start('view_serves', async (me) => {
+    const full = Hub.can('view_serves_full'), edit = Hub.can('edit_serves');
+    const main = document.querySelector('main');
+    const today = Hub.today();
+    let picked = null, reschedId = null;
+
+    const staffOpts = edit ? (await Hub.api('/directory')).map(p =>
+        `<option value="${p.id}" ${p.id === me.id ? 'selected' : ''}>${esc(p.display_name)}</option>`).join('') : '';
+
+    main.innerHTML = `
+        <div class="page-head"><h1>Discipline</h1>
+            ${full ? '' : '<span class="muted small">You can see serve dates, sanctions, periods and infraction codes.</span>'}</div>
+        ${edit ? `<details class="card" style="margin-bottom:14px"><summary><strong>Schedule a serve</strong></summary>
+            <form id="new" class="form-grid" style="margin-top:12px">
+                <label>Student <input type="text" id="stu" placeholder="Search name or ID…" autocomplete="off" required></label>
+                <label>Sanction <select name="sanction"><option>ISS</option><option>OSS</option><option>Detention</option><option>Lunch detention</option></select></label>
+                <label>Serve date <input type="date" name="serve_date" value="${today}" required></label>
+                <label>Through (multi-day OSS) <input type="date" name="serve_end_date"></label>
+                <div class="wide"><label>Periods</label><div class="checks" id="periods">
+                    ${[1,2,3,4,5,6,7].map(p => `<label><input type="checkbox" value="${p}"> ${p}</label>`).join('')}
+                    <label><input type="radio" name="pmode" value="ALL"> All day</label>
+                    <label><input type="radio" name="pmode" value="LUNCH"> Lunch</label>
+                    <label><input type="radio" name="pmode" value="AFTER"> After school</label>
+                    <label><input type="radio" name="pmode" value="" checked> Periods ticked</label></div></div>
+                <label>Infraction code <input type="text" name="infraction_code" placeholder="e.g. B-12"></label>
+                <label>Incident date <input type="date" name="incident_date"></label>
+                <label>PS incident ID <input type="text" name="ps_incident_id"></label>
+                <label>Offense # <input type="number" name="offense_number" min="1"></label>
+                <label>Person responsible <select name="person_responsible">${staffOpts}</select></label>
+                <label>Suspension letter <select name="sus_letter_sent"><option value="0">Not sent</option><option value="1">Sent</option></select></label>
+                <label class="wide">Comments (admin/office only; no incident narrative) <input type="text" name="comments" maxlength="200"></label>
+                <div><button class="btn primary">Schedule serve</button></div>
+            </form><div id="alert" style="margin-top:10px"></div></details>` : ''}
+        <div class="card">
+            <div class="row" style="margin-bottom:10px">
+                <label>From <input type="date" id="from" value="${today}"></label>
+                <label>To <input type="date" id="to"></label>
+                ${full ? `<label>Status <select id="status"><option value="">Any</option><option>scheduled</option><option>served</option><option>missed</option><option>rescheduled</option></select></label>` : ''}
+                <button class="btn sm" id="today-btn">Today only</button>
+                <button class="btn sm" id="all-btn">All dates</button>
+            </div>
+            <div class="table-wrap"><table class="data"><thead><tr>
+                <th>Date</th><th>Student</th><th>Sanction</th><th>Periods</th><th>Code</th><th>Incident</th>
+                ${full ? '<th>Status</th><th>Off. #</th><th>Letter</th><th>Responsible</th><th>Comments</th>' : ''}${edit ? '<th></th>' : ''}
+            </tr></thead><tbody id="rows"></tbody></table></div>
+        </div>`;
+
+    async function load() {
+        const p = new URLSearchParams();
+        const from = document.getElementById('from').value, to = document.getElementById('to').value;
+        if (from) p.set('from', from);
+        if (to) p.set('to', to);
+        const st = document.getElementById('status');
+        if (st && st.value) p.set('status', st.value);
+        const rows = (await Hub.api(`/serves?${p}`)).sort((a, b) => a.serve_date.localeCompare(b.serve_date));
+        document.getElementById('rows').innerHTML = rows.map(v => `<tr>
+            <td class="nowrap">${fmtDate(v.serve_date)}${v.serve_end_date ? ` – ${fmtDate(v.serve_end_date)}` : ''}</td>
+            <td><a class="nowrap" href="students.html?dcid=${v.student_dcid}">${esc(v.last)}, ${esc(v.first)}</a> <span class="muted small nowrap">#${esc(v.student_number)}</span></td>
+            <td>${esc(v.sanction)}</td><td class="nowrap">${periods(v.periods)}</td><td>${esc(v.infraction_code || '')}</td>
+            <td class="nowrap">${fmtDate(v.incident_date)}</td>
+            ${full ? `<td><span class="badge ${STATUS_BADGE[v.status] || ''}">${esc(v.status)}</span></td><td>${v.offense_number ?? ''}</td>
+                <td>${v.sus_letter_sent ? 'Sent' : '—'}</td><td class="small">${esc(v.person_responsible_name || '')}</td><td class="small">${esc(v.comments || '')}</td>` : ''}
+            ${edit ? `<td><div class="actions">${v.status === 'scheduled' ? `
+                <button class="btn sm" data-act="served" data-id="${v.id}">Served</button>
+                <button class="btn sm" data-act="missed" data-id="${v.id}">Missed</button>` : ''}
+                ${['scheduled', 'missed'].includes(v.status) ? `<button class="btn sm" data-act="resched" data-id="${v.id}" data-who="${esc(v.first)} ${esc(v.last)} · ${esc(v.sanction)} on ${fmtDate(v.serve_date)}">Reschedule</button>` : ''}</div></td>` : ''}
+        </tr>`).join('') || `<tr><td colspan="12" class="muted">No serves in this range.</td></tr>`;
+
+        document.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+            if (b.dataset.act === 'resched') {
+                reschedId = b.dataset.id;
+                document.getElementById('resched-who').textContent = b.dataset.who;
+                return document.getElementById('resched-dlg').showModal();
+            }
+            await Hub.api(`/serves/${b.dataset.id}/status`, { body: { status: b.dataset.act } });
+            Hub.toast(`Marked ${b.dataset.act}`);
+            load();
+        });
+    }
+
+    ['from', 'to', 'status'].forEach(id => { const el = document.getElementById(id); if (el) el.onchange = load; });
+    document.getElementById('today-btn').onclick = () => { document.getElementById('from').value = today; document.getElementById('to').value = today; load(); };
+    document.getElementById('all-btn').onclick = () => { document.getElementById('from').value = ''; document.getElementById('to').value = ''; load(); };
+
+    document.getElementById('resched-form').onsubmit = async e => {
+        e.preventDefault();
+        try {
+            await Hub.api(`/serves/${reschedId}/reschedule`, { body: { serve_date: e.target.elements.serve_date.value } });
+            document.getElementById('resched-dlg').close();
+            Hub.toast('Rescheduled');
+            load();
+        } catch (err) { Hub.toast(err.message); }
+    };
+
+    const form = document.getElementById('new');
+    if (form) {
+        const stu = document.getElementById('stu');
+        Hub.studentPicker(stu, s => { picked = s; stu.value = `${s.first} ${s.last} (#${s.student_number})`; });
+        form.onsubmit = async e => {
+            e.preventDefault();
+            if (!picked) return Hub.toast('Pick a student from the list');
+            const f = form.elements;
+            const mode = form.querySelector('input[name="pmode"]:checked').value;
+            const ticked = [...document.querySelectorAll('#periods input[type="checkbox"]:checked')].map(c => c.value);
+            const body = {
+                student_dcid: picked.dcid, sanction: f.sanction.value, serve_date: f.serve_date.value,
+                serve_end_date: f.serve_end_date.value || null, periods: mode || ticked.join(','),
+                infraction_code: f.infraction_code.value, incident_date: f.incident_date.value || null,
+                ps_incident_id: f.ps_incident_id.value, offense_number: f.offense_number.value || null,
+                person_responsible: f.person_responsible.value, sus_letter_sent: f.sus_letter_sent.value === '1', comments: f.comments.value,
+            };
+            try {
+                const r = await Hub.api('/serves', { body });
+                document.getElementById('alert').innerHTML = Hub.alertHtml(r.alert) || '<p class="muted small">Scheduled (not today, so no same-day alert).</p>';
+                form.reset(); stu.value = ''; picked = null; f.serve_date.value = today;
+                load();
+            } catch (err) { Hub.toast(err.message); }
+        };
+    }
+    load();
+});
+</script>
+</body>
+</html>

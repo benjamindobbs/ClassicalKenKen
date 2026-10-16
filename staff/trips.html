@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Field Trips · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .chip { background: var(--surface-2); border-radius: 999px; padding: 1px 4px 1px 10px; font-size: .85rem; }
+        .chip button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 4px; font: inherit; }
+        .chip.add { background: var(--ok-soft); color: var(--ok); padding-right: 10px; }
+        .chip.del { background: var(--danger-soft); color: var(--danger); padding-right: 10px; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate, range } = Hub;
+const BADGE = { approved: 'ok', pending: 'warn', changes_pending: 'warn', rejected: 'danger' };
+const label = s => s.replace('_', ' ');
+const params = new URLSearchParams(location.search);
+
+Hub.start('view_trips', async (me) => {
+    const main = document.querySelector('main');
+    const id = params.get('id');
+    if (id) return showTrip(id);
+    if (params.get('new') === '1' && Hub.can('submit_trips')) return showForm(null);
+
+    const trips = await Hub.api('/trips');
+    main.innerHTML = `
+        <div class="page-head"><h1>Field trips</h1>
+            <div class="row"><select id="st"><option value="">All statuses</option>
+                ${['pending', 'changes_pending', 'approved', 'rejected'].map(s => `<option value="${s}" ${params.get('status') === s ? 'selected' : ''}>${label(s)}</option>`).join('')}</select>
+            ${Hub.can('submit_trips') ? '<a class="btn primary" href="?new=1">New trip</a>' : ''}</div></div>
+        <div class="card table-wrap"><table class="data"><thead><tr><th>Date</th><th>Trip</th><th>Times</th><th>Students</th><th>Submitted by</th><th>Status</th></tr></thead>
+        <tbody id="rows"></tbody></table></div>`;
+    const render = () => {
+        const st = document.getElementById('st').value;
+        const shown = trips.filter(t => !st || t.status === st || (st === 'pending' && t.status === 'changes_pending'));
+        document.getElementById('rows').innerHTML = shown.map(t => `<tr>
+            <td class="nowrap">${fmtDate(t.date)}</td>
+            <td><a href="?id=${t.id}"><strong>${esc(t.title)}</strong></a><div class="muted small">${esc(t.destination || '')}</div></td>
+            <td class="nowrap">${t.depart_time ? range(t.depart_time, t.return_time) : '—'}</td>
+            <td>${t.attendee_count}</td><td>${esc(t.submitted_by_name || '')}</td>
+            <td><span class="badge ${BADGE[t.status]}">${label(t.status)}</span></td></tr>`).join('')
+            || '<tr><td colspan="6" class="muted">No trips.</td></tr>';
+    };
+    document.getElementById('st').onchange = render;
+    render();
+});
+
+async function showTrip(id) {
+    const main = document.querySelector('main');
+    const { trip, attendees, revision } = await Hub.api(`/trips/${id}`);
+    const approver = Hub.can('approve_trips');
+    const canEdit = Hub.can('submit_trips') && (trip.submitted_by === Hub.me.id || approver) && trip.status !== 'rejected';
+    const fields = [['title', 'Title'], ['date', 'Date'], ['depart_time', 'Depart'], ['return_time', 'Return'], ['destination', 'Destination'], ['info', 'Info']];
+
+    let revHtml = '';
+    if (revision) {
+        const snap = revision.snapshot;
+        const changed = fields.filter(([k]) => (snap[k] || '') !== (trip[k] || ''));
+        const before = new Set(attendees.map(a => a.dcid)), after = new Set(snap.attendees);
+        const added = revision.attendees.filter(a => !before.has(a.dcid));
+        const removed = attendees.filter(a => !after.has(a.dcid));
+        revHtml = `<section class="card" style="border-color:var(--warn)"><h2>Pending changes <span class="badge warn">needs re-approval</span></h2>
+            <p class="muted small">Submitted by ${esc(revision.submitted_by_name)} on ${fmtDate(revision.submitted_at)}. The approved version below stays in effect until this is approved.</p>
+            ${changed.length ? `<table class="data" style="margin-top:8px"><thead><tr><th>Field</th><th>Approved</th><th>Proposed</th></tr></thead><tbody>
+                ${changed.map(([k, l]) => {
+                    const show = v => !v ? '—' : k.endsWith('_time') ? Hub.clock(v) : k === 'date' ? fmtDate(v) : v;
+                    return `<tr><td>${l}</td><td class="diff-del">${esc(show(trip[k]))}</td><td class="diff-add">${esc(show(snap[k]))}</td></tr>`;
+                }).join('')}</tbody></table>` : ''}
+            ${added.length || removed.length ? `<div class="chips">${added.map(a => `<span class="chip add">+ ${esc(a.first)} ${esc(a.last)}</span>`).join('')}
+                ${removed.map(a => `<span class="chip del">${esc(a.first)} ${esc(a.last)}</span>`).join('')}</div>` : ''}
+            ${approver ? '<div class="row" style="margin-top:12px"><button class="btn primary" data-dec="approve">Approve changes</button><button class="btn danger" data-dec="reject">Reject changes</button></div>' : ''}
+        </section>`;
+    }
+
+    main.innerHTML = `
+        <p class="small"><a href="trips.html">← Field trips</a></p>
+        <div class="page-head"><div><h1>${esc(trip.title)}</h1>
+            <div class="muted">${fmtDate(trip.date, { weekday: 'long', month: 'long', day: 'numeric' })}
+            ${trip.depart_time ? ` · ${range(trip.depart_time, trip.return_time)}` : ''} · ${esc(trip.destination || '')}</div></div>
+            <div class="row"><span class="badge ${BADGE[trip.status]}">${label(trip.status)}</span>
+            ${canEdit ? `<a class="btn" href="?id=${trip.id}&edit=1">Edit</a>` : ''}</div></div>
+        <div class="stack">
+            ${revHtml}
+            ${trip.status === 'pending' && approver ? `<div class="card row"><strong>Awaiting approval.</strong><span class="spacer"></span>
+                <button class="btn primary" data-dec="approve">Approve</button><button class="btn danger" data-dec="reject">Reject</button></div>` : ''}
+            <section class="card"><h2>Details</h2>
+                <p>${esc(trip.info || 'No extra info.')}</p>
+                <p class="muted small" style="margin-top:6px">Submitted by ${esc(trip.submitted_by_name || '—')}${trip.reviewed_at ? ` · reviewed ${fmtDate(trip.reviewed_at)}` : ''}</p></section>
+            <section class="card"><h2>Students (${attendees.length})</h2>
+                <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>ID</th><th>Grade</th></tr></thead><tbody>
+                ${attendees.map(a => `<tr><td><a href="students.html?dcid=${a.dcid}">${esc(a.last)}, ${esc(a.first)}</a></td><td>${esc(a.student_number)}</td><td>${a.grade}</td></tr>`).join('')}
+                </tbody></table></div></section>
+        </div>`;
+
+    document.querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
+        try {
+            await Hub.api(`/trips/${trip.id}/${b.dataset.dec}`, { body: {} });
+            Hub.toast(b.dataset.dec === 'approve' ? 'Approved' : 'Rejected');
+            showTrip(trip.id);
+        } catch (err) { Hub.toast(err.message); }
+    });
+    if (params.get('edit') === '1' && canEdit) showForm({ trip, attendees, revision });
+}
+
+async function showForm(existing) {
+    const main = document.querySelector('main');
+    // When editing, start from the pending revision if there is one.
+    const src = existing?.revision ? { ...existing.trip, ...existing.revision.snapshot } : existing?.trip || {};
+    const people = new Map((existing?.revision ? existing.revision.attendees : existing?.attendees || []).map(a => [a.dcid, a]));
+    const sections = await Hub.api(`/sections${Hub.can('approve_trips') ? '?all=1' : ''}`);
+    const isApproved = existing && ['approved', 'changes_pending'].includes(existing.trip.status);
+
+    main.innerHTML = `
+        <p class="small"><a href="trips.html${existing ? `?id=${existing.trip.id}` : ''}">← Back</a></p>
+        <h1 style="margin-bottom:12px">${existing ? 'Edit trip' : 'New field trip'}</h1>
+        ${isApproved ? '<p class="note" style="margin-bottom:12px">This trip is approved. Saving creates a revision that needs re-approval; the approved version stays in effect until then.</p>' : ''}
+        <form id="trip" class="card">
+            <div class="form-grid">
+                <label class="wide">Title <input type="text" name="title" required value="${esc(src.title || '')}"></label>
+                <label>Date <input type="date" name="date" required value="${esc(src.date || Hub.today())}"></label>
+                <label>Depart <input type="time" name="depart_time" value="${esc(src.depart_time || '')}"></label>
+                <label>Return <input type="time" name="return_time" value="${esc(src.return_time || '')}"></label>
+                <label>Destination <input type="text" name="destination" value="${esc(src.destination || '')}"></label>
+                <label class="wide">Info for staff <textarea name="info">${esc(src.info || '')}</textarea></label>
+            </div>
+            <h2 style="margin-top:16px">Students <span class="badge" id="count"></span></h2>
+            <div class="form-grid">
+                <label>Add a student <input type="text" id="stu" placeholder="Search name or ID…" autocomplete="off"></label>
+                <label>Add a whole section <select id="sec"><option value="">Choose a section…</option>
+                    ${sections.map(s => `<option value="${s.id}">${esc(s.teacher_name)} · ${esc(s.period)} ${esc(s.course_name)} (${s.student_count})</option>`).join('')}</select></label>
+            </div>
+            <div class="chips" id="chips"></div>
+            <div class="row" style="margin-top:16px"><span class="spacer"></span><button class="btn primary">${isApproved ? 'Submit changes for approval' : existing ? 'Save' : 'Submit for approval'}</button></div>
+        </form>`;
+
+    const renderChips = () => {
+        document.getElementById('count').textContent = people.size;
+        document.getElementById('chips').innerHTML = [...people.values()].sort((a, b) => a.last.localeCompare(b.last)).map(a =>
+            `<span class="chip">${esc(a.first)} ${esc(a.last)}<button type="button" data-rm="${a.dcid}" title="Remove">×</button></span>`).join('');
+        document.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { people.delete(Number(b.dataset.rm)); renderChips(); });
+    };
+    renderChips();
+    const stu = document.getElementById('stu');
+    Hub.studentPicker(stu, s => { people.set(s.dcid, s); stu.value = ''; renderChips(); });
+    document.getElementById('sec').onchange = async e => {
+        if (!e.target.value) return;
+        for (const s of await Hub.api(`/sections/${e.target.value}/students`)) people.set(s.dcid, s);
+        e.target.value = '';
+        renderChips();
+    };
+
+    const form = document.getElementById('trip');
+    form.onsubmit = async e => {
+        e.preventDefault();
+        const f = form.elements;
+        const body = { title: f.title.value, date: f.date.value, depart_time: f.depart_time.value || null, return_time: f.return_time.value || null,
+                       destination: f.destination.value, info: f.info.value, attendees: [...people.keys()] };
+        try {
+            const r = existing ? await Hub.api(`/trips/${existing.trip.id}`, { method: 'PUT', body }) : await Hub.api('/trips', { body });
+            location.href = `trips.html?id=${existing ? existing.trip.id : r.id}`;
+        } catch (err) { Hub.toast(err.message); }
+    };
+}
+</script>
+</body>
+</html>

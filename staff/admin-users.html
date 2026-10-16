@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Users · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc } = Hub;
+
+Hub.start('manage_users', async (me) => {
+    const main = document.querySelector('main');
+    async function load() {
+        const { roles, users } = await Hub.api('/users');
+        main.innerHTML = `
+            <div class="page-head"><h1>Users &amp; roles</h1><span class="muted small">The allowlist: only active people here can sign in.</span></div>
+            <div class="card table-wrap"><table class="data"><thead><tr><th>Name</th><th>Email</th><th>Division</th><th>Role</th><th>Active</th></tr></thead><tbody>
+            ${users.map(u => `<tr class="${u.active ? '' : 'dim'}"><td>${esc(u.display_name)}</td><td class="small">${esc(u.email)}</td><td>${esc(u.division)}</td>
+                <td><select data-role="${u.id}" ${u.id === me.id ? 'disabled' : ''}>${roles.map(r => `<option value="${r.role}" ${r.role === u.role ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></td>
+                <td><input type="checkbox" data-active="${u.id}" ${u.active ? 'checked' : ''} ${u.id === me.id ? 'disabled' : ''}></td></tr>`).join('')}
+            </tbody></table></div>`;
+        const save = async (id, body) => {
+            try { await Hub.api(`/users/${id}`, { method: 'PUT', body }); Hub.toast('Saved'); }
+            catch (err) { Hub.toast(err.message); }
+            load();
+        };
+        document.querySelectorAll('[data-role]').forEach(s => s.onchange = () => save(s.dataset.role, { role: s.value }));
+        document.querySelectorAll('[data-active]').forEach(c => c.onchange = () => save(c.dataset.active, { active: c.checked }));
+    }
+    load();
+});
+</script>
+</body>
+</html>

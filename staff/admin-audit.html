@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audit Log · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc } = Hub;
+
+Hub.start('view_audit', async () => {
+    const main = document.querySelector('main');
+    const people = await Hub.api('/directory').catch(() => []);
+    main.innerHTML = `
+        <div class="page-head"><h1>Audit log</h1></div>
+        <div class="card">
+            <div class="row" style="margin-bottom:10px">
+                <select id="entity"><option value="">All entities</option></select>
+                <select id="action"><option value="">All actions</option></select>
+                <select id="user"><option value="">Anyone</option>${people.map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>
+                <label>From <input type="date" id="from"></label><label>To <input type="date" id="to"></label>
+            </div>
+            <div class="table-wrap"><table class="data"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Entity</th><th>Before</th><th>After</th></tr></thead>
+            <tbody id="rows"></tbody></table></div>
+        </div>`;
+    const pretty = j => j ? `<details><summary class="small">view</summary><pre class="json">${esc(JSON.stringify(JSON.parse(j), null, 1))}</pre></details>` : '<span class="muted">—</span>';
+    let filled = false;
+    async function load() {
+        const p = new URLSearchParams();
+        for (const [id, key] of [['entity', 'entity'], ['action', 'action'], ['user', 'user_id'], ['from', 'from'], ['to', 'to']]) {
+            const v = document.getElementById(id).value;
+            if (v) p.set(key, v);
+        }
+        const r = await Hub.api(`/audit?${p}`);
+        if (!filled) {
+            document.getElementById('entity').insertAdjacentHTML('beforeend', r.entities.map(e => `<option>${esc(e)}</option>`).join(''));
+            document.getElementById('action').insertAdjacentHTML('beforeend', r.actions.map(a => `<option>${esc(a)}</option>`).join(''));
+            filled = true;
+        }
+        document.getElementById('rows').innerHTML = r.rows.map(a => `<tr>
+            <td class="nowrap small">${new Date(a.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+            <td>${esc(a.user_name || '—')}</td><td><span class="badge info">${esc(a.action)}</span></td>
+            <td>${esc(a.entity)} ${a.entity_id ? `<span class="muted small">#${esc(a.entity_id)}</span>` : ''}</td>
+            <td>${pretty(a.before_json)}</td><td>${pretty(a.after_json)}</td></tr>`).join('')
+            || '<tr><td colspan="6" class="muted">No entries yet. Every change made in Staff Hub appears here.</td></tr>';
+    }
+    ['entity', 'action', 'user', 'from', 'to'].forEach(id => document.getElementById(id).onchange = load);
+    load();
+});
+</script>
+</body>
+</html>

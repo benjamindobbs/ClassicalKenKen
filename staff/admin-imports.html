@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Imports · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc } = Hub;
+const TYPES = [
+    ['students', 'Students', 'Keyed by DCID. Students missing from the file are deactivated.'],
+    ['staff', 'Staff', 'Keyed by email. Staff missing from the file are deactivated.'],
+    ['duties', 'Duties', 'Keyed by duty name + week type + day. Duties missing from the file are deleted.'],
+    ['links', 'Links', 'Keyed by URL. Links missing from the file are deleted.'],
+];
+
+Hub.start('import', async () => {
+    const main = document.querySelector('main');
+    let type = TYPES[0][0], csv = '';
+    main.innerHTML = `
+        <div class="page-head"><h1>Imports</h1></div>
+        <div class="tabs" id="tabs"></div>
+        <div class="card">
+            <p class="muted small" id="hint"></p>
+            <div class="row" style="margin-top:10px">
+                <input type="file" id="file" accept=".csv,text/csv">
+                <button class="btn" id="sample">Download sample CSV</button>
+            </div>
+            <div id="out" style="margin-top:14px"></div>
+        </div>`;
+
+    const renderTabs = () => {
+        document.getElementById('tabs').innerHTML = TYPES.map(([k, l]) => `<button data-k="${k}" class="${k === type ? 'on' : ''}">${l}</button>`).join('');
+        document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+            type = b.dataset.k; csv = '';
+            document.getElementById('file').value = '';
+            document.getElementById('out').innerHTML = '';
+            renderTabs();
+        });
+        document.getElementById('hint').textContent = TYPES.find(t => t[0] === type)[2];
+    };
+    renderTabs();
+
+    document.getElementById('sample').onclick = async () => {
+        const text = await Hub.api(`/import/sample/${type}`);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+        a.download = `staffhub-${type}-sample.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
+    document.getElementById('file').onchange = async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        csv = await file.text();
+        preview();
+    };
+
+    async function preview() {
+        const out = document.getElementById('out');
+        const d = await Hub.api(`/import/${type}/preview`, { body: { csv } });
+        const list = (items, cls, sign) => items.map(i => `<li class="${cls}">${sign} ${esc(i.label)}${i.fields
+            ? `<ul style="margin-left:18px">${i.fields.map(f => `<li class="small"><strong>${esc(f.field)}</strong>: <span class="diff-del">${esc(f.from || '∅')}</span> → <span class="diff-add">${esc(f.to || '∅')}</span></li>`).join('')}</ul>` : ''}</li>`).join('');
+        out.innerHTML = `
+            ${d.errors.length ? `<div class="note" style="border-color:var(--danger)"><strong>${d.errors.length} problem${d.errors.length === 1 ? '' : 's'} — fix the file and upload again.</strong>
+                <ul style="margin-left:18px">${d.errors.map(e => `<li class="small">Line ${e.line}: ${esc(e.message)}</li>`).join('')}</ul></div>` : ''}
+            <div class="counts" style="margin:12px 0">
+                <div class="count"><b class="diff-add">${d.adds.length}</b><span>to add</span></div>
+                <div class="count"><b class="diff-chg">${d.changes.length}</b><span>to change</span></div>
+                <div class="count"><b class="diff-del">${d.removals.length}</b><span>to ${esc(d.removalVerb || 'remove')}</span></div>
+                <div class="count"><b>${d.unchanged ?? 0}</b><span>unchanged</span></div>
+            </div>
+            <div class="grid">
+                <div><h3>Adds</h3><ul class="plain-list">${list(d.adds, 'diff-add', '+') || '<li class="muted">None</li>'}</ul></div>
+                <div><h3>Changes</h3><ul class="plain-list">${list(d.changes, '', '~') || '<li class="muted">None</li>'}</ul></div>
+                <div><h3>Removals (${esc(d.removalVerb || 'remove')})</h3><ul class="plain-list">${list(d.removals, 'diff-del', '−') || '<li class="muted">None</li>'}</ul></div>
+            </div>
+            <div class="row" style="margin-top:14px"><span class="spacer"></span>
+                <button class="btn primary" id="commit" ${d.errors.length || !(d.adds.length + d.changes.length + d.removals.length) ? 'disabled' : ''}>Commit import</button></div>`;
+        const btn = document.getElementById('commit');
+        btn.onclick = async () => {
+            if (d.removals.length && !confirm(`This will ${d.removalVerb} ${d.removals.length} record(s). Continue?`)) return;
+            try {
+                const r = await Hub.api(`/import/${type}/commit`, { body: { csv } });
+                out.innerHTML = `<div class="alert-box">Imported: ${r.added} added, ${r.changed} changed, ${r.removed} removed. Recorded in the audit log.</div>`;
+            } catch (err) { Hub.toast(err.message); }
+        };
+    }
+});
+</script>
+</body>
+</html>

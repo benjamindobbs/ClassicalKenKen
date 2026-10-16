@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Who to Contact · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc } = Hub;
+
+Hub.start('view_faq', async () => {
+    const rows = await Hub.api('/faq');
+    const main = document.querySelector('main');
+    const initial = new URLSearchParams(location.search).get('q') || '';
+    main.innerHTML = `
+        <div class="page-head"><h1>Who to contact</h1><input type="search" id="filter" placeholder="Filter topics, names…" value="${esc(initial)}"></div>
+        <div class="card table-wrap"><table class="data">
+            <thead><tr><th>Topic</th><th>Primary</th><th>Backup</th><th>Notes</th></tr></thead>
+            <tbody id="rows"></tbody></table></div>`;
+    const person = (name, email, ext) => name
+        ? `<strong>${esc(name)}</strong><br><a href="mailto:${esc(email)}" class="small">${esc(email)}</a>${ext ? `<span class="muted small"> · x${esc(ext)}</span>` : ''}`
+        : '<span class="muted">—</span>';
+    const render = () => {
+        const q = document.getElementById('filter').value.trim().toLowerCase();
+        const shown = rows.filter(r => !q || `${r.topic} ${r.notes} ${r.primary_name} ${r.secondary_name}`.toLowerCase().includes(q));
+        document.getElementById('rows').innerHTML = shown.map(r => `<tr>
+            <td><strong>${esc(r.topic)}</strong></td>
+            <td>${person(r.primary_name, r.primary_email, r.primary_ext)}</td>
+            <td>${person(r.secondary_name, r.secondary_email, r.secondary_ext)}</td>
+            <td class="small">${esc(r.notes || '')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No matches.</td></tr>';
+    };
+    document.getElementById('filter').oninput = render;
+    render();
+});
+</script>
+</body>
+</html>

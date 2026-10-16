@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Students · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate, periods } = Hub;
+
+Hub.start('view_students', async () => {
+    const dcid = new URLSearchParams(location.search).get('dcid');
+    if (dcid) return detail(dcid);
+    const main = document.querySelector('main');
+    main.innerHTML = `
+        <div class="page-head"><h1>Students</h1></div>
+        <div class="card"><input type="search" id="q" placeholder="Search by name or student ID…" style="width:100%" autofocus>
+        <div class="table-wrap" style="margin-top:10px"><table class="data"><thead><tr><th>Name</th><th>Student ID</th><th>Grade</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="3" class="muted">Type at least two characters.</td></tr></tbody></table></div></div>`;
+    let timer;
+    document.getElementById('q').oninput = e => {
+        clearTimeout(timer);
+        const q = e.target.value.trim();
+        timer = setTimeout(async () => {
+            if (q.length < 2) return;
+            const rows = await Hub.api(`/students?q=${encodeURIComponent(q)}`);
+            document.getElementById('rows').innerHTML = rows.map(s => `<tr>
+                <td><a href="?dcid=${s.dcid}">${esc(s.last)}, ${esc(s.first)}</a></td><td>${esc(s.student_number)}</td><td>${s.grade}</td></tr>`).join('')
+                || '<tr><td colspan="3" class="muted">No students found.</td></tr>';
+        }, 150);
+    };
+});
+
+async function detail(dcid) {
+    const main = document.querySelector('main');
+    const d = await Hub.api(`/students/${encodeURIComponent(dcid)}`);
+    const s = d.student;
+    const full = Hub.can('view_serves_full'), editFlags = Hub.can('edit_flags');
+    let showExpired = false;
+
+    main.innerHTML = `
+        <p class="small"><a href="students.html">← Students</a></p>
+        <div class="page-head"><div><h1>${esc(s.first)} ${esc(s.last)}</h1>
+            <div class="muted">Grade ${s.grade} · Student ID <strong>${esc(s.student_number)}</strong> · DCID ${s.dcid}${s.active ? '' : ' · <span class="badge">Inactive</span>'}</div></div></div>
+        <div class="grid">
+            ${d.sharedSections.length ? `<section class="card"><h2>Your classes with ${esc(s.first)}</h2><ul class="plain-list">
+                ${d.sharedSections.map(x => `<li><strong>${esc(x.period)}</strong> ${esc(x.course_name)} <span class="muted">· ${esc(x.ps_expression)} · Rm ${esc(x.room || '—')}</span></li>`).join('')}</ul></section>` : ''}
+            <section class="card"><h2>Field trips</h2>${d.trips.length ? `<ul class="plain-list">${d.trips.map(t =>
+                `<li>${fmtDate(t.date)} · <a href="trips.html?id=${t.id}">${esc(t.title)}</a> <span class="badge">${esc(t.status.replace('_', ' '))}</span></li>`).join('')}</ul>`
+                : '<p class="empty-state">None.</p>'}</section>
+        </div>
+        <section class="card" style="margin-top:14px"><h2>Flags <label class="small"><input type="checkbox" id="exp"> Show expired</label></h2>
+            <div class="table-wrap"><table class="data"><thead><tr><th>Type</th><th>Note</th><th>Start</th><th>End</th>${editFlags ? '<th></th>' : ''}</tr></thead>
+            <tbody id="flags"></tbody></table></div>
+            ${editFlags ? `<details style="margin-top:10px"><summary class="btn sm">Add flag</summary>
+                <form id="flag-form" class="form-grid" style="margin-top:10px">
+                    <label>Type <select name="type">${Hub.FLAG_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+                    <label>Start <input type="date" name="start_date" value="${Hub.today()}"></label>
+                    <label>End (optional) <input type="date" name="end_date"></label>
+                    <label class="wide">Note (no plan contents) <input type="text" name="note" maxlength="120"></label>
+                    <div><button class="btn primary">Add flag</button></div>
+                </form><div id="alert" style="margin-top:10px"></div></details>` : ''}
+            ${editFlags ? '' : '<p class="muted small" style="margin-top:6px">Flags are read-only for your role.</p>'}
+        </section>
+        <section class="card" style="margin-top:14px"><h2>Discipline serves</h2>
+            ${d.serves.length ? `<div class="table-wrap"><table class="data"><thead><tr>
+                <th>Serve date</th><th>Sanction</th><th>Periods</th><th>Code</th><th>Incident</th>
+                ${full ? '<th>Status</th><th>Offense #</th><th>Letter</th><th>Responsible</th><th>Comments</th>' : ''}</tr></thead><tbody>
+                ${d.serves.map(v => `<tr><td class="nowrap">${fmtDate(v.serve_date)}${v.serve_end_date ? ` – ${fmtDate(v.serve_end_date)}` : ''}</td>
+                    <td>${esc(v.sanction)}</td><td>${periods(v.periods)}</td><td>${esc(v.infraction_code || '')}</td><td class="nowrap">${fmtDate(v.incident_date)}</td>
+                    ${full ? `<td><span class="badge">${esc(v.status)}</span></td><td>${v.offense_number ?? ''}</td><td>${v.sus_letter_sent ? 'Sent' : '—'}</td>
+                    <td>${esc(v.person_responsible_name || '')}</td><td class="small">${esc(v.comments || '')}</td>` : ''}</tr>`).join('')}
+                </tbody></table></div>` : '<p class="empty-state">None.</p>'}
+        </section>`;
+
+    const renderFlags = () => {
+        const rows = d.flags.filter(f => showExpired || !f.expired);
+        document.getElementById('flags').innerHTML = rows.map(f => `<tr class="${f.expired ? 'dim' : ''}">
+            <td><strong>${esc(f.label)}</strong>${f.expired ? ' <span class="badge">Expired</span>' : ''}</td><td>${esc(f.note || '')}</td>
+            <td class="nowrap">${fmtDate(f.start_date)}</td><td class="nowrap">${f.end_date ? fmtDate(f.end_date) : '—'}</td>
+            ${editFlags ? `<td>${f.expired ? '' : `<button class="btn sm" data-end="${f.id}">End</button>`}</td>` : ''}</tr>`).join('')
+            || `<tr><td colspan="5" class="muted">No ${showExpired ? '' : 'active '}flags.</td></tr>`;
+        document.querySelectorAll('[data-end]').forEach(b => b.onclick = async () => {
+            await Hub.api(`/flags/${b.dataset.end}/end`, { body: {} });
+            Hub.toast('Flag ended');
+            detail(dcid);
+        });
+    };
+    document.getElementById('exp').onchange = e => { showExpired = e.target.checked; renderFlags(); };
+    renderFlags();
+
+    const form = document.getElementById('flag-form');
+    if (form) form.onsubmit = async e => {
+        e.preventDefault();
+        const f = form.elements;
+        try {
+            const r = await Hub.api('/flags', { body: { student_dcid: s.dcid, type: f.type.value, start_date: f.start_date.value,
+                                                        end_date: f.end_date.value || null, note: f.note.value } });
+            const fresh = await Hub.api(`/students/${s.dcid}`);
+            d.flags = fresh.flags;
+            renderFlags();
+            document.getElementById('alert').innerHTML = Hub.alertHtml(r.alert) || '<p class="muted small">Flag added (not active today, so no same-day alert).</p>';
+            form.reset();
+            f.start_date.value = Hub.today();
+        } catch (err) { Hub.toast(err.message); }
+    };
+}
+</script>
+</body>
+</html>

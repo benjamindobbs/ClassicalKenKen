@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Directory · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc } = Hub;
+
+Hub.start('view_directory', async () => {
+    const people = await Hub.api('/directory');
+    const main = document.querySelector('main');
+    const initial = new URLSearchParams(location.search).get('q') || '';
+    main.innerHTML = `
+        <div class="page-head"><h1>Directory</h1>
+            <div class="row"><input type="search" id="filter" placeholder="Name, title, room…" value="${esc(initial)}">
+            <select id="div"><option value="">All divisions</option><option>HS</option><option>MS</option></select></div></div>
+        <div class="people" id="people"></div>`;
+    const render = () => {
+        const q = document.getElementById('filter').value.trim().toLowerCase();
+        const dv = document.getElementById('div').value;
+        const shown = people.filter(p => (!q || `${p.display_name} ${p.title} ${p.room} ${p.email}`.toLowerCase().includes(q))
+                                      && (!dv || p.division === dv || p.division === 'BOTH'));
+        document.getElementById('people').innerHTML = shown.map(p => `<div class="card person">
+            <h3>${esc(p.display_name)}</h3><div class="muted small">${esc(p.title || '')}</div>
+            <dl>
+                <dt>Room</dt><dd>${esc(p.room || '—')}</dd>
+                <dt>Ext.</dt><dd>${esc(p.phone_ext || '—')}</dd>
+                <dt>Hours</dt><dd>${esc(p.office_hours || '—')}</dd>
+                <dt>Division</dt><dd>${esc(p.division === 'BOTH' ? 'MS & HS' : p.division)}</dd>
+                <dt>Email</dt><dd><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></dd>
+            </dl></div>`).join('') || '<p class="empty-state">No one matches.</p>';
+    };
+    document.getElementById('filter').oninput = render;
+    document.getElementById('div').onchange = render;
+    render();
+});
+</script>
+</body>
+</html>

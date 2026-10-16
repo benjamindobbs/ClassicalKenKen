@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Today · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc, range, clock } = Hub;
+
+Hub.start('view_today', async (me) => {
+    const t = await Hub.api('/today');
+    const main = document.querySelector('main');
+    const mine = t.schedule.filter(s => s.section);
+    const inSlot = s => t.now >= s.start && t.now < s.end;
+
+    const scheduleHtml = !t.isSchoolDay ? '<p class="empty-state">No school.</p>' : `<ul class="sched">
+        ${t.schedule.map(s => `<li class="${inSlot(s) ? 'now' : ''}">
+            <span class="t">${range(s.start, s.end)}</span>
+            <span>${s.section
+                ? `<strong>${esc(s.section.period)}</strong> ${esc(s.section.course_name)} <span class="muted">· Rm ${esc(s.section.room || '—')}</span>`
+                : `<span class="free">${esc(s.meets)}${t.hasSections && /^P\d$/.test(s.meets) ? ' — free' : ''}</span>`}
+              ${s.note ? `<span class="slot-note">${esc(s.note)}</span>` : ''}</span>
+        </li>`).join('')}</ul>`;
+
+    const studentsHtml = () => {
+        if (!t.isSchoolDay) return '<p class="empty-state">No school today.</p>';
+        if (!mine.length) return '<p class="empty-state">You have no classes on your schedule today.</p>';
+        const groups = t.studentsByPeriod;
+        const total = new Set(groups.flatMap(g => g.students.map(s => s.dcid))).size;
+        if (!total) return '<p class="empty-state">Nothing to flag for your classes today.</p>';
+        return groups.map(g => `<div class="period-group">
+            <h3><span class="p">${esc(g.period)}</span> <span class="muted small">${range(g.start, g.end)} · ${esc(g.course_name)}</span>
+                ${g.students.length ? '' : '<span class="muted small">— nothing to flag</span>'}</h3>
+            <ul class="stu-list">${g.students.map(st => `<li>
+                <a class="name" href="students.html?dcid=${st.dcid}">${esc(st.first)} ${esc(st.last)}</a>
+                <span class="muted small">#${esc(st.student_number)}</span>
+                ${st.items.map(i => `<span class="item ${i.kind} ${i.affects && i.kind !== 'flag' ? 'hit' : ''} ${i.affects ? '' : 'off'}"
+                    title="${i.affects ? '' : 'Not during this period'}">${esc(i.text)}${i.startsToday ? ' <span class="badge pill-new">NEW</span>' : ''}</span>`).join('')}
+            </li>`).join('')}</ul></div>`).join('');
+    };
+
+    const countsHtml = t.counts ? `<div class="counts" style="margin-bottom:14px">
+        <a class="count" href="discipline.html?date=${t.date}"><b>${t.counts.issToday}</b><span>ISS today</span></a>
+        <a class="count" href="discipline.html?date=${t.date}"><b>${t.counts.ossToday}</b><span>OSS today</span></a>
+        <a class="count" href="trips.html"><b>${t.counts.tripsToday}</b><span>Trips today</span></a>
+        <a class="count" href="trips.html?status=pending"><b>${t.counts.pendingApprovals}</b><span>Pending approvals</span></a>
+        <a class="count" href="lists.html"><b>${t.counts.flagsStartingToday}</b><span>Flags starting today</span></a>
+    </div>` : '';
+
+    const dutiesHtml = t.duties.length
+        ? `<ul class="plain-list">${t.duties.map(d => `<li><strong>${range(d.start_time, d.end_time)}</strong> ${esc(d.name)} <span class="muted">· ${esc(d.location || '')}</span></li>`).join('')}</ul>`
+        : '<p class="empty-state">No duties today.</p>';
+
+    const eventsHtml = t.events.length
+        ? `<ul class="plain-list">${t.events.map(e => `<li><strong>${e.all_day ? 'All day' : range(e.start.slice(11), (e.end || e.start).slice(11))}</strong>
+              ${esc(e.title)} ${e.location ? `<span class="muted">· ${esc(e.location)}</span>` : ''}</li>`).join('')}</ul>`
+        : '<p class="empty-state">No events today.</p>';
+
+    // People with no sections (admins, office, counselors) get the bell schedule and no roster card.
+    const canStudents = me.caps.includes('view_students') && t.hasSections;
+    main.innerHTML = `
+        <div class="page-head day-head">
+            <div><h1>${esc(t.prettyDate)}</h1><div class="daytype">${esc(t.dayType)}${t.division ? ` · ${t.division} schedule` : ''}</div></div>
+        </div>
+        ${t.note ? `<p class="note" style="margin-bottom:14px">${esc(t.note)}</p>` : ''}
+        ${t.nextSchoolDay ? `<p class="alert-box" style="margin-bottom:14px">No school today. <a href="index.html?date=${t.nextSchoolDay}">See ${Hub.fmtDate(t.nextSchoolDay, { weekday: 'long', month: 'short', day: 'numeric' })} →</a></p>` : ''}
+        ${countsHtml}
+        <div class="today-grid" ${canStudents ? '' : 'style="grid-template-columns:1fr"'}>
+            ${canStudents ? `<section class="card"><h2>My students today</h2>${studentsHtml()}
+                <p class="muted small" style="margin-top:10px">Red = affects that period. Grey = not during that period. Flags are always shown.</p></section>` : ''}
+            <div class="stack">
+                <section class="card"><h2>${t.hasSections ? 'My schedule' : 'Bell schedule'}</h2>${scheduleHtml}</section>
+                <section class="card"><h2>My duties</h2>${dutiesHtml}</section>
+                <section class="card"><h2>Today's events</h2>${eventsHtml}</section>
+            </div>
+        </div>`;
+});
+</script>
+</body>
+</html>

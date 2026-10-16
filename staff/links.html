@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Links · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+
+<dialog id="edit-dlg">
+    <form method="dialog" id="edit-form">
+        <h2 id="edit-title">Add link</h2>
+        <div class="form-grid">
+            <label class="wide">Title <input type="text" name="title" required></label>
+            <label class="wide">URL <input type="text" name="url" required></label>
+            <label>Category <input type="text" name="category" list="cat-list" required></label>
+            <label>Quick link <select name="pinned"><option value="0">No</option><option value="1">Yes, pin to top</option></select></label>
+            <label class="wide">Description <input type="text" name="description"></label>
+        </div>
+        <datalist id="cat-list"></datalist>
+        <div class="row" style="margin-top:14px">
+            <button type="button" class="btn danger" id="del-btn" hidden>Delete</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn primary">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate } = Hub;
+const CATEGORIES = ['Operational Responsibilities', 'Grading & ACE', 'Curriculum & Instruction', 'Culture/Climate & Safety',
+                    'School Launch', 'Learning Walk Tools', 'PLCs', 'Grade Level Teams'];
+let links = [], editing = null;
+
+Hub.start('view_links', async () => {
+    const canEdit = Hub.can('edit_links');
+    links = await Hub.api('/links');
+    const main = document.querySelector('main');
+    main.innerHTML = `
+        <div class="page-head"><h1>Links</h1>
+            <div class="row"><input type="search" id="filter" placeholder="Filter links…">
+            ${canEdit ? '<button class="btn primary" id="add-btn">Add link</button>' : ''}</div></div>
+        <h2>Quick links</h2><div class="quick" id="quick"></div>
+        <div id="cats" style="margin-top:16px"></div>`;
+    document.getElementById('filter').oninput = render;
+    if (canEdit) document.getElementById('add-btn').onclick = () => openEditor(null);
+    render();
+
+    function render() {
+        const q = document.getElementById('filter').value.trim().toLowerCase();
+        const match = l => !q || `${l.title} ${l.description || ''} ${l.category} ${l.owner_name || ''}`.toLowerCase().includes(q);
+        const shown = links.filter(match);
+        const href = l => esc(l.url);
+        document.getElementById('quick').innerHTML = shown.filter(l => l.pinned).map(l =>
+            `<a href="${href(l)}" target="_blank" rel="noopener">${esc(l.title)}</a>`).join('') || '<p class="empty-state">No quick links match.</p>';
+
+        const cats = [...new Set([...CATEGORIES, ...links.map(l => l.category)])];
+        document.getElementById('cats').innerHTML = cats.map(cat => {
+            const rows = shown.filter(l => l.category === cat);
+            if (!rows.length) return '';
+            return `<details class="cat" ${q ? 'open' : ''}><summary>${esc(cat)} <span class="badge">${rows.length}</span></summary>
+                ${rows.map(l => `<div class="link-row">
+                    <div class="main"><a href="${href(l)}" target="_blank" rel="noopener"><strong>${esc(l.title)}</strong></a>
+                        ${l.pinned ? '<span class="badge info">Quick link</span>' : ''}
+                        <div class="muted small">${esc(l.description || '')}</div></div>
+                    <div class="meta">${esc(l.owner_name || '—')}${l.drive_modified_at ? ` · updated ${fmtDate(l.drive_modified_at)}` : ''}</div>
+                    ${canEdit ? `<div class="row">
+                        <button class="btn sm" data-move="-1" data-id="${l.id}" title="Move up">↑</button>
+                        <button class="btn sm" data-move="1" data-id="${l.id}" title="Move down">↓</button>
+                        <button class="btn sm" data-edit="${l.id}">Edit</button></div>` : ''}
+                </div>`).join('')}</details>`;
+        }).join('');
+
+        document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(links.find(l => l.id == b.dataset.edit)));
+        document.querySelectorAll('[data-move]').forEach(b => b.onclick = () => move(Number(b.dataset.id), Number(b.dataset.move)));
+    }
+
+    // Move within its category by swapping with the neighbour in sort order.
+    async function move(id, dir) {
+        const l = links.find(x => x.id === id);
+        const peers = links.filter(x => x.category === l.category);
+        const i = peers.indexOf(l), j = i + dir;
+        if (j < 0 || j >= peers.length) return;
+        const order = [...links];
+        const a = order.indexOf(peers[i]), b = order.indexOf(peers[j]);
+        [order[a], order[b]] = [order[b], order[a]];
+        await Hub.api('/links/reorder', { body: { ids: order.map(x => x.id) } });
+        links = await Hub.api('/links');
+        render();
+        // Keep the category open after re-render.
+        [...document.querySelectorAll('details.cat')].find(d => d.querySelector('summary').textContent.startsWith(l.category))?.setAttribute('open', '');
+    }
+
+    const dlg = document.getElementById('edit-dlg'), form = document.getElementById('edit-form');
+    document.getElementById('cat-list').innerHTML = CATEGORIES.map(c => `<option value="${esc(c)}">`).join('');
+    function openEditor(link) {
+        editing = link;
+        document.getElementById('edit-title').textContent = link ? 'Edit link' : 'Add link';
+        form.elements.title.value = link?.title || '';
+        form.elements.url.value = link?.url || '';
+        form.elements.category.value = link?.category || '';
+        form.elements.description.value = link?.description || '';
+        form.elements.pinned.value = link?.pinned ? '1' : '0';
+        document.getElementById('del-btn').hidden = !link;
+        dlg.showModal();
+    }
+    form.onsubmit = async e => {
+        e.preventDefault();
+        const body = { title: form.elements.title.value, url: form.elements.url.value, category: form.elements.category.value,
+                       description: form.elements.description.value, pinned: form.elements.pinned.value === '1' };
+        try {
+            if (editing) await Hub.api(`/links/${editing.id}`, { method: 'PUT', body });
+            else await Hub.api('/links', { body });
+            dlg.close();
+            links = await Hub.api('/links');
+            render();
+            Hub.toast('Saved');
+        } catch (err) { Hub.toast(err.message); }
+    };
+    document.getElementById('del-btn').onclick = async () => {
+        if (!confirm(`Delete "${editing.title}"?`)) return;
+        await Hub.api(`/links/${editing.id}`, { method: 'DELETE' });
+        dlg.close();
+        links = await Hub.api('/links');
+        render();
+    };
+});
+</script>
+</body>
+</html>

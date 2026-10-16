@@ -5,7 +5,10 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "staff:seed": "node server/staff/seed.js",
+    "staff:demo": "node --watch server/staff/demo.js",
+    "staff:check": "node server/staff/check.js"
   },
   "engines": {
     "node": ">=22.5.0"

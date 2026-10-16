@@ -6,12 +6,15 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
-// The it.<domain> subdomain serves the IT tool bundle out of /it, so a bare
-// "/" or unprefixed path there resolves against that folder instead of the
-// KenKen site's root. API routes are left untouched.
+// The it.<domain> and staff.<domain> subdomains serve their tool bundles out
+// of /it and /staff, so a bare "/" or unprefixed path there resolves against
+// that folder instead of the KenKen site's root. API routes are left untouched.
+// staff.localhost works the same way in local dev; /staff/ works on any host.
 app.use((req, _res, next) => {
     if (req.hostname.startsWith('it.') && !req.url.startsWith('/api/') && !req.url.startsWith('/it/')) {
         req.url = '/it' + (req.url === '/' ? '/index.html' : req.url);
+    } else if (req.hostname.startsWith('staff.') && !req.url.startsWith('/api/') && !req.url.startsWith('/staff/')) {
+        req.url = '/staff' + (req.url === '/' ? '/index.html' : req.url);
     }
     next();
 });
@@ -37,12 +40,15 @@ app.use('/api/questions', require('./routes/questions'));
 app.use('/api/it',        require('./routes/it'));
 app.use('/api/wbl',       require('./routes/wbl'));
 app.use('/api/how',       require('./routes/how'));
+app.use('/api/staff',     require('./routes/staff'));
 
 app.use(express.static(path.join(__dirname, '..')));
 
 app.get('*', (req, res) => {
     const home = req.hostname.startsWith('it.')
         ? path.join(__dirname, '..', 'it', 'index.html')
+        : req.hostname.startsWith('staff.')
+        ? path.join(__dirname, '..', 'staff', 'index.html')
         : path.join(__dirname, '..', 'index.html');
     res.sendFile(home);
 });

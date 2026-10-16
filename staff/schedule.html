@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Schedule · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+
+<dialog id="day-dlg">
+    <form id="day-form">
+        <h2 id="day-title"></h2>
+        <div class="form-grid">
+            <label class="wide"><input type="checkbox" name="no_school"> No school (snow day, holiday)</label>
+            <label class="wide">Bell schedule <select name="template_id"></select></label>
+            <label class="wide">Note shown on Today and in the memo <input type="text" name="note" maxlength="160"></label>
+        </div>
+        <div class="row" style="margin-top:14px">
+            <a class="btn" id="view-today" href="#">View this day's Today</a>
+            <span class="spacer"></span>
+            <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button class="btn primary">Save</button></div>
+    </form>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+const { esc, range, fmtDate } = Hub;
+const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+Hub.start('view_schedule', async (me) => {
+    const main = document.querySelector('main');
+    const edit = Hub.can('edit_day_plans');
+    const today = Hub.today();
+    let month = today.slice(0, 7), division = me.division === 'MS' ? 'MS' : 'HS', editing = null;
+    const templates = await Hub.api('/templates');
+    const duties = await Hub.api('/duties');
+
+    main.innerHTML = `
+        <div class="page-head"><h1>Schedule</h1>
+            <div class="row">
+                <div class="tabs" style="margin:0" id="div-tabs"></div>
+                <button class="btn sm" id="prev">←</button><strong id="month-label" style="min-width:130px;text-align:center"></strong><button class="btn sm" id="next">→</button>
+            </div></div>
+        <div class="legend" style="margin-bottom:8px">
+            <span><i style="background:var(--c-regular)"></i>5-day</span><span><i style="background:var(--c-early)"></i>Early release</span>
+            <span><i style="background:var(--c-x)"></i>X day</span><span><i style="background:var(--c-off)"></i>No school</span>
+            ${edit ? '<span>· Click a day to change it</span>' : ''}</div>
+        <div class="card"><div class="month" id="month"></div></div>
+        <section class="card" style="margin-top:14px"><h2>Bell schedules</h2><div class="grid" id="templates"></div></section>
+        <section class="card" style="margin-top:14px"><h2>Duty roster <span class="badge">${esc(duties.weekType)} week</span></h2>
+            <div class="table-wrap" id="duties"></div></section>`;
+
+    // Bell schedule reference
+    document.getElementById('templates').innerHTML = templates.map(t => `<div>
+        <h3>${esc(t.name)}</h3><ul class="sched">${t.slots.map(s => `<li><span class="t">${range(s.start_time, s.end_time)}</span>
+        <span>${esc(s.label)}${s.note ? `<span class="slot-note">${esc(s.note)}</span>` : ''}</span></li>`).join('')}</ul></div>`).join('');
+
+    // Duty grid: rows = duty, columns = weekday.
+    const names = [...new Set(duties.slots.map(s => s.name))];
+    document.getElementById('duties').innerHTML = `<table class="data"><thead><tr><th>Duty</th>${DOW.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>
+        ${names.map(n => {
+            const first = duties.slots.find(s => s.name === n);
+            return `<tr><td><strong>${esc(n)}</strong><div class="muted small">${range(first.start_time, first.end_time)} · ${esc(first.location || '')}</div></td>
+            ${DOW.map(d => {
+                const s = duties.slots.find(x => x.name === n && x.day_key === d);
+                return `<td class="small">${s ? s.staff.map(p => p.id === me.id ? `<strong>${esc(p.display_name)}</strong>` : esc(p.display_name)).join('<br>') : ''}</td>`;
+            }).join('')}</tr>`;
+        }).join('')}</tbody></table>`;
+
+    const renderTabs = () => {
+        document.getElementById('div-tabs').innerHTML = ['HS', 'MS'].map(d => `<button class="${d === division ? 'on' : ''}" data-d="${d}">${d}</button>`).join('');
+        document.querySelectorAll('#div-tabs button').forEach(b => b.onclick = () => { division = b.dataset.d; load(); });
+    };
+
+    async function load() {
+        renderTabs();
+        const { days } = await Hub.api(`/day-plans?month=${month}&division=${division}`);
+        document.getElementById('month-label').textContent = new Date(month + '-15T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        const weekdays = days.filter(d => d.weekday);
+        const lead = (new Date(weekdays[0].date + 'T12:00:00Z').getUTCDay() + 6) % 7;   // Mon = 0
+        const cls = d => !d.isSchoolDay ? 'off' : d.template?.kind || 'regular';
+        const tag = edit ? 'button' : 'div';
+        document.getElementById('month').innerHTML = DOW.map(d => `<div class="dow">${d}</div>`).join('')
+            + '<div class="day blank"></div>'.repeat(lead)
+            + weekdays.map(d => `<${tag} class="day ${cls(d)} ${d.date === today ? 'today' : ''}" data-date="${d.date}" ${edit ? 'type="button"' : ''}>
+                <div class="num">${Number(d.date.slice(8))}</div>
+                <div class="lbl">${esc(d.isSchoolDay ? (d.template ? d.template.name.replace(/^(HS|MS) /, '') : '') : 'No school')}</div>
+                ${d.note ? `<div class="lbl muted" title="${esc(d.note)}">📝</div>` : ''}</${tag}>`).join('');
+        if (edit) document.querySelectorAll('button.day').forEach(b => b.onclick = () => openDay(days.find(d => d.date === b.dataset.date)));
+        else document.querySelectorAll('.day[data-date]').forEach(b => { b.style.cursor = 'pointer'; b.onclick = () => location.href = `index.html?date=${b.dataset.date}`; });
+    }
+
+    const dlg = document.getElementById('day-dlg'), form = document.getElementById('day-form');
+    function openDay(d) {
+        editing = d;
+        document.getElementById('day-title').textContent = `${division} · ${fmtDate(d.date, { weekday: 'long', month: 'long', day: 'numeric' })}`;
+        const f = form.elements;
+        f.template_id.innerHTML = templates.filter(t => t.division === division).map(t =>
+            `<option value="${t.id}" ${d.template?.id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+        f.no_school.checked = !d.isSchoolDay;
+        f.template_id.disabled = !d.isSchoolDay;
+        f.note.value = d.note || '';
+        document.getElementById('view-today').href = `index.html?date=${d.date}`;
+        dlg.showModal();
+    }
+    form.elements.no_school.onchange = e => { form.elements.template_id.disabled = e.target.checked; };
+    form.onsubmit = async e => {
+        e.preventDefault();
+        const f = form.elements;
+        try {
+            await Hub.api(`/day-plans/${editing.date}/${division}`, { method: 'PUT',
+                body: { is_school_day: !f.no_school.checked, template_id: Number(f.template_id.value), note: f.note.value } });
+            dlg.close();
+            Hub.toast('Day updated');
+            load();
+        } catch (err) { Hub.toast(err.message); }
+    };
+
+    document.getElementById('prev').onclick = () => { month = shift(month, -1); load(); };
+    document.getElementById('next').onclick = () => { month = shift(month, 1); load(); };
+    const shift = (m, n) => { const d = new Date(m + '-15T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 7); };
+    load();
+});
+</script>
+</body>
+</html>

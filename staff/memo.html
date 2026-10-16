@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Memo Preview · Staff Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main><p class="muted">Loading…</p></main>
+<script src="app.js"></script>
+<script>
+const { esc, fmtDate } = Hub;
+
+Hub.start('view_memo', async (me, config) => {
+    const memo = await Hub.api('/memo');
+    const main = document.querySelector('main');
+    main.innerHTML = `
+        <div class="page-head"><div><h1>Memo preview</h1>
+            <div class="muted small">Exactly what the 7:00 a.m. email for ${fmtDate(memo.date, { weekday: 'long', month: 'long', day: 'numeric' })} will contain.</div></div>
+            <div class="row"><label class="small"><input type="checkbox" id="plain"> Plain-text version</label>
+            <button class="btn primary" id="send">Send test to me</button></div></div>
+        <div class="card" style="margin-bottom:10px"><div class="small"><span class="muted">To:</span> ${esc(memo.to)}</div>
+            <div class="small"><span class="muted">Subject:</span> <strong>${esc(memo.subject)}</strong></div></div>
+        <iframe class="memo-frame" id="frame" title="Memo preview" sandbox="allow-same-origin"></iframe>
+        <pre class="card" id="text" hidden style="white-space:pre-wrap;font-size:.85rem"></pre>`;
+    const frame = document.getElementById('frame');
+    frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#fff">${memo.html}</body></html>`;
+    frame.onload = () => { frame.style.height = Math.max(400, frame.contentDocument?.body?.scrollHeight + 40 || 600) + 'px'; };
+    document.getElementById('text').textContent = memo.text;
+    document.getElementById('plain').onchange = e => {
+        frame.hidden = e.target.checked;
+        document.getElementById('text').hidden = !e.target.checked;
+    };
+    document.getElementById('send').onclick = async () => {
+        const r = await Hub.api('/memo/send-test', { body: {} });
+        Hub.toast(r.transport === 'console' ? `Logged to the server console for ${r.to} (no email sent in demo)` : `Sent to ${r.to}`);
+    };
+});
+</script>
+</body>
+</html>
