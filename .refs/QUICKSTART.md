@@ -139,10 +139,14 @@ linked students** — an unlinked student always gets the "No Submission" grade.
 
 Open the class → **Assignment Requirements**.
 
-- **Check the activities** you require (KenKen, SAT Math, SAT English). Checking more than one means
-  the student must do **all** of them. Checking nothing means "either KenKen or SAT English."
+- **Check the activities** you require (KenKen, SAT Math, SAT English, Ruler Game, Projections).
+  Checking more than one means the student must do **all** of them. Checking nothing means "either
+  KenKen or SAT English."
 - For each checked activity, set the **"… / Day"** count. KenKen games only count if at or above the
-  student's own average; SAT items only count if **correct**.
+  student's own average; SAT, Ruler Game and Projections items only count if **correct**.
+- If an SAT activity is checked, **SAT Requirement** can be switched from **Number correct** to
+  **Number correct + accuracy**, which also requires a minimum share of the student's last few answers
+  to be right ([SAT accuracy mode](https://github.com/benjamindobbs/ClassicalKenKen/wiki/Daily-Practice-and-Assignments#sat-accuracy-mode)).
 - **Save Requirements.**
 
 ![The Assignment Requirements card with activities checked and counts entered](assets/quickstart-screenshots/quickstart-assignment-requirements.png)
@@ -159,8 +163,10 @@ subset to restrict practice, or leave all checked for all domains) → **Save Do
 | Setting | Meaning |
 |---|---|
 | **Assignment Max Score** | Point value of a full-credit assignment. |
-| **Completion Score** (%) | Percent of max a student gets once they've met the requirement. Set `100` for "did the work = full credit." |
-| **No Submission Score** (%) | Percent of max for a student who did nothing (and the floor for partial work / unlinked students). Often `0`, or `50` to avoid zeros. |
+| **Completion Score** (%) | Floor for a day with **some but not all** of the requirement done. A met day is always full credit. |
+| **No Submission Score** (%) | Percent of max for a day with **nothing** submitted (and for unlinked students). Often `0`, or `50` to avoid zeros. |
+
+Each day in the window is graded on its own; the grade is the average of those days.
 
 **Save Settings.** Then read
 **[How Grading Works](https://github.com/benjamindobbs/ClassicalKenKen/wiki/How-Grading-Works)** in the
