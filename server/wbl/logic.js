@@ -61,6 +61,17 @@ function meetingDates(classId, start, end) {
 }
 
 // ---------------------------------------------------------------------------
+// Work Event kinds and evidence letters
+// ---------------------------------------------------------------------------
+
+// The evidence type a sign-off records, derived from the Work Event's kind
+// rather than stored: J live or house job, P station or gate practical,
+// D digital submission (library project), B business module.
+const EVIDENCE_LETTER = { job: 'J', practical: 'P', project: 'D', module: 'B' };
+const WORK_EVENT_KINDS = Object.keys(EVIDENCE_LETTER);
+const evidenceLetter = kind => EVIDENCE_LETTER[kind] ?? 'J';
+
+// ---------------------------------------------------------------------------
 // Identity and ownership
 // ---------------------------------------------------------------------------
 
@@ -96,6 +107,7 @@ const OWNER_SQL = {
     participant: 'SELECT p.* FROM wbl_work_event_participants wp JOIN wbl_work_events w ON w.id = wp.work_event_id JOIN wbl_programs p ON p.id = w.program_id WHERE wp.id = ? AND p.teacher_key = ?',
     transferClaim:'SELECT p.* FROM wbl_transfer_claims t JOIN wbl_programs p ON p.id = t.program_id WHERE t.id = ? AND p.teacher_key = ?',
     calledOut:   'SELECT p.* FROM wbl_called_outs co JOIN wbl_programs p ON p.id = co.program_id WHERE co.id = ? AND p.teacher_key = ?',
+    template:    'SELECT p.* FROM wbl_work_event_templates t JOIN wbl_programs p ON p.id = t.program_id WHERE t.id = ? AND p.teacher_key = ?',
 };
 const ownerOf = (kind, id, teacherKey) => db.prepare(OWNER_SQL[kind]).get(Number(id), teacherKey);
 
@@ -116,6 +128,23 @@ function effectivePhase(programId, studentId) {
     ).get(programId, studentId);
     if (!row) return 1;
     return row.override_phase ?? row.computed_phase;
+}
+
+// phase_at_start is stamped here so the record stays honest after a student
+// advances — a Phase 1 participant is never retroactively expected to have
+// filed transfer claims. Already-present students are skipped (UNIQUE).
+function addParticipants(programId, workEventId, classId, studentIds, role = '', joinedOn = today()) {
+    const ins = db.prepare(`
+        INSERT OR IGNORE INTO wbl_work_event_participants
+            (work_event_id, class_id, student_id, role, phase_at_start, joined_on)
+        VALUES(?, ?, ?, ?, ?, ?)
+    `);
+    let added = 0;
+    for (const sid of studentIds.map(normalizeStudentId).filter(Boolean)) {
+        ensurePhaseRow(programId, sid);
+        added += Number(ins.run(workEventId, classId, sid, role, effectivePhase(programId, sid), joinedOn).changes);
+    }
+    return added;
 }
 
 // ---------------------------------------------------------------------------
@@ -586,8 +615,9 @@ function hasSkillEvidence(programId, classId, skillId) {
 
 module.exports = {
     isoWeek, isDate, today, dayCount, datesBetween, maxDate, minDate, meetingDates,
+    EVIDENCE_LETTER, WORK_EVENT_KINDS, evidenceLetter,
     resolveStudent, ownedProgram, ownerOf,
-    ensurePhaseRow, effectivePhase, recomputePhase,
+    ensurePhaseRow, effectivePhase, recomputePhase, addParticipants,
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,

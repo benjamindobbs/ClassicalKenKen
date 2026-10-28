@@ -1020,6 +1020,47 @@ try {
     `);
 } catch { /* wbl_transfer_sync not present yet on a brand-new DB */ }
 
+// Work Event kinds. A job is live or house work; a practical is a scripted
+// station sign-off; a project is a library (digital) submission; a module is a
+// business module. The evidence letter recorded on a sign-off (J/P/D/B) is
+// derived from kind (server/wbl/logic.js), never stored. Allowed values are
+// validated in the routes — SQLite can't add a CHECK to an existing column.
+// is_house: the school store is the client; still evidence type J.
+try { db.prepare("ALTER TABLE wbl_work_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'job'").run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_work_events ADD COLUMN template_code TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_work_events ADD COLUMN is_house INTEGER NOT NULL DEFAULT 0').run(); } catch { /* already exists */ }
+
+// Reusable Work Event definitions (practicals, library projects, business
+// modules) a teacher starts for one or more students in one step. Keyed by a
+// curriculum code (e.g. SS-P3) that new Work Events copy into template_code.
+// gate_machine_code names the machine a practical clears a student to run solo
+// (wbl_machines, §5 of the CGL handoff); onboarding marks the Shop Ready set.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_work_event_templates (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id        INTEGER NOT NULL REFERENCES wbl_programs(id),
+        code              TEXT    NOT NULL,
+        title             TEXT    NOT NULL,
+        kind              TEXT    NOT NULL CHECK(kind IN ('job','practical','project','module')),
+        gate_machine_code TEXT,
+        onboarding        INTEGER NOT NULL DEFAULT 0,
+        brief_url         TEXT    NOT NULL DEFAULT '',
+        notes             TEXT    NOT NULL DEFAULT '',
+        order_idx         INTEGER NOT NULL DEFAULT 0,
+        archived_at       INTEGER,
+        created_at        INTEGER NOT NULL,
+        UNIQUE(program_id, code)
+    );
+    -- Planned skills, copied into wbl_work_event_skills when an event starts.
+    CREATE TABLE IF NOT EXISTS wbl_work_event_template_skills (
+        template_id INTEGER NOT NULL REFERENCES wbl_work_event_templates(id),
+        skill_id    INTEGER NOT NULL REFERENCES wbl_skills(id),
+        order_idx   INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (template_id, skill_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wbl_we_templates_prog ON wbl_work_event_templates(program_id);
+`);
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

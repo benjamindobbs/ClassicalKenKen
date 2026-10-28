@@ -1,0 +1,1026 @@
+{
+  "program": "Graphics & Printing Technology (Classical Graphics Lab)",
+  "source": "Curriculum map 2026-10-21",
+  "templates": [
+    {
+      "code": "IL-00",
+      "title": "Adobe Getting Started tutorials",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": "Formative only; clears no skill"
+    },
+    {
+      "code": "IL-04",
+      "title": "Copyright & Licensing Audit",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Working in the Design Industry"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-15",
+      "title": "Package & Deliver (rubric applied to every submission)",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Publishing Digital Media"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-01",
+      "title": "Generic for Print preset + Name in Shapes",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Project Setup & Interface"
+        },
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-02",
+      "title": "Layers & Pattern Study",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Organizing Documents"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-03",
+      "title": "Logo Remake",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": true,
+      "brief_url": null,
+      "notes": "Trademarked logo: never produced or sold"
+    },
+    {
+      "code": "IL-05",
+      "title": "Type & 3D Lettering",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-06",
+      "title": "Image Trace Silhouette",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        },
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Working in the Design Industry"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-07",
+      "title": "Halftone Club Logo",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        },
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Publishing Digital Media"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-08",
+      "title": "Spot-Color Separations",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Design Positives & Transparencies"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-09",
+      "title": "Gradient Scene",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Creating & Modifying Visual Elements"
+        },
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Publishing Digital Media"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-10",
+      "title": "Clipping-Mask Sticker",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Design for Digital Signmaking & Printing"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-11",
+      "title": "DTF Gang Sheet",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "Design for the DTF Process"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-12",
+      "title": "Embroidery-Ready Redraw",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Embroidery",
+          "skill": "Design for Embroidery"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-13",
+      "title": "Banner / Sign at Scale",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Design for Banners Signs & More"
+        },
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Design for Digital Signmaking & Printing"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-14",
+      "title": "Client Mockup Proof",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Client Communication"
+        },
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Physical & Digital Marketing Design"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "IL-16",
+      "title": "School Logo Design (Design Think)",
+      "kind": "project",
+      "evidence": "D",
+      "planned_skills": [
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Working in the Design Industry"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": "Capstone; includes the two transfer-skill citations"
+    },
+    {
+      "code": "SS-P1",
+      "title": "Coat screens",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Prepare Silk Screens"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P2",
+      "title": "Film positives",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Design Positives & Transparencies"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P3",
+      "title": "Expose & wash out",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Expose and Wash Out Frames"
+        }
+      ],
+      "gate_for_machine": "x-vactor-exposure",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P4",
+      "title": "Mix plastisol",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Prepare & Mix Plastisol Ink"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P5",
+      "title": "Registration",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Align & Set Up Single and Multi-Color Print Jobs"
+        }
+      ],
+      "gate_for_machine": "screen-press",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P6",
+      "title": "Print & cure",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Single & Multi-Color Printing"
+        },
+        {
+          "credential": "Silk Screening",
+          "skill": "Cure & Finish Prints"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-P7",
+      "title": "Screen reclaim",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Silk Screening",
+          "skill": "Screen Reclaim & Cleanup"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SS-X",
+      "title": "Puff print (extension)",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": "Extension: evidence for Extending Knowledge citation only"
+    },
+    {
+      "code": "DTF-P1",
+      "title": "Daily startup",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "Machine Maintenance and Setup"
+        }
+      ],
+      "gate_for_machine": "mimaki-txf150",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DTF-P2",
+      "title": "RasterLink job",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "RasterLink 7 Print Setup and Operation"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DTF-P3",
+      "title": "Heater/shaker",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "Heater/Shaker Setup Operation and Maintenance"
+        }
+      ],
+      "gate_for_machine": "heater-shaker",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DTF-P4",
+      "title": "Heat press",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "Heat Press Setup Operation and Maintenance"
+        }
+      ],
+      "gate_for_machine": "heat-press",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DTF-P5",
+      "title": "Laser alignment",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "Heat Press Laser Alignment Setup & Utilization"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DTF-P6",
+      "title": "DTF application",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Direct to Film",
+          "skill": "DTF Transfer Application"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "EMB-P1",
+      "title": "Digitizing order",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Embroidery",
+          "skill": "Embroidery Digitizing"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "EMB-P2",
+      "title": "Embroidery maintenance",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Embroidery",
+          "skill": "Machine Maintenance and Setup"
+        }
+      ],
+      "gate_for_machine": "ricoma-mt1501",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "EMB-P3",
+      "title": "Hoop & run",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Embroidery",
+          "skill": "Machine Operation"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DS-P1",
+      "title": "Solvent startup",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Solvent Printer Setup Operation and Maintenance"
+        }
+      ],
+      "gate_for_machine": "mimaki-cjv200",
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DS-P2",
+      "title": "Load media",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Media & Substrate Management"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DS-P3",
+      "title": "Print/cut",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "RasterLink 7 Print/Cut Setup and Operation"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DS-P4",
+      "title": "Media application",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Media Application"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "DS-P5",
+      "title": "Banner",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Digital Signmaking & Printing",
+          "skill": "Design for Banners Signs & More"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "PH-P1",
+      "title": "Continuous light",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Product Photography"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "PH-P2",
+      "title": "Strobes",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Product Photography"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "PH-P3",
+      "title": "Edit & export",
+      "kind": "practical",
+      "evidence": "P",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Product Photography"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "LOG-M1",
+      "title": "Client inquiry to follow-up",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Client Communication"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "LOG-M2",
+      "title": "Purchase order & receiving",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Procurement Shipping & Receiving"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "LOG-M3",
+      "title": "Defect bin QC",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Quality Control"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "LOG-M4",
+      "title": "Rush order plan",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Project Management"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "LOG-M5",
+      "title": "Pack & ship",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Outgoing Packaging & Shipping"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "MKT-M1",
+      "title": "Market research",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Market Research"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "MKT-M2",
+      "title": "Product shoot",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Product Photography"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "MKT-M3",
+      "title": "Store drop campaign",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Physical & Digital Marketing Design"
+        },
+        {
+          "credential": "Adobe Illustrator",
+          "skill": "Publishing Digital Media"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SF-M1",
+      "title": "Store shift",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Storefront & Enterprise",
+          "skill": "Operate School-Based Enterprise"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SF-M2",
+      "title": "Inventory count",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Storefront & Enterprise",
+          "skill": "Inventory Management"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SF-M3",
+      "title": "Point of sale",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Storefront & Enterprise",
+          "skill": "Point of Sale"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    },
+    {
+      "code": "SF-M4",
+      "title": "Bookkeeping",
+      "kind": "module",
+      "evidence": "B",
+      "planned_skills": [
+        {
+          "credential": "Storefront & Enterprise",
+          "skill": "Bookkeeping"
+        }
+      ],
+      "gate_for_machine": null,
+      "onboarding": false,
+      "brief_url": null,
+      "notes": ""
+    }
+  ],
+  "roles": [
+    {
+      "code": "job_lead",
+      "label": "Job Lead",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Client Communication"
+        },
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Project Management"
+        }
+      ]
+    },
+    {
+      "code": "buyer_receiver",
+      "label": "Buyer / Receiver",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Procurement Shipping & Receiving"
+        }
+      ]
+    },
+    {
+      "code": "qc_inspector",
+      "label": "QC Inspector",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Quality Control"
+        }
+      ]
+    },
+    {
+      "code": "shipper",
+      "label": "Shipper",
+      "planned_skills": [
+        {
+          "credential": "Logistics & Operations",
+          "skill": "Outgoing Packaging & Shipping"
+        }
+      ]
+    },
+    {
+      "code": "photographer",
+      "label": "Photographer",
+      "planned_skills": [
+        {
+          "credential": "Marketing & Advertisement",
+          "skill": "Product Photography"
+        }
+      ]
+    },
+    {
+      "code": "production",
+      "label": "Production (operator)",
+      "planned_skills": [],
+      "note": "Skills come from the job process; requires gate clearance for each machine used"
+    }
+  ],
+  "machines": [
+    {
+      "code": "x-vactor-exposure",
+      "label": "X Vactor exposure unit + washout booth",
+      "gate": "SS-P3"
+    },
+    {
+      "code": "screen-press",
+      "label": "4-color screen presses (2)",
+      "gate": "SS-P5"
+    },
+    {
+      "code": "ryocure-dryer",
+      "label": "Ryocure RC08 dryer",
+      "gate": null
+    },
+    {
+      "code": "mimaki-txf150",
+      "label": "Mimaki TxF150-75 DTF printer",
+      "gate": "DTF-P1"
+    },
+    {
+      "code": "heater-shaker",
+      "label": "Y8018P heater/shaker",
+      "gate": "DTF-P3"
+    },
+    {
+      "code": "heat-press",
+      "label": "Geo Knight DC heat press",
+      "gate": "DTF-P4"
+    },
+    {
+      "code": "ricoma-mt1501",
+      "label": "Ricoma MT-1501 embroidery",
+      "gate": "EMB-P2"
+    },
+    {
+      "code": "mimaki-cjv200",
+      "label": "Mimaki CJV-200-130 solvent print/cut",
+      "gate": "DS-P1"
+    },
+    {
+      "code": "epson-et8550",
+      "label": "Epson ET-8550 (film positives)",
+      "gate": null
+    },
+    {
+      "code": "photo-station",
+      "label": "Photo station (one Canon R6 Mark II, one trigger)",
+      "gate": null,
+      "note": "Bookable; one shoot at a time"
+    }
+  ],
+  "pacing_floor": [
+    {
+      "week": 3,
+      "milestone": "Shop Ready (onboarding templates IL-00, IL-04, IL-15, IL-01, IL-02, IL-03 + safety sign-off)"
+    },
+    {
+      "week": 8,
+      "credentials_min": 3,
+      "note": "Habits of Work, Adobe Illustrator and one equipment credential"
+    },
+    {
+      "week": 13,
+      "credentials_min": 5
+    },
+    {
+      "week": 18,
+      "credentials_min": 9
+    }
+  ]
+}

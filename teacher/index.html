@@ -147,6 +147,12 @@
         .wbl-pill-warn  { background:#fef3c7; color:#92400e; }
         .wbl-pill-bad   { background:#fee2e2; color:#991b1b; }
         .wbl-pill-good  { background:#dcfce7; color:#166534; }
+        /* Evidence type of a Work Event, derived from its kind: J job, P practical, D digital project, B business module */
+        .wbl-ev         { display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.25rem; border-radius:4px; font-size:0.6875rem; font-weight:700; background:#e2e8f0; color:#334155; vertical-align:middle; }
+        .wbl-ev-J       { background:#dbeafe; color:#1e40af; }
+        .wbl-ev-P       { background:#fef3c7; color:#92400e; }
+        .wbl-ev-D       { background:#ede9fe; color:#5b21b6; }
+        .wbl-ev-B       { background:#dcfce7; color:#166534; }
         .wbl-status-active   { color:#166534; font-weight:600; }
         .wbl-status-complete { color:#64748b; }
 
@@ -575,7 +581,10 @@
 
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Work Events</div>
-                            <button class="btn btn-outline btn-sm" onclick="openWblEventModal()">New Work Event</button>
+                            <div style="display:flex;gap:0.5rem">
+                                <button class="btn btn-outline btn-sm" onclick="openWblTemplateStartModal()">Start from Template</button>
+                                <button class="btn btn-outline btn-sm" onclick="openWblEventModal()">New Work Event</button>
+                            </div>
                         </div>
                         <div id="wbl-events-body"></div>
                     </div>
@@ -629,8 +638,14 @@
 
                         <div class="classes-header" style="margin-top:2rem">
                             <div class="section-title" style="margin:0">Micro-credentials</div>
-                            <div style="display:flex;gap:0.5rem">
+                            <div style="display:flex;gap:0.5rem;align-items:center">
                                 <button class="btn btn-outline btn-sm" onclick="downloadWblCsvTemplate()">Download Template</button>
+                                <label class="lookup-note" style="margin:0;display:flex;align-items:center;gap:0.375rem"
+                                       title="Required demonstrations (distinct Work Events) for each credential-skill link the import creates">
+                                    Demos per skill
+                                    <input type="number" id="wbl-csv-demos" min="1" step="1" value="1"
+                                           style="width:3.5rem;padding:0.25rem 0.375rem;border:1px solid var(--border);border-radius:var(--radius)">
+                                </label>
                                 <label class="btn btn-outline btn-sm" for="wbl-csv-input" style="cursor:pointer">Import CSV</label>
                                 <input type="file" id="wbl-csv-input" accept=".csv,.txt" style="display:none" onchange="handleWblCsvUpload(event)">
                                 <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
@@ -648,6 +663,15 @@
                             record of what a student was assessed against cannot change underneath them.
                         </p>
                         <div id="wbl-skills-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
+                            <div class="section-title" style="margin:0">Work Event Templates</div>
+                        </div>
+                        <p class="lookup-note">
+                            Practicals, library projects and business modules a teacher starts for one or more students
+                            from the Work Events tab. Loaded from the curriculum file; paste each brief's link here.
+                        </p>
+                        <div id="wbl-templates-body"></div>
 
                         <div class="classes-header" style="margin-top:2rem">
                             <div class="section-title" style="margin:0">QC Spot Check Criteria</div>
@@ -2709,13 +2733,18 @@
             loadWblSub();
         }
 
-        function wblSwitchSub(name) {
+        // load: false when the caller loads the tab itself and needs to await it.
+        function wblSwitchSub(name, { load = true } = {}) {
             wblSub = name;
             ['roster', 'skillchecks', 'events', 'rotation', 'exitslips', 'catalog'].forEach(s => {
                 document.getElementById('wbl-sub-' + s).style.display = s === name ? '' : 'none';
                 document.getElementById('wbl-sub-btn-' + s).classList.toggle('active', s === name);
             });
-            loadWblSub();
+            if (load) loadWblSub();
+            else {
+                document.getElementById('wbl-participant').style.display = 'none';
+                document.getElementById('wbl-main').style.display = '';
+            }
         }
 
         function loadWblSub() {
@@ -2889,6 +2918,8 @@
                             <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
                             <td style="white-space:nowrap">
                                 ${r.exited_on ? `<span class="wbl-pill">exited${r.exit_reason ? ' — ' + wblEsc(r.exit_reason) : ''}</span>` : ''}
+                                ${r.exited_on ? '' : `<button class="btn btn-outline btn-sm" title="Start a practical, project or module for this student"
+                                    onclick="openWblTemplateStartModal('${wblEsc(r.student_id)}')">Start Template</button>`}
                                 <button class="btn btn-outline btn-sm" onclick="wblCalledOutModal('${wblEsc(r.student_id)}')">Called Out${coCount ? ` (${coCount})` : ''}</button>
                             </td>
                         </tr>`;
@@ -3077,6 +3108,15 @@
             loadWblUnassigned();
         }
 
+        const WBL_KINDS = [
+            ['job', 'Job'], ['practical', 'Station practical'], ['project', 'Library project'], ['module', 'Business module'],
+        ];
+        const wblKindLabel = k => (WBL_KINDS.find(x => x[0] === k) || [k, k])[1];
+        // The evidence letter (J/P/D/B) a sign-off on this kind of event records.
+        const wblIsHttp = url => /^https?:\/\//i.test(url || '');
+        const wblEvBadge = (letter, kind) =>
+            `<span class="wbl-ev wbl-ev-${letter}" title="${wblEsc(wblKindLabel(kind))} — evidence ${letter}">${letter}</span>`;
+
         async function loadWblEvents() {
             loadWblUnassigned();
             const rows = await wblApi('GET', `/programs/${wblProgramId()}/work-events`);
@@ -3084,12 +3124,14 @@
             if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No work events yet.</div>'; return; }
             el.innerHTML = `
                 <div class="portal-table-wrap"><table class="portal-table">
-                    <thead><tr><th>Job</th><th>Ref</th><th>Opened</th><th>Closed</th><th>Status</th>
+                    <thead><tr><th></th><th>Job</th><th>Ref</th><th>Opened</th><th>Closed</th><th>Status</th>
                                <th>Participants</th><th>Calls</th><th></th></tr></thead>
                     <tbody>${rows.map(w => `
                         <tr>
-                            <td><a href="#" onclick="openWblEvent(${w.id});return false">${wblEsc(w.title)}</a></td>
-                            <td>${wblEsc(w.external_ref || '—')}</td>
+                            <td>${wblEvBadge(w.evidence, w.kind)}</td>
+                            <td><a href="#" onclick="openWblEvent(${w.id});return false">${wblEsc(w.title)}</a>
+                                ${w.is_house ? ' <span class="wbl-pill">house</span>' : ''}</td>
+                            <td>${wblEsc(w.external_ref || w.template_code || '—')}</td>
                             <td>${wblEsc(w.opened_on)}</td>
                             <td>${wblEsc(w.closed_on || '—')}</td>
                             <td class="wbl-status-${w.status}">${wblEsc(w.status)}</td>
@@ -3133,11 +3175,16 @@
                         </tr>`;
             }).join('');
 
+            const t = w.template;
             document.getElementById('wbl-event-detail').innerHTML = `
-                <div class="section-title" style="margin-top:1.5rem">${wblEsc(w.title)}</div>
+                <div class="section-title" style="margin-top:1.5rem">${wblEvBadge(w.evidence, w.kind)} ${wblEsc(w.title)}</div>
                 <p class="lookup-note" style="margin:0 0 0.25rem">
+                    ${wblEsc(wblKindLabel(w.kind))}${w.is_house ? ' (house job)' : ''} &middot;
                     ${wblEsc(w.opened_on)} &rarr; ${wblEsc(w.closed_on || 'open')}${w.external_ref ? ' &middot; ref ' + wblEsc(w.external_ref) : ''}
+                    ${w.template_code ? ' &middot; template ' + wblEsc(w.template_code) : ''}
                 </p>
+                ${wblIsHttp(t?.brief_url) ? `<p style="margin:0.25rem 0"><a href="${wblEsc(t.brief_url)}" target="_blank" rel="noopener">Open the brief &nearr;</a></p>` : ''}
+                ${t?.notes ? `<p class="lookup-note" style="margin:0.25rem 0">${wblEsc(t.notes)}</p>` : ''}
                 ${w.description ? `<p style="font-size:0.875rem;color:#334155;white-space:pre-wrap;margin:0.5rem 0">${wblEsc(w.description)}</p>` : ''}
                 <button class="btn btn-outline btn-sm" onclick="openWblEventEditModal(${w.id})">Edit Details</button>
                 ${w.participants.length ? '' : `<button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="wblDeleteEvent(${w.id})">Delete Event</button>`}
@@ -3252,7 +3299,7 @@
                            </span>` : ''}
                 </div>
                 <div class="detail-header">
-                    <div class="detail-title">${wblEsc(p.student_name || p.student_id)} · ${wblEsc(p.event_title)}</div>
+                    <div class="detail-title">${wblEvBadge(wblP.evidence, p.event_kind)} ${wblEsc(p.student_name || p.student_id)} · ${wblEsc(p.event_title)}</div>
                     <span class="wbl-phase wbl-phase-${wblP.phase_now}">Phase ${wblP.phase_now} now</span>
                     ${p.phase_at_start !== wblP.phase_now
                         ? `<span class="wbl-pill">was Phase ${p.phase_at_start} on this job</span>` : ''}
@@ -3475,14 +3522,35 @@
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers, classes] = await Promise.all([
+            const [creds, skills, qc, tiers, classes, templates] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
                 wblApi('GET', `/programs/${pid}/tier-points`),
                 wblApi('GET', `/programs/${pid}/classes`),
+                wblApi('GET', `/programs/${pid}/templates`),
             ]);
             wblCatalogSkills = skills;
+            wblTemplates = templates;
+
+            document.getElementById('wbl-templates-body').innerHTML = templates.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th></th><th>Code</th><th>Template</th><th>Plans</th><th>Brief</th><th></th></tr></thead>
+                    <tbody>${templates.map(t => `
+                        <tr>
+                            <td>${wblEvBadge(t.evidence, t.kind)}</td>
+                            <td style="white-space:nowrap">${wblEsc(t.code)}</td>
+                            <td>${wblEsc(t.title)}
+                                ${t.onboarding ? ' <span class="wbl-pill">onboarding</span>' : ''}
+                                ${t.gate_machine_code ? ` <span class="wbl-pill wbl-pill-warn">gate: ${wblEsc(t.gate_machine_code)}</span>` : ''}</td>
+                            <td>${t.skills.length ? t.skills.map(s => wblEsc(s.name || '?')).join(', ') : '<span class="wbl-pill">formative</span>'}</td>
+                            <td>${wblIsHttp(t.brief_url)
+                                ? `<a href="${wblEsc(t.brief_url)}" target="_blank" rel="noopener">open</a>`
+                                : '<span class="wbl-pill wbl-pill-warn">none</span>'}</td>
+                            <td><button class="btn btn-outline btn-sm" onclick="wblEditTemplate(${t.id})">Edit</button></td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No templates yet — load them with tools/seed-cgl-templates.js.</div>';
 
             document.getElementById('wbl-classes-body').innerHTML = classes.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -3709,6 +3777,24 @@
             return [...document.querySelectorAll('#wbl-modal-backdrop input[id^="wbl-we-sk-"]:checked')].map(b => Number(b.value));
         }
 
+        // Kind decides the evidence letter on every sign-off and whether a
+        // completed event becomes a PowerSchool assignment (jobs only).
+        function wblKindFieldsHtml(kind, isHouse) {
+            return `
+                <label class="wbl-field"><span>Kind</span>
+                    <select id="wbl-we-kind" onchange="document.getElementById('wbl-we-house-row').style.display = this.value === 'job' ? '' : 'none'">
+                        ${WBL_KINDS.map(([k, label]) => `<option value="${k}"${k === kind ? ' selected' : ''}>${label}</option>`).join('')}
+                    </select></label>
+                <div class="wbl-check-row" id="wbl-we-house-row" style="${kind === 'job' ? '' : 'display:none'}">
+                    <input type="checkbox" id="wbl-we-house" ${isHouse ? 'checked' : ''}>
+                    <label for="wbl-we-house">House job (the school store is the client)</label>
+                </div>`;
+        }
+        function wblPickedKindFields() {
+            const kind = document.getElementById('wbl-we-kind').value;
+            return { kind, is_house: kind === 'job' && document.getElementById('wbl-we-house').checked };
+        }
+
         async function openWblEventModal() {
             const [skills, credentials] = await Promise.all([
                 wblApi('GET', `/programs/${wblProgramId()}/skills`).then(list => list.filter(s => s.status === 'published')),
@@ -3718,6 +3804,7 @@
                 <h3>New Work Event</h3>
                 <label class="wbl-field"><span>Title</span>
                     <input type="text" id="wbl-we-title" placeholder="The job, order, or build"></label>
+                ${wblKindFieldsHtml('job', false)}
                 <label class="wbl-field"><span>Start date</span>
                     <input type="date" id="wbl-we-opened" value="${wblToday()}"></label>
                 <label class="wbl-field"><span>End / due date (optional)</span>
@@ -3739,6 +3826,7 @@
             if (!title) return alert('Title is required.');
             await wblApi('POST', `/programs/${wblProgramId()}/work-events`, {
                 title,
+                ...wblPickedKindFields(),
                 opened_on: document.getElementById('wbl-we-opened').value || undefined,
                 closed_on: document.getElementById('wbl-we-closed').value || undefined,
                 external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
@@ -3759,6 +3847,7 @@
                 <h3>Edit ${wblEsc(w.title)}</h3>
                 <label class="wbl-field"><span>Title</span>
                     <input type="text" id="wbl-we-title" value="${wblEsc(w.title)}"></label>
+                ${wblKindFieldsHtml(w.kind, w.is_house)}
                 <label class="wbl-field"><span>Start date</span>
                     <input type="date" id="wbl-we-opened" value="${wblEsc(w.opened_on)}"></label>
                 <label class="wbl-field"><span>End date (optional)</span>
@@ -3780,6 +3869,7 @@
             if (!title) return alert('Title is required.');
             await wblApi('PATCH', `/work-events/${id}`, {
                 title,
+                ...wblPickedKindFields(),
                 opened_on: document.getElementById('wbl-we-opened').value,
                 closed_on: document.getElementById('wbl-we-closed').value || null,
                 external_ref: document.getElementById('wbl-we-ref').value.trim() || null,
@@ -3788,6 +3878,130 @@
             });
             wblCloseModal();
             openWblEvent(id);
+        }
+
+        // ── Start from template ───────────────────────────────────────────────
+        // A practical, library project or module for one or more students in
+        // one step: the Work Event (kind, template_code, planned skills) and its
+        // participants. preselect: a student_id to tick, from a roster row.
+        let wblTemplates = [];
+        const WBL_TEMPLATE_GROUPS = [
+            ['Onboarding (Shop Ready)', t => t.onboarding],
+            ['Station practicals', t => !t.onboarding && t.kind === 'practical'],
+            ['Library projects',   t => !t.onboarding && t.kind === 'project'],
+            ['Business modules',   t => !t.onboarding && t.kind === 'module'],
+            ['Jobs',               t => !t.onboarding && t.kind === 'job'],
+        ];
+
+        async function openWblTemplateStartModal(preselect) {
+            const [templates, byClass] = await Promise.all([
+                wblApi('GET', `/programs/${wblProgramId()}/templates`),
+                wblApi('GET', `/programs/${wblProgramId()}/roster-by-class`),
+            ]);
+            wblTemplates = templates;
+            if (!templates.length) {
+                return alert('This program has no Work Event templates yet. They are loaded from the curriculum file '
+                    + 'with tools/seed-cgl-templates.js.');
+            }
+            if (!byClass.length) return alert('No classes linked to this program yet — link one under Catalog first.');
+
+            const options = WBL_TEMPLATE_GROUPS.map(([label, test]) => {
+                const list = templates.filter(test);
+                return list.length ? `<optgroup label="${label}">${list.map(t =>
+                    `<option value="${t.id}">${wblEsc(t.code)} — ${wblEsc(t.title)}</option>`).join('')}</optgroup>` : '';
+            }).join('');
+
+            const picked = new Set(preselect ? [String(preselect)] : []);
+            const students = byClass.map(c => `
+                <div class="wbl-modal-group">
+                    <div class="wbl-modal-group-title">${wblEsc(c.class_name)}</div>
+                    ${c.students.length ? c.students.map(s => `
+                        <div class="wbl-check-row">
+                            <input type="checkbox" id="wbl-ts-${c.class_id}-${s.student_id}" value="${s.student_id}"
+                                   data-class="${c.class_id}" ${picked.has(s.student_id) ? 'checked' : ''}>
+                            <label for="wbl-ts-${c.class_id}-${s.student_id}">${wblEsc(s.student_name)}</label>
+                        </div>`).join('')
+                        : '<div class="wbl-empty" style="padding:0.25rem 0">No enrolled students in this class.</div>'}
+                </div>`).join('');
+
+            wblOpenModal(`
+                <h3>Start from Template</h3>
+                <label class="wbl-field"><span>Template</span>
+                    <select id="wbl-ts-template" onchange="wblRenderTemplateInfo()">${options}</select></label>
+                <div id="wbl-ts-info" class="lookup-note" style="margin:-0.25rem 0 0.75rem"></div>
+                <label class="wbl-field"><span>Title (optional)</span>
+                    <input type="text" id="wbl-ts-title" placeholder="Defaults to the template code and title"></label>
+                <label class="wbl-field"><span>Start date</span>
+                    <input type="date" id="wbl-ts-opened" value="${wblToday()}"></label>
+                <div id="wbl-ts-students">${students}</div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblStartFromTemplate()">Start</button>
+                </div>
+            `);
+            wblRenderTemplateInfo();
+        }
+
+        function wblRenderTemplateInfo() {
+            const t = wblTemplates.find(x => x.id === Number(document.getElementById('wbl-ts-template').value));
+            if (!t) return;
+            document.getElementById('wbl-ts-info').innerHTML = `
+                ${wblEvBadge(t.evidence, t.kind)} ${wblEsc(wblKindLabel(t.kind))}
+                ${t.gate_machine_code ? ` &middot; <span class="wbl-pill wbl-pill-warn">gate: ${wblEsc(t.gate_machine_code)}</span>` : ''}
+                <br>Plans: ${t.skills.length
+                    ? t.skills.map(s => wblEsc(s.name || '?')).join(', ')
+                    : 'no credited skills (formative only)'}
+                ${t.notes ? `<br>${wblEsc(t.notes)}` : ''}`;
+        }
+
+        async function wblStartFromTemplate() {
+            const students = [...document.querySelectorAll('#wbl-ts-students input[type=checkbox]:checked')]
+                .map(el => ({ class_id: Number(el.dataset.class), student_id: el.value }));
+            if (!students.length && !confirm('No students picked — start the event with nobody on it?')) return;
+            let r;
+            try {
+                r = await wblApi('POST', `/programs/${wblProgramId()}/work-events/from-template`, {
+                    template_id: Number(document.getElementById('wbl-ts-template').value),
+                    title: document.getElementById('wbl-ts-title').value.trim(),
+                    opened_on: document.getElementById('wbl-ts-opened').value || undefined,
+                    students,
+                });
+            } catch (e) { return alert('Could not start: ' + e.message); }
+            wblCloseModal();
+            wblSwitchSub('events', { load: false });
+            await loadWblEvents();   // renders the detail host openWblEvent fills
+            openWblEvent(r.id);
+        }
+
+        async function wblEditTemplate(id) {
+            const t = wblTemplates.find(x => x.id === id);
+            wblOpenModal(`
+                <h3>${wblEsc(t.code)} — ${wblEsc(t.title)}</h3>
+                <label class="wbl-field"><span>Title</span>
+                    <input type="text" id="wbl-tt-title" value="${wblEsc(t.title)}"></label>
+                <label class="wbl-field"><span>Brief link (Shared Drive)</span>
+                    <input type="url" id="wbl-tt-brief" value="${wblEsc(t.brief_url || '')}" placeholder="https://drive.google.com/…"></label>
+                <label class="wbl-field"><span>Notes</span>
+                    <textarea id="wbl-tt-notes">${wblEsc(t.notes || '')}</textarea></label>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveTemplate(${id})">Save</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveTemplate(id) {
+            const brief_url = document.getElementById('wbl-tt-brief').value.trim();
+            if (brief_url && !wblIsHttp(brief_url)) return alert('The brief link must start with https://');
+            try {
+                await wblApi('PATCH', `/templates/${id}`, {
+                    title: document.getElementById('wbl-tt-title').value.trim(),
+                    brief_url,
+                    notes: document.getElementById('wbl-tt-notes').value.trim(),
+                });
+            } catch (e) { return alert('Could not save: ' + e.message); }
+            wblCloseModal();
+            loadWblCatalog();
         }
 
         async function openWblParticipantModal(weId) {
@@ -3881,15 +4095,19 @@
             URL.revokeObjectURL(a.href);
         }
 
+        // Header row in either spelling: this template's (Credential, Skill, ...)
+        // or the curriculum sheets' (Microcredential, Checkpoint, ...).
+        const WBL_CSV_HEADERS = new Set(['credential|skill', 'microcredential|checkpoint']);
+
         function parseWblCsv(text) {
-            const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+            const lines = text.replace(/^﻿/, '').trim().split(/\r?\n/).filter(l => l.trim());
             const rows = [];
             for (const line of lines) {
                 const cols = splitCsvRow(line);
                 const credential = (cols[0] ?? '').trim();
                 const skill = (cols[1] ?? '').trim();
                 if (!credential || !skill) continue;
-                if (credential.toLowerCase() === 'credential' && skill.toLowerCase() === 'skill') continue;
+                if (WBL_CSV_HEADERS.has(`${credential.toLowerCase()}|${skill.toLowerCase()}`)) continue;
                 rows.push({
                     credential, skill,
                     description: (cols[2] ?? '').trim(),
@@ -3915,10 +4133,13 @@
                 }
                 note.textContent = 'Importing…';
                 note.style.color = '#64748b';
+                const required_demonstrations = Math.max(1, parseInt(document.getElementById('wbl-csv-demos').value, 10) || 1);
                 try {
-                    const r = await wblApi('POST', `/programs/${wblProgramId()}/catalog/import-csv`, { rows });
+                    const r = await wblApi('POST', `/programs/${wblProgramId()}/catalog/import-csv`, { rows, required_demonstrations });
                     note.textContent = `Imported ${r.credentials_created} new credential(s), ${r.skills_created} new skill(s) `
-                        + `from ${r.rows} row(s). Existing credentials/skills were left untouched — `
+                        + `from ${r.rows} row(s)`
+                        + (r.skipped_soft_skill_rows ? `, skipping ${r.skipped_soft_skill_rows} Habits of Work row(s) (built-in soft skills)` : '')
+                        + `. Existing credentials/skills were left untouched — `
                         + `edit required demonstrations under Micro-credentials.`;
                     note.style.color = '#16a34a';
                     loadWblCatalog();

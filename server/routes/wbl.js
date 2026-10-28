@@ -9,6 +9,8 @@ const { db, normalizeStudentId } = require('../db');
 const { requireAuth } = require('../auth');
 const { requireTeacher } = require('../teacherAuth');
 const L = require('../wbl/logic');
+const { importCatalogRows } = require('../wbl/catalogImport');
+const T = require('../wbl/templates');
 
 const router = Router();
 
@@ -575,99 +577,19 @@ router.put('/credentials/:id/skills', requireTeacher, (req, res) => {
     } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
-// Bulk catalog import, mirroring the legacy microcredentials CSV shape
-// (Microcredential, Checkpoint, Description, Subtask) so an existing sheet
-// can be reused: Credential -> Skill -> Criterion. Existing credentials
-// (matched by name) and skills (matched by slug) are left untouched — a
-// published skill version cannot be edited in place, and re-importing must
-// never silently corrupt what a student has already been assessed against.
-// Only new skills get criteria and get published; the credential<->skill
-// link is added either way (INSERT OR IGNORE) so a second pass can still
-// attach a pre-existing skill to a newly-named credential.
+// Bulk catalog import — see server/wbl/catalogImport.js for the matching and
+// soft-skill rules. required_demonstrations applies only to credential<->skill
+// links this import creates; existing links keep theirs.
 router.post('/programs/:id/catalog/import-csv', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
     const rows = req.body?.rows;
     if (!Array.isArray(rows) || !rows.length) return bad(res, 'rows required');
-
-    const slugify = s => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-    db.exec('BEGIN');
+    const demos = int(req.body?.required_demonstrations) ?? 1;
+    if (!Number.isInteger(demos) || demos < 1) return bad(res, 'required_demonstrations must be a whole number of at least 1');
     try {
-        const credIds = new Map();   // name -> id
-        const skillIds = new Map();  // slug -> id
-        const newSkillOrder = [];    // slugs created this import, in row order
-        const credSkillOrder = new Map(); // credential name -> [skill slug, ...] in row order
-        let credsCreated = 0, skillsCreated = 0;
-
-        for (const row of rows) {
-            const credName = str(row.credential).trim();
-            const skillName = str(row.skill).trim();
-            if (!credName || !skillName) continue;
-            const slug = slugify(skillName);
-            if (!slug) continue;
-
-            if (!credIds.has(credName)) {
-                let cred = db.prepare('SELECT id FROM wbl_credentials WHERE program_id = ? AND name = ?')
-                    .get(p.id, credName);
-                if (!cred) {
-                    const info = db.prepare(`
-                        INSERT INTO wbl_credentials(program_id, name, description, min_holistic_tier, order_idx, created_at)
-                        VALUES(?, ?, '', 'meets', ?, ?)
-                    `).run(p.id, credName, credIds.size, now());
-                    cred = { id: Number(info.lastInsertRowid) };
-                    credsCreated++;
-                }
-                credIds.set(credName, cred.id);
-                credSkillOrder.set(credName, []);
-            }
-            if (!credSkillOrder.get(credName).includes(slug)) credSkillOrder.get(credName).push(slug);
-
-            if (!skillIds.has(slug)) {
-                let skill = db.prepare('SELECT id FROM wbl_skills WHERE program_id = ? AND slug = ?').get(p.id, slug);
-                if (!skill) {
-                    const s = db.prepare('INSERT INTO wbl_skills(program_id, slug, created_at) VALUES(?, ?, ?)')
-                        .run(p.id, slug, now());
-                    db.prepare(`
-                        INSERT INTO wbl_skill_versions(skill_id, version_no, name, description, status, created_at)
-                        VALUES(?, 1, ?, ?, 'draft', ?)
-                    `).run(s.lastInsertRowid, skillName, str(row.description), now());
-                    skill = { id: Number(s.lastInsertRowid) };
-                    skillsCreated++;
-                    newSkillOrder.push(slug);
-                }
-                skillIds.set(slug, skill.id);
-            }
-
-            const criterion = str(row.criterion).trim();
-            if (criterion && newSkillOrder.includes(slug)) {
-                const skillId = skillIds.get(slug);
-                const v = db.prepare('SELECT id FROM wbl_skill_versions WHERE skill_id = ? AND status = ?')
-                    .get(skillId, 'draft');
-                const n = db.prepare('SELECT COUNT(*) n FROM wbl_skill_criteria WHERE skill_version_id = ?').get(v.id).n;
-                db.prepare('INSERT INTO wbl_skill_criteria(skill_version_id, name, order_idx) VALUES(?, ?, ?)')
-                    .run(v.id, criterion, n);
-            }
-        }
-
-        for (const slug of newSkillOrder) {
-            const skillId = skillIds.get(slug);
-            const v = db.prepare('SELECT id FROM wbl_skill_versions WHERE skill_id = ? AND status = ?').get(skillId, 'draft');
-            db.prepare(`UPDATE wbl_skill_versions SET status = 'published', is_current = 1, published_at = ? WHERE id = ?`)
-                .run(now(), v.id);
-        }
-
-        const linkCred = db.prepare(`
-            INSERT OR IGNORE INTO wbl_credential_skills(credential_id, skill_id, required_demonstrations, order_idx)
-            VALUES(?, ?, 1, ?)
-        `);
-        for (const [credName, slugs] of credSkillOrder) {
-            slugs.forEach((slug, i) => linkCred.run(credIds.get(credName), skillIds.get(slug), i));
-        }
-
-        db.exec('COMMIT');
-        res.json({ ok: true, credentials_created: credsCreated, skills_created: skillsCreated, rows: rows.length });
-    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+        res.json({ ok: true, ...importCatalogRows(p.id, rows, { requiredDemonstrations: demos }) });
+    } catch (e) { bad(res, e.message); }
 });
 
 // =============================================================================
@@ -965,6 +887,7 @@ router.put('/programs/:id/tier-points', requireTeacher, (req, res) => {
 function participantCtx(req, res, pid) {
     const row = db.prepare(`
         SELECT wp.*, we.program_id, we.status AS event_status, we.title AS event_title, we.closed_on AS event_closed_on,
+               we.kind AS event_kind, we.template_code AS event_template_code,
                (SELECT cs.student_name FROM class_students cs
                  WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name
         FROM wbl_work_event_participants wp
@@ -987,8 +910,20 @@ router.get('/programs/:id/work-events', requireTeacher, (req, res) => {
         FROM wbl_work_events we
         WHERE we.program_id = ? ${status ? 'AND we.status = ?' : ''}
         ORDER BY we.opened_on DESC, we.id DESC
-    `).all(...(status ? [p.id, status] : [p.id])));
+    `).all(...(status ? [p.id, status] : [p.id])).map(w => ({ ...w, evidence: L.evidenceLetter(w.kind) })));
 });
+
+// kind/is_house as sent by a client: undefined when absent, an error string
+// when invalid. Shared by create and edit.
+function workEventKindFields(body) {
+    const out = {};
+    if ('kind' in body) {
+        if (!L.WORK_EVENT_KINDS.includes(body.kind)) return { error: `kind must be one of ${L.WORK_EVENT_KINDS.join(', ')}` };
+        out.kind = body.kind;
+    }
+    if ('is_house' in body) out.is_house = body.is_house ? 1 : 0;
+    return out;
+}
 
 // Skill scoping is advisory (§ note on wbl_work_event_skills), so an invalid
 // id is dropped rather than failing the whole save — a typo in the picker
@@ -1009,12 +944,15 @@ router.post('/programs/:id/work-events', requireTeacher, (req, res) => {
     if (!p) return;
     const { title, external_ref, description, opened_on, closed_on, skill_ids } = req.body || {};
     if (!title?.trim()) return bad(res, 'title required');
+    const kf = workEventKindFields(req.body || {});
+    if (kf.error) return bad(res, kf.error);
     const on = L.isDate(opened_on) ? opened_on : L.today();
     const due = L.isDate(closed_on) ? closed_on : null;
     const info = db.prepare(`
-        INSERT INTO wbl_work_events(program_id, title, external_ref, description, opened_on, closed_on, created_at, updated_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(p.id, title.trim(), external_ref ? String(external_ref) : null, str(description), on, due, now(), now());
+        INSERT INTO wbl_work_events(program_id, title, external_ref, description, kind, is_house, opened_on, closed_on, created_at, updated_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(p.id, title.trim(), external_ref ? String(external_ref) : null, str(description),
+           kf.kind ?? 'job', kf.is_house ?? 0, on, due, now(), now());
     const weId = Number(info.lastInsertRowid);
     if ('skill_ids' in (req.body || {})) setWorkEventSkills(weId, p.id, skill_ids);
     res.json({ id: weId });
@@ -1036,7 +974,11 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
     `).all(we.id);
     const skill_ids = db.prepare('SELECT skill_id FROM wbl_work_event_skills WHERE work_event_id = ?')
         .all(we.id).map(r => r.skill_id);
-    res.json({ ...we, participants, skill_ids });
+    const template = we.template_code
+        ? db.prepare(`SELECT id, code, title, kind, gate_machine_code, brief_url, notes
+                      FROM wbl_work_event_templates WHERE program_id = ? AND code = ?`).get(we.program_id, we.template_code) ?? null
+        : null;
+    res.json({ ...we, evidence: L.evidenceLetter(we.kind), template, participants, skill_ids });
 });
 
 // Closing a job is the one place the framework's cadence is enforced rather
@@ -1065,12 +1007,15 @@ router.patch('/work-events/:id', requireTeacher, (req, res) => {
         }
     }
 
+    const kf = workEventKindFields(body);
+    if (kf.error) return bad(res, kf.error);
+
     if ('skill_ids' in body) setWorkEventSkills(id, p.id, body.skill_ids);
 
-    const f = ['title', 'external_ref', 'description', 'status', 'opened_on', 'closed_on']
+    const f = ['title', 'external_ref', 'description', 'status', 'opened_on', 'closed_on', 'kind', 'is_house']
         .filter(k => k in body);
     if (f.length) {
-        const vals = f.map(k => body[k]);
+        const vals = f.map(k => (k in kf ? kf[k] : body[k]));
         if (body.status === 'complete' && !('closed_on' in body)) { f.push('closed_on'); vals.push(L.today()); }
         db.prepare(`UPDATE wbl_work_events SET ${f.map(k => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`)
             .run(...vals, now(), id);
@@ -1103,9 +1048,7 @@ router.delete('/work-events/:id', requireTeacher, (req, res) => {
     } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
-// phase_at_start is stamped here so the record stays honest after a student
-// advances — a Phase 1 participant is never retroactively expected to have
-// filed transfer claims.
+// phase_at_start is stamped in L.addParticipants.
 router.post('/work-events/:id/participants', requireTeacher, (req, res) => {
     const p = owned(req, res, 'workEvent', req.params.id);
     if (!p) return;
@@ -1116,18 +1059,69 @@ router.post('/work-events/:id/participants', requireTeacher, (req, res) => {
     if (!ids.length) return bad(res, 'student_ids required');
 
     const on = L.isDate(req.body?.joined_on) ? req.body.joined_on : L.today();
-    const ins = db.prepare(`
-        INSERT OR IGNORE INTO wbl_work_event_participants
-            (work_event_id, class_id, student_id, role, phase_at_start, joined_on)
-        VALUES(?, ?, ?, ?, ?, ?)
-    `);
-    let added = 0;
-    for (const sid of ids) {
-        L.ensurePhaseRow(p.id, sid);
-        const info = ins.run(weId, classId, sid, str(req.body?.role), L.effectivePhase(p.id, sid), on);
-        added += info.changes;
+    res.json({ ok: true, added: L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on) });
+});
+
+// =============================================================================
+// 4a. Work Event templates — practicals, library projects, business modules
+// =============================================================================
+
+router.get('/programs/:id/templates', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(T.listTemplates(p.id, { includeArchived: req.query.include_archived === 'true' }));
+});
+
+// The teacher-editable fields. brief_url is the main one: the seed leaves it
+// blank for the teacher to paste the Shared Drive link. skill_ids replaces the
+// planned skills (advisory, same as a Work Event's).
+router.patch('/templates/:id', requireTeacher, (req, res) => {
+    const p = owned(req, res, 'template', req.params.id);
+    if (!p) return;
+    const id = Number(req.params.id);
+    const body = req.body || {};
+    if ('kind' in body && !L.WORK_EVENT_KINDS.includes(body.kind)) {
+        return bad(res, `kind must be one of ${L.WORK_EVENT_KINDS.join(', ')}`);
     }
-    res.json({ ok: true, added });
+    if ('title' in body && !str(body.title).trim()) return bad(res, 'title required');
+    // Rendered as a link on the event page, so only web links are stored.
+    if ('brief_url' in body && str(body.brief_url).trim() && !/^https?:\/\//i.test(str(body.brief_url).trim())) {
+        return bad(res, 'brief_url must start with http:// or https://');
+    }
+    const f = ['title', 'kind', 'brief_url', 'notes', 'onboarding', 'order_idx', 'gate_machine_code'].filter(k => k in body);
+    const val = k => k === 'onboarding' ? (body[k] ? 1 : 0)
+                   : k === 'order_idx' ? int(body[k]) ?? 0
+                   : k === 'gate_machine_code' ? (str(body[k]).trim() || null)
+                   : str(body[k]).trim();
+    if (f.length) {
+        db.prepare(`UPDATE wbl_work_event_templates SET ${f.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+            .run(...f.map(val), id);
+    }
+    if (Array.isArray(body.skill_ids)) {
+        const owns = db.prepare('SELECT 1 FROM wbl_skills WHERE id = ? AND program_id = ?');
+        T.setTemplateSkills(id, body.skill_ids.map(int).filter(sid => sid && owns.get(sid, p.id)));
+    }
+    if (!f.length && !Array.isArray(body.skill_ids)) return bad(res, 'nothing to update');
+    res.json({ ok: true });
+});
+
+// "Start from template": the Work Event, its planned skills and its
+// participants in one step. students: [{class_id, student_id}].
+router.post('/programs/:id/work-events/from-template', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const b = req.body || {};
+    const templateId = int(b.template_id);
+    if (!templateId) return bad(res, 'template_id required');
+    if (!Array.isArray(b.students)) return bad(res, 'students array required');
+    try {
+        res.json(T.createFromTemplate(p.id, templateId, {
+            title: str(b.title), opened_on: b.opened_on, closed_on: b.closed_on, students: b.students,
+        }));
+    } catch (e) {
+        if (e.status === 404) return nf(res, 'template_not_found');
+        bad(res, e.message);
+    }
 });
 
 router.delete('/work-events/:id/participants/:pid', requireTeacher, (req, res) => {
@@ -1223,6 +1217,7 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
 
     res.json({
         participant: wp,
+        evidence: L.evidenceLetter(wp.event_kind),
         phase_now: L.effectivePhase(wp.program_id, wp.student_id),
         planned_skill_ids: plannedSkillIds,
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),
@@ -1462,13 +1457,13 @@ router.get('/me/work-events', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
     const jobs = db.prepare(`
         SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.description, we.status,
-               we.opened_on, we.program_id, wp.phase_at_start,
+               we.kind, we.template_code, we.opened_on, we.program_id, wp.phase_at_start,
                (SELECT name FROM wbl_programs WHERE id = we.program_id) AS program_name
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id
         WHERE wp.student_id = ? AND we.status = 'active' AND wp.left_on IS NULL
         ORDER BY we.opened_on DESC
-    `).all(s.student_id);
+    `).all(s.student_id).map(j => ({ ...j, evidence: L.evidenceLetter(j.kind) }));
     const coworkers = db.prepare(`
         SELECT (SELECT student_name FROM class_students cs
                  WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name
@@ -1491,13 +1486,13 @@ router.get('/me/work-history', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
     const events = db.prepare(`
         SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.description,
-               we.status, we.opened_on, we.closed_on, we.program_id,
+               we.status, we.kind, we.template_code, we.opened_on, we.closed_on, we.program_id,
                (SELECT name FROM wbl_programs WHERE id = we.program_id) AS program_name
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id
         WHERE wp.student_id = ? AND we.status = 'complete'
         ORDER BY we.opened_on DESC
-    `).all(s.student_id);
+    `).all(s.student_id).map(e => ({ ...e, evidence: L.evidenceLetter(e.kind) }));
     const holistic = db.prepare(`
         SELECT hc.tier, t.label, t.rank, tp.points_pct
         FROM wbl_holistic_calls hc
@@ -1827,16 +1822,41 @@ router.get('/programs/:id/exit-slips', requireTeacher, (req, res) => {
 // The one place the program boundary is crossed: an Apparel instructor
 // verifying an Application claim must confirm a Carpentry credential exists.
 // Read-only, and returns nothing about the other program's internals.
+// Each award with the evidence trail it rests on: the Work Event assessments
+// (with the evidence letter of the event's kind) and any standing Skill Checks.
 router.get('/students/:studentId/credentials', requireTeacher, (req, res) => {
     const sid = normalizeStudentId(req.params.studentId);
-    res.json(db.prepare(`
-        SELECT c.name AS credential_name, p.name AS program_name, a.awarded_at
+    const awards = db.prepare(`
+        SELECT a.id, c.name AS credential_name, p.name AS program_name, a.awarded_at
         FROM wbl_credential_awards a
         JOIN wbl_credentials c ON c.id = a.credential_id
         JOIN wbl_programs    p ON p.id = a.program_id
         WHERE a.student_id = ? AND a.revoked_at IS NULL
         ORDER BY p.name, c.name
-    `).all(sid));
+    `).all(sid);
+    const assessed = db.prepare(`
+        SELECT ev.skill_id, v.name AS skill_name, v.version_no, we.id AS work_event_id, we.title AS work_event_title,
+               we.kind, sa.assessed_at
+        FROM wbl_award_evidence ev
+        JOIN wbl_skill_assessments sa ON sa.id = ev.assessment_id
+        JOIN wbl_skill_versions v     ON v.id = sa.skill_version_id
+        JOIN wbl_work_events we       ON we.id = sa.work_event_id
+        WHERE ev.award_id = ? ORDER BY v.name, sa.assessed_at
+    `);
+    const checked = db.prepare(`
+        SELECT ev.skill_id, v.name AS skill_name, v.version_no, sc.checked_at
+        FROM wbl_award_skill_check_evidence ev
+        JOIN wbl_skill_checks sc  ON sc.id = ev.skill_check_id
+        JOIN wbl_skill_versions v ON v.id = sc.skill_version_id
+        WHERE ev.award_id = ?
+    `);
+    res.json(awards.map(({ id, ...a }) => ({
+        ...a,
+        evidence: [
+            ...assessed.all(id).map(e => ({ ...e, type: 'assessment', evidence: L.evidenceLetter(e.kind) })),
+            ...checked.all(id).map(e => ({ ...e, type: 'skill_check' })),
+        ],
+    })));
 });
 
 // The server NEVER pushes to PowerSchool. The DobbsCore extension reads this,
@@ -1946,6 +1966,11 @@ router.get('/sync/progress', requireTeacher, (req, res) => {
             FROM wbl_work_events we
             LEFT JOIN wbl_work_event_sync s ON s.work_event_id = we.id AND s.class_id = ?
             WHERE we.program_id = ? AND we.status = 'complete'
+              -- Only jobs become PS assignments. Practicals, projects and
+              -- modules still need a Holistic Call to count toward a
+              -- credential, which syncs on its own; giving every sign-off its
+              -- own Summative assignment would bury the gradebook.
+              AND we.kind = 'job'
         `).all(classId, p.id).map(w => ({
             ...w,
             // points_pct is the blend (80% direct tier assessment, 20% attendance)
