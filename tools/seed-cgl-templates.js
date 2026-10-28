@@ -1,5 +1,5 @@
-// Seeds a program's Work Event templates from the CGL curriculum file. Dry run
-// by default; --apply commits.
+// Seeds a program's Work Event templates and machines from the CGL curriculum
+// file. Dry run by default; --apply commits.
 //
 //   node tools/seed-cgl-templates.js --db <path> <programId> [templates.json] [--apply]
 //
@@ -7,7 +7,8 @@
 // template's {credential, skill} pairs resolve through the credential's links
 // (server/wbl/templates.js resolveSkill), so run the catalog import or
 // tools/apply-credential-changelog.js first. Re-running updates templates
-// from the file but keeps any brief_url the teacher has pasted in.
+// from the file but keeps any brief_url the teacher has pasted in, and any
+// machine status or note the teacher has set.
 
 const fs = require('fs');
 const path = require('path');
@@ -27,6 +28,7 @@ if (!fs.existsSync(dbPath)) { console.error(`no database at ${dbPath}`); process
 process.env.DB_PATH = path.resolve(dbPath);
 const { db } = require('../server/db');
 const { seedTemplates } = require('../server/wbl/templates');
+const { seedMachines } = require('../server/wbl/gates');
 
 const programId = Number(programArg);
 const program = db.prepare('SELECT * FROM wbl_programs WHERE id = ?').get(programId);
@@ -35,9 +37,10 @@ const file = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
 console.log(`${apply ? 'APPLY' : 'DRY RUN'} — ${file.templates.length} templates into program #${programId} "${program.name}" (${program.teacher_key})\n`);
 db.exec('BEGIN');
-let report;
+let report, machines;
 try {
     report = seedTemplates(programId, file.templates);
+    machines = seedMachines(programId, file.machines || []);
     db.exec(apply ? 'COMMIT' : 'ROLLBACK');
 } catch (e) {
     db.exec('ROLLBACK');
@@ -50,7 +53,14 @@ console.log(`created   ${report.created.length}${report.created.length ? ': ' + 
 console.log(`updated   ${report.updated.length}${report.updated.length ? ': ' + report.updated.join(' ') : ''}`);
 console.log(`unchanged ${report.unchanged.length}`);
 console.log(`by kind   ${Object.entries(byKind).map(([k, n]) => `${k} ${n}`).join(', ')}`);
+console.log(`machines  ${machines.created.length} created, ${machines.updated.length} updated, ${machines.unchanged.length} unchanged`);
+const codes = new Set(file.templates.map(t => t.code));
+const badGates = (file.machines || []).filter(m => m.gate && !codes.has(m.gate)).map(m => `${m.code} → ${m.gate}`);
+if (badGates.length) {
+    console.log(`\nWARNINGS — machines gated by a template not in the file:\n${badGates.map(b => '  ' + b).join('\n')}`);
+}
 if (report.unresolved.length) {
-    console.log(`\nWARNINGS — planned skills not found in this program (left off the template):\n${report.unresolved.map(u => '  ' + u).join('\n')}`);
+    console.log(`\nWARNINGS — planned skills not found in this program:\n${report.unresolved.map(u => '  ' + u).join('\n')}`);
+    if (report.kept.length) console.log(`Existing templates kept their current planned skills: ${report.kept.join(' ')}`);
 }
 console.log(apply ? '\nApplied.' : '\nDry run — nothing changed. Re-run with --apply to commit.');

@@ -715,6 +715,23 @@
                             </div>
                         </section>
 
+                        <section class="wbl-cat-sec" data-sec="machines">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Machines</span>
+                                    <span class="wbl-cat-count" id="wbl-count-machines"></span></button>
+                                <button class="btn btn-outline btn-sm" onclick="wblNewMachine()">New Machine</button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    A gate practical clears a student to run its machine solo on live jobs (Roster &rarr; Gates).
+                                    Assigning an uncleared student to a machine on a job asks for an override note. Status is
+                                    for the shop floor; it never blocks anything.
+                                </p>
+                                <div id="wbl-machines-body"></div>
+                            </div>
+                        </section>
+
                         <section class="wbl-cat-sec" data-sec="phase2">
                             <div class="classes-header">
                                 <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
@@ -2959,13 +2976,17 @@
         // ── Roster ────────────────────────────────────────────────────────────
         let wblRosterRows = [];
         let wblCalledOuts = [];
+        let wblGates = [];
 
         async function loadWblRoster() {
             const includeExited = document.getElementById('wbl-show-exited')?.checked;
-            const [rows, calledOuts] = await Promise.all([
+            const [rows, calledOuts, gates] = await Promise.all([
                 wblApi('GET', `/programs/${wblProgramId()}/roster${includeExited ? '?include_exited=true' : ''}`),
                 wblApi('GET', `/programs/${wblProgramId()}/called-outs`),
+                wblApi('GET', `/programs/${wblProgramId()}/gates`),
+                wblLoadMachines(),
             ]);
+            wblGates = gates;
             wblRosterRows = rows;
             wblCalledOuts = calledOuts;
             const el = document.getElementById('wbl-roster-body');
@@ -2996,6 +3017,8 @@
                                     onclick="openWblTemplateStartModal('${wblEsc(r.student_id)}')">Start Template</button>`}
                                 <button class="btn btn-outline btn-sm" title="Shop Ready checklist, safety sign-off and phase override"
                                     onclick="wblPhaseModal('${wblEsc(r.student_id)}')">Phase</button>
+                                ${wblMachines.length ? `<button class="btn btn-outline btn-sm" title="Machines cleared for solo use"
+                                    onclick="wblGatesModal('${wblEsc(r.student_id)}')">Gates (${gates.filter(g => g.student_id === r.student_id).length})</button>` : ''}
                                 <button class="btn btn-outline btn-sm" onclick="wblCalledOutModal('${wblEsc(r.student_id)}')">Called Out${coCount ? ` (${coCount})` : ''}</button>
                             </td>
                         </tr>`;
@@ -3054,6 +3077,58 @@
                     <button class="btn btn-primary btn-sm" onclick="wblSaveOverride('${sid}')">Save Override</button>
                 </div>
             `);
+        }
+
+        // Solo-use clearances per machine: clear directly (outside a gate
+        // practical) or revoke with a required reason. Revoked rows stay as
+        // the safety record; the history lists every clear and revoke.
+        async function wblGatesModal(studentId) {
+            const student = wblRosterRows.find(r => r.student_id === studentId);
+            const hist = await wblApi('GET', `/programs/${wblProgramId()}/gates/history?student_id=${encodeURIComponent(studentId)}`);
+            const cleared = new Map(wblGates.filter(g => g.student_id === studentId).map(g => [g.machine_code, g]));
+            const sid = wblEsc(studentId);
+            wblOpenModal(`
+                <h3>Gates &mdash; ${wblEsc(student?.student_name || studentId)}</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Cleared machines can be run solo on live jobs. Usually cleared from the gate practical's sign-off.
+                </p>
+                <div class="wbl-modal-group">
+                    ${wblMachines.map(m => {
+                        const c = cleared.get(m.code);
+                        return `
+                        <div class="wbl-check-row">
+                            <span style="flex:1">${wblEsc(m.label)}${m.gate_template_code ? ` <span class="wbl-ver">gate ${wblEsc(m.gate_template_code)}</span>` : ''}</span>
+                            ${c
+                                ? `<span class="wbl-pill wbl-pill-good" title="${new Date(c.cleared_at).toLocaleDateString()} by ${wblEsc(c.cleared_by)}">cleared</span>
+                                   <button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="wblRevokeGate('${sid}', '${wblEsc(m.code)}')">Revoke</button>`
+                                : `<button class="btn btn-outline btn-sm" onclick="wblClearGate('${sid}', '${wblEsc(m.code)}')">Clear</button>`}
+                        </div>`;
+                    }).join('')}
+                </div>
+                ${hist.length ? `
+                    <div class="wbl-note">History</div>
+                    ${hist.map(h => `<div class="wbl-note" style="margin:0.15rem 0">
+                        ${new Date(h.at).toLocaleDateString()} &middot; ${h.action} ${wblEsc(h.label || h.machine_code)} by ${wblEsc(h.by_teacher)}${h.note ? ' &mdash; ' + wblEsc(h.note) : ''}</div>`).join('')}` : ''}
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Close</button>
+                </div>
+            `);
+        }
+
+        async function wblClearGate(studentId, code) {
+            const note = prompt(`Clear for solo use on ${wblMachineLabel(code)}. Note (optional — e.g. how they showed it):`);
+            if (note === null) return;
+            await wblApi('POST', `/programs/${wblProgramId()}/gates`, { student_id: studentId, machine_code: code, note: note.trim() });
+            await loadWblRoster();
+            wblGatesModal(studentId);
+        }
+
+        async function wblRevokeGate(studentId, code) {
+            const note = (prompt(`Revoke solo use on ${wblMachineLabel(code)}. Reason (required):`) || '').trim();
+            if (!note) return;
+            await wblApi('POST', `/programs/${wblProgramId()}/gates/revoke`, { student_id: studentId, machine_code: code, note });
+            await loadWblRoster();
+            wblGatesModal(studentId);
         }
 
         async function wblSaveSafety(studentId, signedOff) {
@@ -3263,6 +3338,30 @@
         const wblEvBadge = (letter, kind) =>
             `<span class="wbl-ev wbl-ev-${letter}" title="${wblEsc(wblKindLabel(kind))} — evidence ${letter}">${letter}</span>`;
 
+        // Machines and gates (CGL §5). The list is per program and changes
+        // rarely, so it's fetched fresh wherever a picker needs it.
+        let wblMachines = [];
+        async function wblLoadMachines() {
+            wblMachines = await wblApi('GET', `/programs/${wblProgramId()}/machines`);
+            return wblMachines;
+        }
+        const wblMachineLabel = code => wblMachines.find(m => m.code === code)?.label || code;
+        // A participant's machines; an amber pill marks one run without a
+        // clearance, with the override note as its tooltip.
+        const wblMachineChips = (machines) => (machines || []).length
+            ? machines.map(m => m.cleared
+                ? `<span class="wbl-pill">${wblEsc(m.label || m.machine_code)}</span>`
+                : `<span class="wbl-pill wbl-pill-warn" title="Not cleared — override: ${wblEsc(m.override_note)}">${wblEsc(m.label || m.machine_code)} &#9888;</span>`).join(' ')
+            : '<span style="color:#94a3b8">—</span>';
+        // Lists who isn't cleared on what and asks for the override note.
+        // Returns the note, or '' when the teacher cancels.
+        function wblGateOverridePrompt(gaps, names) {
+            const lines = gaps.map(g => `· ${names?.get(g.student_id) || g.student_id}: ${g.machines.map(wblMachineLabel).join(', ')}`);
+            const note = prompt('Not cleared for solo use:\n\n' + lines.join('\n')
+                + '\n\nTo assign anyway (e.g. a supervised first run), give a reason. It is kept with the assignment.');
+            return (note || '').trim();
+        }
+
         async function loadWblEvents() {
             loadWblUnassigned();
             const rows = await wblApi('GET', `/programs/${wblProgramId()}/work-events`);
@@ -3305,13 +3404,14 @@
             let wblLastGroupClass;
             const participantRows = w.participants.map(p => {
                 const header = p.class_name !== wblLastGroupClass
-                    ? `<tr class="wbl-table-group-row"><td colspan="6">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
+                    ? `<tr class="wbl-table-group-row"><td colspan="7">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
                     : '';
                 wblLastGroupClass = p.class_name;
                 return header + `
                         <tr>
                             <td><a href="#" onclick="openWblParticipant(${p.id});return false">${wblEsc(p.student_name || p.student_id)}</a></td>
                             <td><span class="wbl-phase wbl-phase-${p.phase_at_start}">Phase ${p.phase_at_start}</span></td>
+                            <td>${wblMachineChips(p.machines)}</td>
                             <td>${p.assessments}</td>
                             <td>${p.qc_checks}</td>
                             <td>${p.holistic_tier
@@ -3338,7 +3438,7 @@
                 <button class="btn btn-outline btn-sm" onclick="openWblParticipantModal(${w.id})">Add Participants</button>
                 ${w.participants.length ? `
                 <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
-                    <thead><tr><th>Student</th><th>Phase at start</th><th>Skills</th><th>QC</th><th>Holistic</th><th></th></tr></thead>
+                    <thead><tr><th>Student</th><th>Phase at start</th><th>Machines</th><th>Skills</th><th>QC</th><th>Holistic</th><th></th></tr></thead>
                     <tbody>${participantRows}</tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
         }
 
@@ -3401,6 +3501,7 @@
             wblP = await wblApi('GET', `/participants/${pid}`);
             const skills = await wblApi('GET', `/programs/${wblP.participant.program_id}/skills`);
             const qcCrit = await wblApi('GET', `/programs/${wblP.participant.program_id}/qc-criteria`);
+            await wblLoadMachines();
             wblP.catalogSkills = skills.filter(s => s.status === 'published');
             wblP.qcCriteria    = qcCrit;
             await wblEnsureRoster(wblP.participant.work_event_id);
@@ -3478,6 +3579,31 @@
                     </div>
                 </div>`;
 
+            // Gate practical: the explicit "Clear for solo use" action, offered
+            // once the call is Meets spec or better (CGL §5). Never automatic.
+            const g = wblP.gate;
+            const gateLens = g ? `
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Gate Clearance</span><span>${wblEsc(g.label)}</span></div>
+                    <div class="wbl-lens-body">
+                        ${g.clearance
+                            ? `<span class="wbl-pill wbl-pill-good">Cleared for solo use</span>
+                               <span class="wbl-note" style="display:inline">${new Date(g.clearance.cleared_at).toLocaleDateString()} by ${wblEsc(g.clearance.cleared_by)}</span>`
+                            : ['meets', 'exceeds'].includes(wblP.holistic?.tier)
+                                ? `<button class="btn btn-primary btn-sm" onclick="wblClearFromParticipant()">Clear for solo use on ${wblEsc(g.label)}</button>`
+                                : `<div class="wbl-note">Sign off at Meets spec or better to clear this student for solo use on ${wblEsc(g.label)}.</div>`}
+                        <div class="wbl-note">Clearing is always your call, never automatic. Revoke under Roster &rarr; Gates.</div>
+                    </div>
+                </div>` : '';
+            const machinesLens = p.event_kind === 'job' && wblMachines.length ? `
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>Machines</span><span>solo use needs a gate clearance</span></div>
+                    <div class="wbl-lens-body">
+                        ${wblMachineChips(wblP.machines)}
+                        <button class="btn btn-outline btn-sm" style="margin-left:0.5rem" onclick="wblEditParticipantMachines()">Edit Machines</button>
+                    </div>
+                </div>` : '';
+
             host.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
                     <button class="wbl-back" style="margin-bottom:0" onclick="closeWblParticipant()">&larr; Back to work events</button>
@@ -3545,6 +3671,8 @@
                 </div>
 
                 ${signOff ? holisticLens : ''}
+                ${gateLens}
+                ${machinesLens}
 
                 <div class="wbl-lens">
                     <div class="wbl-lens-head">
@@ -3706,6 +3834,47 @@
             openWblParticipant(wblP.participant.id);
         }
 
+        async function wblClearFromParticipant() {
+            const p = wblP.participant, g = wblP.gate;
+            if (!confirm(`Clear ${p.student_name || p.student_id} to run ${g.label} solo on live jobs?`)) return;
+            await wblApi('POST', `/programs/${p.program_id}/gates`,
+                         { student_id: p.student_id, machine_code: g.machine_code, work_event_id: p.work_event_id });
+            openWblParticipant(p.id);
+        }
+
+        function wblEditParticipantMachines() {
+            const on = new Set(wblP.machines.map(m => m.machine_code));
+            wblOpenModal(`
+                <h3>Machines &mdash; ${wblEsc(wblP.participant.student_name || wblP.participant.student_id)}</h3>
+                <div class="wbl-modal-group">
+                    ${wblMachines.map(m => `
+                        <div class="wbl-check-row">
+                            <input type="checkbox" id="wbl-pm-${wblEsc(m.code)}" data-pm="${wblEsc(m.code)}" ${on.has(m.code) ? 'checked' : ''}>
+                            <label for="wbl-pm-${wblEsc(m.code)}">${wblEsc(m.label)}${m.status === 'down' ? ' <span class="wbl-pill wbl-pill-bad">down</span>' : ''}</label>
+                        </div>`).join('')}
+                </div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveParticipantMachines()">Save</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveParticipantMachines(override_note = '') {
+            const p = wblP.participant;
+            const machine_codes = [...document.querySelectorAll('[data-pm]:checked')].map(b => b.dataset.pm);
+            try {
+                await wblApi('PUT', `/participants/${p.id}/machines`, { machine_codes, override_note });
+            } catch (e) {
+                if (e.status !== 409 || e.body?.error !== 'gate_not_cleared') throw e;
+                const note = wblGateOverridePrompt(e.body.gaps, new Map([[p.student_id, p.student_name]]));
+                if (note) return wblSaveParticipantMachines(note);
+                return;
+            }
+            wblCloseModal();
+            openWblParticipant(p.id);
+        }
+
         async function wblFactcheck(claimId) {
             const f = await wblApi('GET', `/transfer-claims/${claimId}/factcheck`);
             let msg;
@@ -3765,7 +3934,7 @@
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers, classes, templates, prereqs] = await Promise.all([
+            const [creds, skills, qc, tiers, classes, templates, prereqs, machines] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
@@ -3773,6 +3942,7 @@
                 wblApi('GET', `/programs/${pid}/classes`),
                 wblApi('GET', `/programs/${pid}/templates`),
                 wblApi('GET', `/programs/${pid}/phase2-prereqs`),
+                wblLoadMachines(),
             ]);
             wblCatalogSkills = skills;
             wblTemplates = templates;
@@ -3784,6 +3954,7 @@
                 credentials: n(creds.length, 'credential'),
                 skills: n(skills.length, 'skill'),
                 templates: n(templates.length, 'template'),
+                machines: n(machines.length, 'machine'),
                 phase2: prereqCount ? n(prereqCount, 'prerequisite') : 'not set',
                 qc: n(qc.length, 'criterion', 'criteria'),
                 tiers: n(tiers.length, 'tier'),
@@ -3833,6 +4004,23 @@
                         </tr>`).join('')}
                     </tbody></table></div>`
                 : '<div class="wbl-empty">No templates yet — load them with tools/seed-cgl-templates.js.</div>';
+
+            const STATUSES = [['available', 'Available'], ['in_use', 'In use'], ['down', 'Down']];
+            document.getElementById('wbl-machines-body').innerHTML = machines.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Machine</th><th>Gate</th><th>Status</th><th>Note</th></tr></thead>
+                    <tbody>${machines.map(m => `
+                        <tr>
+                            <td>${wblEsc(m.label)} <span class="wbl-ver">${wblEsc(m.code)}</span></td>
+                            <td>${m.gate_template_code ? wblEsc(m.gate_template_code) : '<span style="color:#94a3b8">—</span>'}</td>
+                            <td><select class="wbl-inline-input" onchange="wblPatchMachine(${m.id}, { status: this.value })">
+                                ${STATUSES.map(([v, l]) => `<option value="${v}"${m.status === v ? ' selected' : ''}>${l}</option>`).join('')}
+                            </select></td>
+                            <td><input class="wbl-inline-input" style="width:100%" value="${wblEsc(m.note)}" placeholder="e.g. needle broken"
+                                       onchange="wblPatchMachine(${m.id}, { note: this.value })"></td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No machines yet — load them with tools/seed-cgl-templates.js, or add one.</div>';
 
             document.getElementById('wbl-classes-body').innerHTML = classes.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -4279,6 +4467,21 @@
             wblSaveCatState();
         }
 
+        async function wblPatchMachine(id, fields) {
+            await wblApi('PATCH', `/machines/${id}`, fields);
+        }
+
+        async function wblNewMachine() {
+            const label = (prompt('Machine name (e.g. "Laser engraver"):') || '').trim();
+            if (!label) return;
+            const suggested = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const code = (prompt('Short code (lowercase, dashes):', suggested) || '').trim();
+            if (!code) return;
+            try { await wblApi('POST', `/programs/${wblProgramId()}/machines`, { label, code }); }
+            catch (e) { return alert('Could not add: ' + e.message); }
+            loadWblCatalog();
+        }
+
         function wblPhase2UseOnboarding() {
             const ids = new Set(wblTemplates.filter(t => t.onboarding).map(t => String(t.id)));
             document.querySelectorAll('[data-p2-tpl]').forEach(b => { if (ids.has(b.dataset.p2Tpl)) b.checked = true; });
@@ -4328,15 +4531,30 @@
             loadWblCatalog();
         }
 
+        let wblPPNames = new Map();   // student_id -> name, for the gate warning
+
         async function openWblParticipantModal(weId) {
-            const [byClass, we] = await Promise.all([
+            const [byClass, we, machines] = await Promise.all([
                 wblApi('GET', `/programs/${wblProgramId()}/roster-by-class`),
                 wblApi('GET', `/work-events/${weId}`),
+                wblLoadMachines(),
             ]);
             if (!byClass.length) {
                 return alert('No classes linked to this program yet — link one under Catalog first.');
             }
             const already = new Set(we.participants.map(p => p.student_id));
+            wblPPNames = new Map(byClass.flatMap(c => c.students.map(s => [s.student_id, s.student_name])));
+            // On a job, the machines these students will run. A student not
+            // cleared on one triggers the gate warning when saving.
+            const machinePicker = we.kind === 'job' && machines.length ? `
+                <div class="wbl-modal-group">
+                    <div class="wbl-modal-group-title">Machines they'll run (optional)</div>
+                    ${machines.map(m => `
+                        <div class="wbl-check-row">
+                            <input type="checkbox" id="wbl-ppm-${wblEsc(m.code)}" data-machine="${wblEsc(m.code)}">
+                            <label for="wbl-ppm-${wblEsc(m.code)}">${wblEsc(m.label)}${m.status === 'down' ? ' <span class="wbl-pill wbl-pill-bad">down</span>' : ''}</label>
+                        </div>`).join('')}
+                </div>` : '';
 
             // One linked class: the familiar checkbox list. Several linked
             // classes: a multi-select per class, headed by the class name, so
@@ -4377,6 +4595,7 @@
                 <div id="wbl-pp-groups">
                     ${body}
                 </div>
+                ${machinePicker}
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
                     <button class="btn btn-primary btn-sm" onclick="wblSaveParticipants(${weId})">Add Selected</button>
@@ -4398,8 +4617,19 @@
             document.querySelectorAll('#wbl-pp-groups select.wbl-pp-select')
                 .forEach(el => [...el.selectedOptions].forEach(o => add(el.dataset.class, o.value)));
             if (!byClass.size) return wblCloseModal();
+            const machine_codes = [...document.querySelectorAll('[data-machine]:checked')].map(b => b.dataset.machine);
+            let override_note = '';
+            if (machine_codes.length) {
+                const { gaps } = await wblApi('POST', `/programs/${wblProgramId()}/gates/check`,
+                    { student_ids: [...byClass.values()].flat(), machine_codes });
+                if (gaps.length) {
+                    override_note = wblGateOverridePrompt(gaps, wblPPNames);
+                    if (!override_note) return;
+                }
+            }
             for (const [classId, student_ids] of byClass) {
-                await wblApi('POST', `/work-events/${weId}/participants`, { class_id: Number(classId), student_ids });
+                await wblApi('POST', `/work-events/${weId}/participants`,
+                             { class_id: Number(classId), student_ids, machine_codes, override_note });
             }
             wblCloseModal();
             openWblEvent(weId);

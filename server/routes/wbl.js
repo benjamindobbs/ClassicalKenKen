@@ -11,6 +11,7 @@ const { requireTeacher } = require('../teacherAuth');
 const L = require('../wbl/logic');
 const { importCatalogRows } = require('../wbl/catalogImport');
 const T = require('../wbl/templates');
+const G = require('../wbl/gates');
 
 const router = Router();
 
@@ -1085,6 +1086,7 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
         ? db.prepare(`SELECT id, code, title, kind, gate_machine_code, brief_url, notes
                       FROM wbl_work_event_templates WHERE program_id = ? AND code = ?`).get(we.program_id, we.template_code) ?? null
         : null;
+    for (const pt of participants) pt.machines = G.participantMachines(pt.id);
     res.json({ ...we, evidence: L.evidenceLetter(we.kind), template, participants, skill_ids });
 });
 
@@ -1166,7 +1168,31 @@ router.post('/work-events/:id/participants', requireTeacher, (req, res) => {
     if (!ids.length) return bad(res, 'student_ids required');
 
     const on = L.isDate(req.body?.joined_on) ? req.body.joined_on : L.today();
-    res.json({ ok: true, added: L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on) });
+
+    // machine_codes: the machines these students run (CGL §5). On a job, any
+    // student not cleared for one gets a 409 listing the gaps unless
+    // override_note is sent — checked before anyone is added.
+    const codes = Array.isArray(req.body?.machine_codes) ? [...new Set(req.body.machine_codes.map(str).filter(Boolean))] : [];
+    if (!codes.length) return res.json({ ok: true, added: L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on) });
+    const unknown = codes.filter(c => !G.machineExists(p.id, c));
+    if (unknown.length) return bad(res, 'unknown machine: ' + unknown.join(', '));
+    const kind = db.prepare('SELECT kind FROM wbl_work_events WHERE id = ?').get(weId).kind;
+    const overrideNote = str(req.body?.override_note);
+    const gaps = kind === 'job' ? G.unclearedFor(p.id, ids, codes) : [];
+    if (gaps.length && !overrideNote) return res.status(409).json({ error: 'gate_not_cleared', gaps });
+
+    db.exec('BEGIN');
+    try {
+        const added = L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on);
+        const find = db.prepare('SELECT * FROM wbl_work_event_participants WHERE work_event_id = ? AND student_id = ?');
+        for (const sid of ids) {
+            const wp = find.get(weId, sid);
+            const current = db.prepare('SELECT machine_code FROM wbl_participant_machines WHERE participant_id = ?').all(wp.id).map(r => r.machine_code);
+            G.setParticipantMachines({ ...wp, program_id: p.id }, [...current, ...codes], { kind, overrideNote, by: req.teacherKey });
+        }
+        db.exec('COMMIT');
+        res.json({ ok: true, added, overridden: gaps });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
 // =============================================================================
@@ -1242,12 +1268,140 @@ router.delete('/work-events/:id/participants/:pid', requireTeacher, (req, res) =
     if (counts.assessments + counts.qc_checks + counts.holistic > 0) {
         return res.status(409).json({ error: 'participant_has_assessments', ...counts });
     }
+    db.prepare('DELETE FROM wbl_participant_machines WHERE participant_id = ?').run(wp.id);
     db.prepare('DELETE FROM wbl_work_event_participants WHERE id = ?').run(wp.id);
     res.json({ ok: true });
 });
 
 // =============================================================================
-// 4b. Skill Checks — standing credit outside any Work Event
+// 4b. Machines and gate clearances (CGL handoff §5, server/wbl/gates.js)
+// =============================================================================
+
+router.get('/programs/:id/machines', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(G.listMachines(p.id));
+});
+
+router.post('/programs/:id/machines', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const code = str(req.body?.code), label = str(req.body?.label);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(code)) return bad(res, 'code must be lowercase letters, digits and dashes');
+    if (!label) return bad(res, 'label required');
+    try {
+        const info = db.prepare(`INSERT INTO wbl_machines(program_id, code, label, gate_template_code, note, order_idx, created_at)
+                                 VALUES(?, ?, ?, ?, ?, (SELECT COALESCE(MAX(order_idx), -1) + 1 FROM wbl_machines WHERE program_id = ?), ?)`)
+            .run(p.id, code, label, str(req.body?.gate_template_code) || null, str(req.body?.note), p.id, now());
+        res.json({ ok: true, id: Number(info.lastInsertRowid) });
+    } catch (e) { bad(res, /UNIQUE/.test(e.message) ? 'machine code already used' : e.message); }
+});
+
+// Status and note are what change day to day ("down — needle broken").
+router.patch('/machines/:id', requireTeacher, (req, res) => {
+    if (!owned(req, res, 'machine', req.params.id)) return;
+    const body = req.body || {};
+    if ('status' in body && !G.MACHINE_STATUSES.includes(body.status)) return bad(res, 'invalid status');
+    const f = ['label', 'status', 'note', 'gate_template_code'].filter(k => k in body);
+    if (!f.length) return bad(res, 'nothing to update');
+    db.prepare(`UPDATE wbl_machines SET ${f.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+        .run(...f.map(k => (k === 'gate_template_code' ? str(body[k]) || null : str(body[k]))), Number(req.params.id));
+    res.json({ ok: true });
+});
+
+// The read API the CGL Job Sheet calls before assigning a task (§8): a
+// student's cleared machines. Without student_id, every live clearance in
+// the program (the roster's view). Teacher auth for now.
+router.get('/programs/:id/gates', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = req.query.student_id ? normalizeStudentId(String(req.query.student_id)) : null;
+    const rows = G.clearances(p.id, sid).map(g => ({
+        student_id: g.student_id, machine_code: g.machine_code, label: g.label,
+        cleared_at: g.cleared_at, cleared_by: g.cleared_by, work_event_id: g.work_event_id,
+    }));
+    res.json(sid ? { student_id: sid, cleared: rows } : rows);
+});
+
+router.get('/programs/:id/gates/history', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(String(req.query.student_id || ''));
+    if (!sid) return bad(res, 'student_id required');
+    res.json(G.history(p.id, sid));
+});
+
+// Clear: from the roster directly, or from a gate practical's participant
+// screen (work_event_id set). Always an explicit teacher action.
+router.post('/programs/:id/gates', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(String(req.body?.student_id || ''));
+    const code = str(req.body?.machine_code);
+    if (!sid || !code) return bad(res, 'student_id and machine_code required');
+    if (!db.prepare('SELECT 1 FROM wbl_program_enrollments WHERE program_id = ? AND student_id = ?').get(p.id, sid)) {
+        return res.status(404).json({ error: 'not_enrolled' });
+    }
+    const weId = int(req.body?.work_event_id) || null;
+    if (weId && !db.prepare('SELECT 1 FROM wbl_work_events WHERE id = ? AND program_id = ?').get(weId, p.id)) {
+        return bad(res, 'work_event_not_in_program');
+    }
+    try {
+        db.exec('BEGIN');
+        const r = G.clearGate(p.id, sid, code, { workEventId: weId, by: req.teacherKey, note: str(req.body?.note) });
+        db.exec('COMMIT');
+        res.json({ ok: true, ...r });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+});
+
+router.post('/programs/:id/gates/revoke', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(String(req.body?.student_id || ''));
+    const code = str(req.body?.machine_code);
+    const note = str(req.body?.note);
+    if (!sid || !code) return bad(res, 'student_id and machine_code required');
+    if (!note) return bad(res, 'note required');
+    db.exec('BEGIN');
+    try {
+        const revoked = G.revokeGate(p.id, sid, code, { by: req.teacherKey, note });
+        db.exec('COMMIT');
+        if (!revoked) return res.status(404).json({ error: 'not_cleared' });
+        res.json({ ok: true });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+});
+
+// Preflight for the Add Participants dialog: which students lack which of
+// these machines, so the teacher sees every gap before anyone is added.
+router.post('/programs/:id/gates/check', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const ids = (req.body?.student_ids || []).map(s => normalizeStudentId(String(s))).filter(Boolean);
+    const codes = (req.body?.machine_codes || []).map(str).filter(Boolean);
+    res.json({ gaps: G.unclearedFor(p.id, ids, codes) });
+});
+
+// Replaces a participant's machines; same 409 + override_note contract as
+// adding participants with machine_codes.
+router.put('/participants/:id/machines', requireTeacher, (req, res) => {
+    const wp = participantCtx(req, res, req.params.id);
+    if (!wp) return;
+    const codes = Array.isArray(req.body?.machine_codes) ? req.body.machine_codes.map(str).filter(Boolean) : null;
+    if (!codes) return bad(res, 'machine_codes array required');
+    db.exec('BEGIN');
+    try {
+        const r = G.setParticipantMachines(wp, codes, { kind: wp.event_kind, overrideNote: str(req.body?.override_note), by: req.teacherKey });
+        if (r.needs_override) {
+            db.exec('ROLLBACK');
+            return res.status(409).json({ error: 'gate_not_cleared', gaps: [{ student_id: wp.student_id, machines: r.needs_override }] });
+        }
+        db.exec('COMMIT');
+        res.json({ ok: true, overridden: r.overridden, machines: G.participantMachines(wp.id) });
+    } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
+});
+
+// =============================================================================
+// 4c. Skill Checks — standing credit outside any Work Event
 // =============================================================================
 
 // All skill checks for a program, for the crediting grid's checked state.
@@ -1322,11 +1476,25 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
     const plannedSkillIds = db.prepare('SELECT skill_id FROM wbl_work_event_skills WHERE work_event_id = ?')
         .all(wp.work_event_id).map(r => r.skill_id);
 
+    // The machine this practical gates, if it's a gate practical, and whether
+    // the student is already cleared on it — drives the "Clear for solo use"
+    // action, which the teacher takes explicitly after a Meets+ call.
+    const gateCode = wp.event_template_code && db.prepare(
+        'SELECT gate_machine_code FROM wbl_work_event_templates WHERE program_id = ? AND code = ?'
+    ).get(wp.program_id, wp.event_template_code)?.gate_machine_code;
+    const gate = gateCode ? {
+        machine_code: gateCode,
+        label: db.prepare('SELECT label FROM wbl_machines WHERE program_id = ? AND code = ?').get(wp.program_id, gateCode)?.label ?? gateCode,
+        clearance: G.clearances(wp.program_id, wp.student_id).find(g => g.machine_code === gateCode) ?? null,
+    } : null;
+
     res.json({
         participant: wp,
         evidence: L.evidenceLetter(wp.event_kind),
         phase_now: L.effectivePhase(wp.program_id, wp.student_id),
         planned_skill_ids: plannedSkillIds,
+        machines: G.participantMachines(wp.id),
+        gate,
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),
         qc_checks: qc.map(c => ({ ...c, results: qcResults.all(c.id) })),
         holistic: db.prepare('SELECT * FROM wbl_holistic_calls WHERE participant_id = ?').get(wp.id) ?? null,

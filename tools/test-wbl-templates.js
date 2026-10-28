@@ -145,6 +145,23 @@ test('a title override, and an unknown template, are handled', () => {
     assert.throws(() => T.createFromTemplate(pid, 999999, {}), /template_not_found/);
 });
 
+test('a re-seed that cannot resolve a skill keeps the template\'s planned skills', () => {
+    const planned = code => db.prepare('SELECT skill_id FROM wbl_work_event_template_skills WHERE template_id = ? ORDER BY order_idx')
+        .all(tpl(code).id).map(r => r.skill_id);
+    const before = planned('IL-02');
+    assert.ok(before.length > 0);
+    const ill = credId('Adobe Illustrator');
+    const links = db.prepare('SELECT * FROM wbl_credential_skills WHERE credential_id = ?').all(ill);
+    db.prepare('DELETE FROM wbl_credential_skills WHERE credential_id = ?').run(ill);   // the editor's replace-all
+    const r = T.seedTemplates(pid, TEMPLATES);
+    assert.ok(r.unresolved.some(u => u.startsWith('IL-02:')));
+    assert.ok(r.kept.includes('IL-02'));
+    assert.deepStrictEqual(planned('IL-02'), before);
+    const ins = db.prepare('INSERT INTO wbl_credential_skills(credential_id, skill_id, required_demonstrations, order_idx) VALUES(?, ?, ?, ?)');
+    for (const l of links) ins.run(l.credential_id, l.skill_id, l.required_demonstrations, l.order_idx);
+    assert.deepStrictEqual(T.seedTemplates(pid, TEMPLATES).kept, []);
+});
+
 db.close();
 fs.rmSync(path.dirname(tmpDb), { recursive: true, force: true });
 console.log(`${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

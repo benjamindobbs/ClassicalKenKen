@@ -24,20 +24,24 @@ function resolveSkill(programId, credentialName, skillName) {
 
 // Upserts templates by code. The curriculum file owns every field except
 // brief_url, which the teacher pastes in afterward (Shared Drive links) and a
-// re-seed must not wipe. Planned skills are replaced from the file. Runs
-// inside the caller's transaction; returns a report and any unresolved skills.
+// re-seed must not wipe. Planned skills are replaced from the file — except
+// when any of an existing template's skills fails to resolve (e.g. a
+// credential's links were edited), in which case its current planned skills
+// are kept rather than silently dropped (report.kept). Runs inside the
+// caller's transaction; returns a report and any unresolved skills.
 function seedTemplates(programId, templates) {
-    const report = { created: [], updated: [], unchanged: [], unresolved: [] };
+    const report = { created: [], updated: [], unchanged: [], unresolved: [], kept: [] };
     const find = db.prepare('SELECT * FROM wbl_work_event_templates WHERE program_id = ? AND code = ?');
     const skillsOf = db.prepare('SELECT skill_id FROM wbl_work_event_template_skills WHERE template_id = ? ORDER BY order_idx');
 
     templates.forEach((t, i) => {
         if (!L.WORK_EVENT_KINDS.includes(t.kind)) throw new Error(`${t.code}: unknown kind "${t.kind}"`);
         const skillIds = [];
+        let missing = false;
         for (const ps of t.planned_skills || []) {
             const id = resolveSkill(programId, ps.credential, ps.skill);
             if (id) { if (!skillIds.includes(id)) skillIds.push(id); }
-            else report.unresolved.push(`${t.code}: ${ps.credential} / ${ps.skill}`);
+            else { missing = true; report.unresolved.push(`${t.code}: ${ps.credential} / ${ps.skill}`); }
         }
         const fields = {
             title: t.title, kind: t.kind, gate_machine_code: t.gate_for_machine || null,
@@ -57,12 +61,14 @@ function seedTemplates(programId, templates) {
         } else {
             const changed = Object.keys(fields).filter(k => row[k] !== fields[k]);
             const oldSkills = skillsOf.all(row.id).map(r => r.skill_id);
-            const skillsChanged = oldSkills.length !== skillIds.length || oldSkills.some((id, j) => id !== skillIds[j]);
+            const skillsChanged = !missing
+                && (oldSkills.length !== skillIds.length || oldSkills.some((id, j) => id !== skillIds[j]));
             if (changed.length) {
                 db.prepare(`UPDATE wbl_work_event_templates SET ${changed.map(k => `${k} = ?`).join(', ')}, archived_at = NULL WHERE id = ?`)
                     .run(...changed.map(k => fields[k]), row.id);
             }
             (changed.length || skillsChanged ? report.updated : report.unchanged).push(t.code);
+            if (missing) { report.kept.push(t.code); return; }
         }
         setTemplateSkills(row.id, skillIds);
     });

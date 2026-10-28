@@ -1084,6 +1084,67 @@ try { db.prepare('ALTER TABLE wbl_student_phase ADD COLUMN override_at INTEGER')
 // (result = 'mastered'); rows written before this have result NULL and only met.
 try { db.prepare('ALTER TABLE wbl_skill_criterion_results ADD COLUMN result TEXT').run(); } catch { /* already exists */ }
 
+// Machines and gate clearances (CGL handoff §5). A gate practical clears a
+// student to run one machine solo on live jobs; it is not a credential.
+// wbl_gate_clearances holds the current state (one row per student+machine,
+// re-cleared in place); wbl_gate_clearance_events is the append-only safety
+// history, so revoking and re-clearing never loses who did what when.
+// wbl_participant_machines records the machines a participant runs on a Work
+// Event; when one wasn't cleared at assignment the override note is required
+// and kept on the row (server/wbl/gates.js). Enforcement is warn + override,
+// never a hard block, so a supervised first run stays possible.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_machines (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id         INTEGER NOT NULL REFERENCES wbl_programs(id),
+        code               TEXT    NOT NULL,
+        label              TEXT    NOT NULL,
+        gate_template_code TEXT,
+        status             TEXT    NOT NULL DEFAULT 'available' CHECK(status IN ('available','in_use','down')),
+        note               TEXT    NOT NULL DEFAULT '',
+        order_idx          INTEGER NOT NULL DEFAULT 0,
+        archived_at        INTEGER,
+        created_at         INTEGER NOT NULL,
+        UNIQUE(program_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS wbl_gate_clearances (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id    INTEGER NOT NULL REFERENCES wbl_programs(id),
+        student_id    TEXT    NOT NULL,
+        machine_code  TEXT    NOT NULL,
+        work_event_id INTEGER REFERENCES wbl_work_events(id),
+        cleared_by    TEXT    NOT NULL,
+        cleared_at    INTEGER NOT NULL,
+        note          TEXT    NOT NULL DEFAULT '',
+        revoked_at    INTEGER,
+        revoked_by    TEXT,
+        revoke_note   TEXT,
+        UNIQUE(program_id, student_id, machine_code)
+    );
+    CREATE TABLE IF NOT EXISTS wbl_gate_clearance_events (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id    INTEGER NOT NULL REFERENCES wbl_programs(id),
+        student_id    TEXT    NOT NULL,
+        machine_code  TEXT    NOT NULL,
+        action        TEXT    NOT NULL CHECK(action IN ('cleared','revoked')),
+        work_event_id INTEGER,
+        by_teacher    TEXT    NOT NULL,
+        at            INTEGER NOT NULL,
+        note          TEXT    NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS wbl_participant_machines (
+        participant_id  INTEGER NOT NULL REFERENCES wbl_work_event_participants(id),
+        machine_code    TEXT    NOT NULL,
+        cleared         INTEGER NOT NULL DEFAULT 1,
+        override_note   TEXT    NOT NULL DEFAULT '',
+        override_by     TEXT    NOT NULL DEFAULT '',
+        assigned_at     INTEGER NOT NULL,
+        PRIMARY KEY (participant_id, machine_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wbl_gates_student ON wbl_gate_clearances(program_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_wbl_gate_events_student ON wbl_gate_clearance_events(program_id, student_id);
+`);
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

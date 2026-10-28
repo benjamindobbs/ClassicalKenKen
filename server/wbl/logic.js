@@ -108,6 +108,7 @@ const OWNER_SQL = {
     transferClaim:'SELECT p.* FROM wbl_transfer_claims t JOIN wbl_programs p ON p.id = t.program_id WHERE t.id = ? AND p.teacher_key = ?',
     calledOut:   'SELECT p.* FROM wbl_called_outs co JOIN wbl_programs p ON p.id = co.program_id WHERE co.id = ? AND p.teacher_key = ?',
     template:    'SELECT p.* FROM wbl_work_event_templates t JOIN wbl_programs p ON p.id = t.program_id WHERE t.id = ? AND p.teacher_key = ?',
+    machine:     'SELECT p.* FROM wbl_machines m JOIN wbl_programs p ON p.id = m.program_id WHERE m.id = ? AND p.teacher_key = ?',
 };
 const ownerOf = (kind, id, teacherKey) => db.prepare(OWNER_SQL[kind]).get(Number(id), teacherKey);
 
