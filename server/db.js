@@ -1078,6 +1078,12 @@ try { db.prepare('ALTER TABLE wbl_program_enrollments ADD COLUMN safety_signed_o
 try { db.prepare("ALTER TABLE wbl_program_enrollments ADD COLUMN safety_signed_off_by TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
 try { db.prepare('ALTER TABLE wbl_student_phase ADD COLUMN override_at INTEGER').run(); } catch { /* already exists */ }
 
+// Each criterion (subtask) carries its own result on the same scale as the
+// skill — not_demonstrated / developing / mastered — and the skill's result is
+// derived from them (routes/wbl.js deriveSkillResult). met stays in step
+// (result = 'mastered'); rows written before this have result NULL and only met.
+try { db.prepare('ALTER TABLE wbl_skill_criterion_results ADD COLUMN result TEXT').run(); } catch { /* already exists */ }
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

@@ -1351,8 +1351,48 @@ const currentVersion = (skillId, programId) => db.prepare(`
     WHERE v.skill_id = ? AND v.is_current = 1 AND s.program_id = ?
 `).get(skillId, programId);
 
-// Upserts one assessment and replaces its criterion results. The caller owns
-// the transaction and has already resolved the version.
+// A skill with criteria is judged criterion by criterion; its own result is
+// derived, never picked: mastered only when every criterion of the version is
+// mastered, developing once any is developing or mastered, else not
+// demonstrated. A criterion left unassessed holds the skill below mastered.
+function deriveSkillResult(criterionIds, results) {
+    const vals = [...results.values()];
+    if (criterionIds.every(id => results.get(id) === 'mastered')) return 'mastered';
+    if (vals.some(r => r === 'developing' || r === 'mastered')) return 'developing';
+    return 'not_demonstrated';
+}
+
+// Resolves a request's { result, criteria } against the pinned version.
+// criteria: [{ criterion_id, result }] — an empty result means not assessed and
+// is dropped. When any criterion is assessed the skill result is derived and
+// body.result is ignored; otherwise (no criteria on the version, or none
+// assessed) body.result is used. Legacy [{ criterion_id, met }] is still taken.
+function resolveAssessment(version, body) {
+    const list = Array.isArray(body?.criteria) ? body.criteria : [];
+    if (!list.some(c => c && 'result' in c)) {
+        const result = str(body?.result);
+        return ASSESSMENT_RESULTS.includes(result)
+            ? { result, criteria: list.map(c => ({ criterion_id: int(c.criterion_id), result: null, met: c.met ? 1 : 0 })) }
+            : { error: 'invalid result' };
+    }
+    const ids = db.prepare('SELECT id FROM wbl_skill_criteria WHERE skill_version_id = ?').all(version.id).map(r => r.id);
+    const results = new Map();
+    for (const c of list) {
+        const r = str(c?.result);
+        if (!r) continue;
+        if (!ASSESSMENT_RESULTS.includes(r)) return { error: 'invalid criterion result: ' + r };
+        if (!ids.includes(int(c.criterion_id))) return { error: 'criterion_not_in_version: ' + c.criterion_id };
+        results.set(int(c.criterion_id), r);
+    }
+    const criteria = [...results].map(([criterion_id, r]) => ({ criterion_id, result: r, met: r === 'mastered' ? 1 : 0 }));
+    if (results.size) return { result: deriveSkillResult(ids, results), criteria };
+    const result = str(body?.result);
+    return ASSESSMENT_RESULTS.includes(result) ? { result, criteria } : { error: 'no criterion assessed and no result' };
+}
+
+// Upserts one assessment and replaces its criterion results (as resolved by
+// resolveAssessment). The caller owns the transaction and has already
+// resolved the version.
 function writeAssessment(wp, skillId, version, result, note, criteria, teacherKey) {
     db.prepare(`
         INSERT INTO wbl_skill_assessments
@@ -1370,28 +1410,30 @@ function writeAssessment(wp, skillId, version, result, note, criteria, teacherKe
         .get(wp.id, skillId);
     db.prepare('DELETE FROM wbl_skill_criterion_results WHERE assessment_id = ?').run(a.id);
     const ins = db.prepare(
-        'INSERT OR REPLACE INTO wbl_skill_criterion_results(assessment_id, criterion_id, met) VALUES(?, ?, ?)'
+        'INSERT OR REPLACE INTO wbl_skill_criterion_results(assessment_id, criterion_id, met, result) VALUES(?, ?, ?, ?)'
     );
-    for (const c of criteria || []) ins.run(a.id, int(c.criterion_id), c.met ? 1 : 0);
+    for (const c of criteria) ins.run(a.id, c.criterion_id, c.met, c.result);
 }
 
 router.put('/participants/:id/skills/:skillId', requireTeacher, (req, res) => {
     const wp = participantCtx(req, res, req.params.id);
     if (!wp) return;
     const skillId = Number(req.params.skillId);
-    const result = str(req.body?.result);
-    if (!ASSESSMENT_RESULTS.includes(result)) return bad(res, 'invalid result');
-
     const version = currentVersion(skillId, wp.program_id);
     if (!version) return res.status(409).json({ error: 'no_published_version', skill_id: skillId });
+    const r = resolveAssessment(version, req.body);
+    if (r.error) return bad(res, r.error);
 
     db.exec('BEGIN');
     try {
-        writeAssessment(wp, skillId, version, result, str(req.body?.note), req.body?.criteria, req.teacherKey);
+        writeAssessment(wp, skillId, version, r.result, str(req.body?.note), r.criteria, req.teacherKey);
         db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
 
-    res.json({ ok: true, pinned_version: version.version_no, ...L.recomputeAttainment(wp.program_id, wp.student_id, wp.class_id) });
+    res.json({
+        ok: true, pinned_version: version.version_no, result: r.result,
+        ...L.recomputeAttainment(wp.program_id, wp.student_id, wp.class_id),
+    });
 });
 
 // iso_week is computed server-side, never taken from the client. The weekly cap
@@ -1484,7 +1526,8 @@ router.put('/participants/:id/holistic', requireTeacher, (req, res) => {
 // The practical / project / module sign-off (CGL handoff §9 decision 1): the
 // skill results and the Holistic Call land in one step, so a sign-off can't be
 // left half-recorded — without the call, nothing demonstrated here would count.
-// Body: { tier, rationale, skills: [{ skill_id, result, criteria, note }] }.
+// Body: { tier, rationale, skills: [{ skill_id, result, criteria, note }] },
+// each skill resolved as in PUT /skills (criteria results derive the result).
 // skills may be empty (a formative module plans none). Every skill is checked
 // before anything is written, then attainment is recomputed once.
 // event_ready_to_close tells the client every participant now has a call.
@@ -1499,17 +1542,18 @@ router.post('/participants/:id/sign-off', requireTeacher, (req, res) => {
     const planned = [];
     for (const sk of skills) {
         const skillId = int(sk?.skill_id);
-        if (!ASSESSMENT_RESULTS.includes(str(sk?.result))) return bad(res, 'invalid result for skill ' + skillId);
         const version = currentVersion(skillId, wp.program_id);
         if (!version) return res.status(409).json({ error: 'no_published_version', skill_id: skillId });
-        planned.push({ skillId, version, sk });
+        const r = resolveAssessment(version, sk);
+        if (r.error) return bad(res, `${r.error} (skill ${skillId})`);
+        planned.push({ skillId, version, sk, r });
     }
 
     let prior;
     db.exec('BEGIN');
     try {
-        for (const { skillId, version, sk } of planned) {
-            writeAssessment(wp, skillId, version, str(sk.result), str(sk.note), sk.criteria, req.teacherKey);
+        for (const { skillId, version, sk, r } of planned) {
+            writeAssessment(wp, skillId, version, r.result, str(sk.note), r.criteria, req.teacherKey);
         }
         prior = writeHolisticCall(wp, tier, str(req.body?.rationale), req.teacherKey);
         db.exec('COMMIT');

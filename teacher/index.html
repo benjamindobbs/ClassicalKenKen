@@ -166,6 +166,10 @@
         .wbl-skill-name  { flex:1; font-size:0.875rem; color:#0f172a; }
         .wbl-skill-crit  { display:block; font-size:0.75rem; color:#64748b; margin-top:0.3rem; }
         .wbl-skill-crit label { margin-right:0.9rem; white-space:nowrap; }
+        .wbl-crit-list   { margin-top:0.35rem; }
+        .wbl-crit-row    { display:flex; justify-content:space-between; align-items:center; gap:0.75rem;
+                           padding:0.2rem 0 0.2rem 0.75rem; font-size:0.8rem; color:#475569; }
+        .wbl-crit-row select { flex:none; font-size:0.8rem; }
         .wbl-tier-row    { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem; }
         .wbl-tier        { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:0.4rem 0.75rem; font-size:0.8125rem; cursor:pointer; }
         .wbl-tier.sel    { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; font-weight:600; }
@@ -3438,24 +3442,33 @@
                     <div class="wbl-lens-head"><span>Hard Skills</span><span>every work event, both phases</span></div>
                     <div class="wbl-lens-body">
                         ${(() => {
+                            const options = cur => `<option value="">— not assessed —</option>`
+                                + RESULTS.map(r => `<option value="${r}"${cur === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('');
+                            // A skill with criteria is judged per criterion and its result derived
+                            // (shown as a pill); a skill without criteria keeps one result dropdown.
                             const skillRow = (s) => {
                                 const a = done.get(s.id);
-                                const met = new Set((a?.criteria || []).filter(c => c.met).map(c => c.criterion_id));
+                                const onchg = signOff ? `wblCritChanged(${s.id})` : `saveWblSkill(${s.id})`;
+                                if (!s.criteria.length) return `
+                                <div class="wbl-skill-row">
+                                    <div class="wbl-skill-name">${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span></div>
+                                    <select class="wbl-inline-input" id="wbl-res-${s.id}" onchange="${onchg}">${options(a?.result)}</select>
+                                </div>`;
+                                // Rows recorded before per-criterion results carry only met.
+                                const prior = new Map((a?.criteria || []).map(c => [c.criterion_id, c.result || (c.met ? 'mastered' : '')]));
                                 return `
                                 <div class="wbl-skill-row">
                                     <div class="wbl-skill-name">
                                         ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>
-                                        <span class="wbl-skill-crit" id="wbl-crit-${s.id}">${
-                                            s.criteria.map(c => `<label><input type="checkbox" data-crit="${c.id}"
-                                                ${met.has(c.id) ? 'checked' : ''}
-                                                onchange="${signOff ? 'wblSignOffDirty.add' : 'saveWblSkill'}(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
-                                        }</span>
+                                        <div class="wbl-crit-list" id="wbl-crit-${s.id}">${
+                                            s.criteria.map(c => `
+                                            <div class="wbl-crit-row">
+                                                <span>${wblEsc(c.name)}</span>
+                                                <select class="wbl-inline-input" data-crit="${c.id}" onchange="${onchg}">${options(prior.get(c.id))}</select>
+                                            </div>`).join('')
+                                        }</div>
                                     </div>
-                                    <select class="wbl-inline-input" id="wbl-res-${s.id}"
-                                            onchange="${signOff ? 'wblSignOffDirty.add' : 'saveWblSkill'}(${s.id})">
-                                        <option value="">— not assessed —</option>
-                                        ${RESULTS.map(r => `<option value="${r}"${a?.result === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('')}
-                                    </select>
+                                    <span id="wbl-skill-result-${s.id}">${wblResultPill(a?.result || '')}</span>
                                 </div>`;
                             };
                             if (!wblP.catalogSkills.length) return '<div class="wbl-empty">No published skills in this program yet.</div>';
@@ -3541,13 +3554,41 @@
             loadWblEvents();
         }
 
+        function wblResultPill(result) {
+            const tone = { mastered: ' wbl-pill-good', developing: ' wbl-pill-warn', not_demonstrated: ' wbl-pill-bad' }[result] || '';
+            return `<span class="wbl-pill${tone}">${result ? result.replace(/_/g, ' ') : 'not assessed'}</span>`;
+        }
+
+        // The body for one skill's assessment, or null when nothing is picked.
+        // With criteria, the server derives the result (deriveSkillResult);
+        // wblDeriveResult mirrors it only to preview the pill before a sign-off.
+        function wblSkillBody(skillId) {
+            const criteria = [...document.querySelectorAll(`#wbl-crit-${skillId} select[data-crit]`)]
+                .map(s => ({ criterion_id: Number(s.dataset.crit), result: s.value }));
+            if (criteria.length) return criteria.some(c => c.result) ? { skill_id: skillId, criteria } : null;
+            const result = document.getElementById('wbl-res-' + skillId)?.value;
+            return result ? { skill_id: skillId, result } : null;
+        }
+
+        function wblDeriveResult(criteria) {
+            const set = criteria.filter(c => c.result);
+            if (!set.length) return '';
+            if (criteria.every(c => c.result === 'mastered')) return 'mastered';
+            if (set.some(c => c.result !== 'not_demonstrated')) return 'developing';
+            return 'not_demonstrated';
+        }
+
+        function wblCritChanged(skillId) {
+            wblSignOffDirty.add(skillId);
+            const pill = document.getElementById('wbl-skill-result-' + skillId);
+            const body = wblSkillBody(skillId);
+            if (pill && body?.criteria) pill.innerHTML = wblResultPill(wblDeriveResult(body.criteria));
+        }
+
         async function saveWblSkill(skillId) {
-            const result = document.getElementById('wbl-res-' + skillId).value;
-            if (!result) return;
-            const crits = [...document.querySelectorAll(`#wbl-crit-${skillId} input[data-crit]`)]
-                .map(i => ({ criterion_id: Number(i.dataset.crit), met: i.checked }));
-            const r = await wblApi('PUT', `/participants/${wblP.participant.id}/skills/${skillId}`,
-                                   { result, criteria: crits });
+            const body = wblSkillBody(skillId);
+            if (!body) return;
+            const r = await wblApi('PUT', `/participants/${wblP.participant.id}/skills/${skillId}`, body);
             if (r.awarded?.length) alert(`Credential earned — ${r.awarded.length} awarded. Phase is now ${r.phase}.`);
             openWblParticipant(wblP.participant.id);
         }
@@ -3584,14 +3625,7 @@
 
         async function wblSignOff() {
             if (!wblPickedTier) return alert('Pick a Holistic Output Call to sign off.');
-            const skills = [...wblSignOffDirty].map(id => ({
-                skill_id: id,
-                result: document.getElementById('wbl-res-' + id)?.value || '',
-                criteria: [...document.querySelectorAll(`#wbl-crit-${id} input[data-crit]`)]
-                    .map(i => ({ criterion_id: Number(i.dataset.crit), met: i.checked })),
-            }));
-            const unpicked = skills.filter(s => !s.result);
-            if (unpicked.length) return alert('Pick a result for every skill whose criteria you ticked.');
+            const skills = [...wblSignOffDirty].map(wblSkillBody).filter(Boolean);
             const planned = wblP.planned_skill_ids || [];
             const assessed = new Set([...wblP.hard_skills.map(a => a.skill_id), ...skills.map(s => s.skill_id)]);
             if (planned.length && !planned.some(id => assessed.has(id))
