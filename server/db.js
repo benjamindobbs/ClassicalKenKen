@@ -1061,6 +1061,23 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_wbl_we_templates_prog ON wbl_work_event_templates(program_id);
 `);
 
+// Shop Ready: Phase 2 prerequisites beyond credentials (CGL handoff §9 decision
+// 2). A template prereq is met by a Holistic Call of Meets spec or better on any
+// Work Event started from it; the safety sign-off is a dated per-student flag on
+// the enrollment, required only where the program opts in. override_at dates
+// the instructor's manual phase override (override_by/override_note exist).
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_phase2_prereq_templates (
+        program_id  INTEGER NOT NULL REFERENCES wbl_programs(id),
+        template_id INTEGER NOT NULL REFERENCES wbl_work_event_templates(id),
+        PRIMARY KEY (program_id, template_id)
+    );
+`);
+try { db.prepare('ALTER TABLE wbl_programs ADD COLUMN phase2_requires_safety INTEGER NOT NULL DEFAULT 0').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_program_enrollments ADD COLUMN safety_signed_off_on TEXT').run(); } catch { /* already exists */ }
+try { db.prepare("ALTER TABLE wbl_program_enrollments ADD COLUMN safety_signed_off_by TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_student_phase ADD COLUMN override_at INTEGER').run(); } catch { /* already exists */ }
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

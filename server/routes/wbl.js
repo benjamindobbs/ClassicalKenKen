@@ -308,7 +308,8 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
     const rows = db.prepare(`
         SELECT e.student_id, e.pathway_year, e.enrolled_on, e.exited_on, e.exit_reason,
                (SELECT student_name FROM class_students cs WHERE cs.student_id = e.student_id LIMIT 1) AS student_name,
-               sp.computed_phase, sp.override_phase, sp.transitioned_at,
+               sp.computed_phase, sp.override_phase, sp.override_note, sp.transitioned_at,
+               e.safety_signed_off_on,
                (SELECT COUNT(*) FROM wbl_credential_awards a
                  WHERE a.program_id = e.program_id AND a.student_id = e.student_id AND a.revoked_at IS NULL) AS credentials,
                (SELECT MAX(iso_week) FROM wbl_qc_checks q
@@ -318,7 +319,18 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
         WHERE e.program_id = ? ${req.query.include_exited === 'true' ? '' : 'AND e.exited_on IS NULL'}
         ORDER BY student_name
     `).all(p.id);
-    res.json(rows.map(r => ({ ...r, phase: r.override_phase ?? r.computed_phase ?? 1 })));
+    // Shop Ready progress: prereqs met out of total, the safety flag counting
+    // as one when the program requires it. null when no prereq is configured.
+    const shopReady = (sid) => {
+        const s = L.phase2Status(p.id, sid);
+        if (!s.configured) return null;
+        const items = [...s.credentials, ...s.templates].map(r => r.met);
+        if (s.safety.required) items.push(!!s.safety.signed_off_on);
+        return { met: items.filter(Boolean).length, total: items.length, ready: s.ready };
+    };
+    res.json(rows.map(r => ({
+        ...r, phase: r.override_phase ?? r.computed_phase ?? 1, shop_ready: shopReady(r.student_id),
+    })));
 });
 
 // Enrolled, active students with no work-event participation covering the
@@ -829,27 +841,122 @@ router.delete('/qc-criteria/:id', requireTeacher, (req, res) => {
     res.json({ ok: true, archived: true });
 });
 
-// Loosening the gate can promote immediately; tightening never demotes.
+router.get('/programs/:id/phase2-prereqs', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json({
+        credential_ids: db.prepare('SELECT credential_id FROM wbl_phase2_prereqs WHERE program_id = ?')
+            .all(p.id).map(r => r.credential_id),
+        template_ids: db.prepare('SELECT template_id FROM wbl_phase2_prereq_templates WHERE program_id = ?')
+            .all(p.id).map(r => r.template_id),
+        requires_safety: !!p.phase2_requires_safety,
+    });
+});
+
+// Loosening the gate can promote immediately; tightening never demotes. Each of
+// credential_ids, template_ids and requires_safety is optional — a key left out
+// keeps its current setting.
 router.put('/programs/:id/phase2-prereqs', requireTeacher, (req, res) => {
     const p = program(req, res, req.params.id);
     if (!p) return;
-    const ids = req.body?.credential_ids;
-    if (!Array.isArray(ids)) return bad(res, 'credential_ids array required');
+    const body = req.body || {};
+    const { credential_ids: credIds, template_ids: tplIds } = body;
+    if (credIds === undefined && tplIds === undefined && !('requires_safety' in body)) {
+        return bad(res, 'credential_ids, template_ids or requires_safety required');
+    }
+    if ((credIds !== undefined && !Array.isArray(credIds)) || (tplIds !== undefined && !Array.isArray(tplIds))) {
+        return bad(res, 'credential_ids and template_ids must be arrays');
+    }
+    const enrolled = db.prepare('SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL').all(p.id);
+    const phaseBefore = new Map(enrolled.map(s => [s.student_id, L.effectivePhase(p.id, s.student_id)]));
     db.exec('BEGIN');
     try {
-        db.prepare('DELETE FROM wbl_phase2_prereqs WHERE program_id = ?').run(p.id);
-        const ins = db.prepare('INSERT OR IGNORE INTO wbl_phase2_prereqs(program_id, credential_id) VALUES(?, ?)');
-        for (const cid of ids) {
-            if (!db.prepare('SELECT 1 FROM wbl_credentials WHERE id = ? AND program_id = ?').get(int(cid), p.id))
-                throw new Error('credential_not_in_program:' + cid);
-            ins.run(p.id, int(cid));
+        if (credIds) {
+            db.prepare('DELETE FROM wbl_phase2_prereqs WHERE program_id = ?').run(p.id);
+            const ins = db.prepare('INSERT OR IGNORE INTO wbl_phase2_prereqs(program_id, credential_id) VALUES(?, ?)');
+            for (const cid of credIds) {
+                if (!db.prepare('SELECT 1 FROM wbl_credentials WHERE id = ? AND program_id = ?').get(int(cid), p.id))
+                    throw new Error('credential_not_in_program:' + cid);
+                ins.run(p.id, int(cid));
+            }
+        }
+        if (tplIds) {
+            db.prepare('DELETE FROM wbl_phase2_prereq_templates WHERE program_id = ?').run(p.id);
+            const ins = db.prepare('INSERT OR IGNORE INTO wbl_phase2_prereq_templates(program_id, template_id) VALUES(?, ?)');
+            for (const tid of tplIds) {
+                if (!db.prepare('SELECT 1 FROM wbl_work_event_templates WHERE id = ? AND program_id = ?').get(int(tid), p.id))
+                    throw new Error('template_not_in_program:' + tid);
+                ins.run(p.id, int(tid));
+            }
+        }
+        if ('requires_safety' in body) {
+            db.prepare('UPDATE wbl_programs SET phase2_requires_safety = ? WHERE id = ?').run(body.requires_safety ? 1 : 0, p.id);
         }
         db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
 
     const students = db.prepare('SELECT student_id FROM wbl_program_enrollments WHERE program_id = ?').all(p.id);
     for (const s of students) L.recomputePhase(p.id, s.student_id);
-    res.json({ ok: true, recomputed: students.length });
+    const promoted = enrolled.filter(s => phaseBefore.get(s.student_id) === 1 && L.effectivePhase(p.id, s.student_id) === 2).length;
+    res.json({ ok: true, recomputed: students.length, promoted });
+});
+
+// What a student still needs for Phase 2, plus the phase row and override.
+router.get('/programs/:id/students/:studentId/phase', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(req.params.studentId);
+    const row = db.prepare('SELECT * FROM wbl_student_phase WHERE program_id = ? AND student_id = ?').get(p.id, sid);
+    res.json({
+        student_id: sid,
+        phase: L.effectivePhase(p.id, sid),
+        computed_phase: row?.computed_phase ?? 1,
+        override_phase: row?.override_phase ?? null,
+        override_by: row?.override_by ?? '', override_note: row?.override_note ?? '', override_at: row?.override_at ?? null,
+        transitioned_at: row?.transitioned_at ?? null,
+        prereqs: L.phase2Status(p.id, sid),
+    });
+});
+
+// The instructor override (framework §2: Phase 1/2 "with instructor override").
+// phase 1 or 2 pins the student there regardless of prereqs, with a required
+// note; null clears the pin and the computed phase applies again. Participants
+// already on a Work Event keep their phase_at_start.
+router.put('/programs/:id/students/:studentId/phase', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(req.params.studentId);
+    if (!db.prepare('SELECT 1 FROM wbl_program_enrollments WHERE program_id = ? AND student_id = ?').get(p.id, sid)) {
+        return res.status(404).json({ error: 'not_enrolled' });
+    }
+    const phase = req.body?.phase ?? null;
+    if (phase !== null && phase !== 1 && phase !== 2) return bad(res, 'phase must be 1, 2 or null');
+    const note = str(req.body?.note);
+    if (phase !== null && !note) return bad(res, 'note required');
+    L.ensurePhaseRow(p.id, sid);
+    db.prepare(`
+        UPDATE wbl_student_phase
+        SET override_phase = ?, override_by = ?, override_note = ?, override_at = ?, updated_at = ?
+        WHERE program_id = ? AND student_id = ?
+    `).run(phase, phase === null ? '' : req.teacherKey, phase === null ? '' : note, phase === null ? null : now(), now(), p.id, sid);
+    res.json({ ok: true, phase: L.recomputePhase(p.id, sid) });
+});
+
+// The Shop Ready safety sign-off: a dated roster flag, not a skill (decision 8).
+// signed_off: false clears it; it never demotes a student already in Phase 2.
+router.put('/programs/:id/students/:studentId/safety', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const sid = normalizeStudentId(req.params.studentId);
+    if (!db.prepare('SELECT 1 FROM wbl_program_enrollments WHERE program_id = ? AND student_id = ?').get(p.id, sid)) {
+        return res.status(404).json({ error: 'not_enrolled' });
+    }
+    const on = req.body?.signed_off === false ? null : (L.isDate(req.body?.on) ? req.body.on : L.today());
+    db.prepare(`
+        UPDATE wbl_program_enrollments SET safety_signed_off_on = ?, safety_signed_off_by = ?, updated_at = ?
+        WHERE program_id = ? AND student_id = ?
+    `).run(on, on ? req.teacherKey : '', now(), p.id, sid);
+    res.json({ ok: true, signed_off_on: on, phase: L.recomputePhase(p.id, sid) });
 });
 
 router.get('/programs/:id/tier-points', requireTeacher, (req, res) => {
@@ -1237,41 +1344,50 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
 
 // The client sends skill_id; the server resolves and pins the current version.
 // Clients never choose a version — that is what keeps the pin trustworthy.
+const ASSESSMENT_RESULTS = ['not_demonstrated', 'developing', 'mastered'];
+const currentVersion = (skillId, programId) => db.prepare(`
+    SELECT v.* FROM wbl_skill_versions v
+    JOIN wbl_skills s ON s.id = v.skill_id
+    WHERE v.skill_id = ? AND v.is_current = 1 AND s.program_id = ?
+`).get(skillId, programId);
+
+// Upserts one assessment and replaces its criterion results. The caller owns
+// the transaction and has already resolved the version.
+function writeAssessment(wp, skillId, version, result, note, criteria, teacherKey) {
+    db.prepare(`
+        INSERT INTO wbl_skill_assessments
+            (participant_id, work_event_id, program_id, class_id, student_id, skill_id, skill_version_id,
+             result, note, assessed_by, assessed_at, updated_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(participant_id, skill_id) DO UPDATE SET
+            skill_version_id = excluded.skill_version_id,
+            result = excluded.result, note = excluded.note,
+            assessed_by = excluded.assessed_by, updated_at = excluded.updated_at
+    `).run(wp.id, wp.work_event_id, wp.program_id, wp.class_id, wp.student_id, skillId, version.id,
+           result, note, teacherKey, now(), now());
+
+    const a = db.prepare('SELECT id FROM wbl_skill_assessments WHERE participant_id = ? AND skill_id = ?')
+        .get(wp.id, skillId);
+    db.prepare('DELETE FROM wbl_skill_criterion_results WHERE assessment_id = ?').run(a.id);
+    const ins = db.prepare(
+        'INSERT OR REPLACE INTO wbl_skill_criterion_results(assessment_id, criterion_id, met) VALUES(?, ?, ?)'
+    );
+    for (const c of criteria || []) ins.run(a.id, int(c.criterion_id), c.met ? 1 : 0);
+}
+
 router.put('/participants/:id/skills/:skillId', requireTeacher, (req, res) => {
     const wp = participantCtx(req, res, req.params.id);
     if (!wp) return;
     const skillId = Number(req.params.skillId);
     const result = str(req.body?.result);
-    if (!['not_demonstrated', 'developing', 'mastered'].includes(result)) return bad(res, 'invalid result');
+    if (!ASSESSMENT_RESULTS.includes(result)) return bad(res, 'invalid result');
 
-    const version = db.prepare(`
-        SELECT v.* FROM wbl_skill_versions v
-        JOIN wbl_skills s ON s.id = v.skill_id
-        WHERE v.skill_id = ? AND v.is_current = 1 AND s.program_id = ?
-    `).get(skillId, wp.program_id);
+    const version = currentVersion(skillId, wp.program_id);
     if (!version) return res.status(409).json({ error: 'no_published_version', skill_id: skillId });
 
     db.exec('BEGIN');
     try {
-        db.prepare(`
-            INSERT INTO wbl_skill_assessments
-                (participant_id, work_event_id, program_id, class_id, student_id, skill_id, skill_version_id,
-                 result, note, assessed_by, assessed_at, updated_at)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(participant_id, skill_id) DO UPDATE SET
-                skill_version_id = excluded.skill_version_id,
-                result = excluded.result, note = excluded.note,
-                assessed_by = excluded.assessed_by, updated_at = excluded.updated_at
-        `).run(wp.id, wp.work_event_id, wp.program_id, wp.class_id, wp.student_id, skillId, version.id,
-               result, str(req.body?.note), req.teacherKey, now(), now());
-
-        const a = db.prepare('SELECT id FROM wbl_skill_assessments WHERE participant_id = ? AND skill_id = ?')
-            .get(wp.id, skillId);
-        db.prepare('DELETE FROM wbl_skill_criterion_results WHERE assessment_id = ?').run(a.id);
-        const ins = db.prepare(
-            'INSERT OR REPLACE INTO wbl_skill_criterion_results(assessment_id, criterion_id, met) VALUES(?, ?, ?)'
-        );
-        for (const c of req.body?.criteria || []) ins.run(a.id, int(c.criterion_id), c.met ? 1 : 0);
+        writeAssessment(wp, skillId, version, result, str(req.body?.note), req.body?.criteria, req.teacherKey);
         db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
 
@@ -1316,15 +1432,9 @@ router.post('/participants/:id/qc-check', requireTeacher, (req, res) => {
     } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
-// Triggers recomputeAttainment because the call is what makes prior
-// demonstrations on this job COUNT — grading a job "Meets spec" can complete a
-// credential with no new skill assessment at all.
-router.put('/participants/:id/holistic', requireTeacher, (req, res) => {
-    const wp = participantCtx(req, res, req.params.id);
-    if (!wp) return;
-    const tier = str(req.body?.tier);
-    if (!db.prepare('SELECT 1 FROM wbl_holistic_tiers WHERE tier = ?').get(tier)) return bad(res, 'invalid tier');
-
+// Upserts the participant's Holistic Call and returns the prior tier (or null).
+// The caller owns the transaction.
+function writeHolisticCall(wp, tier, rationale, teacherKey) {
     const prior = db.prepare('SELECT tier FROM wbl_holistic_calls WHERE participant_id = ?').get(wp.id);
     db.prepare(`
         INSERT INTO wbl_holistic_calls(participant_id, work_event_id, program_id, class_id, student_id,
@@ -1334,29 +1444,90 @@ router.put('/participants/:id/holistic', requireTeacher, (req, res) => {
             tier = excluded.tier, rationale = excluded.rationale,
             called_by = excluded.called_by, updated_at = excluded.updated_at
     `).run(wp.id, wp.work_event_id, wp.program_id, wp.class_id, wp.student_id, tier,
-           str(req.body?.rationale), req.teacherKey, now(), now());
+           rationale, teacherKey, now(), now());
+    return prior?.tier ?? null;
+}
+
+// Awards are never revoked automatically: downgrading a call after a
+// credential was granted flags it for review rather than silently
+// retracting something a student has been told they hold.
+function downgradeReview(wp, priorTier, tier) {
+    if (!priorTier) return null;
+    const rank = t => db.prepare('SELECT rank FROM wbl_holistic_tiers WHERE tier = ?').get(t).rank;
+    if (rank(tier) >= rank(priorTier)) return null;
+    const affected = db.prepare(`
+        SELECT DISTINCT a.credential_id, c.name
+        FROM wbl_award_evidence ev
+        JOIN wbl_skill_assessments sa ON sa.id = ev.assessment_id
+        JOIN wbl_credential_awards a  ON a.id = ev.award_id
+        JOIN wbl_credentials c        ON c.id = a.credential_id
+        WHERE sa.participant_id = ?
+    `).all(wp.id);
+    return affected.length ? { downgraded_from: priorTier, awards_to_review: affected } : null;
+}
+
+// Triggers recomputeAttainment because the call is what makes prior
+// demonstrations on this job COUNT — grading a job "Meets spec" can complete a
+// credential with no new skill assessment at all.
+router.put('/participants/:id/holistic', requireTeacher, (req, res) => {
+    const wp = participantCtx(req, res, req.params.id);
+    if (!wp) return;
+    const tier = str(req.body?.tier);
+    if (!db.prepare('SELECT 1 FROM wbl_holistic_tiers WHERE tier = ?').get(tier)) return bad(res, 'invalid tier');
+
+    const prior = writeHolisticCall(wp, tier, str(req.body?.rationale), req.teacherKey);
+    const out = L.recomputeAttainment(wp.program_id, wp.student_id, wp.class_id);
+    const review = downgradeReview(wp, prior, tier);
+    res.json({ ok: true, ...out, ...(review ? { review } : {}) });
+});
+
+// The practical / project / module sign-off (CGL handoff §9 decision 1): the
+// skill results and the Holistic Call land in one step, so a sign-off can't be
+// left half-recorded — without the call, nothing demonstrated here would count.
+// Body: { tier, rationale, skills: [{ skill_id, result, criteria, note }] }.
+// skills may be empty (a formative module plans none). Every skill is checked
+// before anything is written, then attainment is recomputed once.
+// event_ready_to_close tells the client every participant now has a call.
+router.post('/participants/:id/sign-off', requireTeacher, (req, res) => {
+    const wp = participantCtx(req, res, req.params.id);
+    if (!wp) return;
+    const tier = str(req.body?.tier);
+    if (!db.prepare('SELECT 1 FROM wbl_holistic_tiers WHERE tier = ?').get(tier)) return bad(res, 'tier required');
+    const skills = req.body?.skills ?? [];
+    if (!Array.isArray(skills)) return bad(res, 'skills must be an array');
+
+    const planned = [];
+    for (const sk of skills) {
+        const skillId = int(sk?.skill_id);
+        if (!ASSESSMENT_RESULTS.includes(str(sk?.result))) return bad(res, 'invalid result for skill ' + skillId);
+        const version = currentVersion(skillId, wp.program_id);
+        if (!version) return res.status(409).json({ error: 'no_published_version', skill_id: skillId });
+        planned.push({ skillId, version, sk });
+    }
+
+    let prior;
+    db.exec('BEGIN');
+    try {
+        for (const { skillId, version, sk } of planned) {
+            writeAssessment(wp, skillId, version, str(sk.result), str(sk.note), sk.criteria, req.teacherKey);
+        }
+        prior = writeHolisticCall(wp, tier, str(req.body?.rationale), req.teacherKey);
+        db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); return bad(res, e.message); }
 
     const out = L.recomputeAttainment(wp.program_id, wp.student_id, wp.class_id);
-
-    // Awards are never revoked automatically: downgrading a call after a
-    // credential was granted flags it for review rather than silently
-    // retracting something a student has been told they hold.
-    let review = null;
-    if (prior) {
-        const rank = t => db.prepare('SELECT rank FROM wbl_holistic_tiers WHERE tier = ?').get(t).rank;
-        if (rank(tier) < rank(prior.tier)) {
-            const affected = db.prepare(`
-                SELECT DISTINCT a.credential_id, c.name
-                FROM wbl_award_evidence ev
-                JOIN wbl_skill_assessments sa ON sa.id = ev.assessment_id
-                JOIN wbl_credential_awards a  ON a.id = ev.award_id
-                JOIN wbl_credentials c        ON c.id = a.credential_id
-                WHERE sa.participant_id = ?
-            `).all(wp.id);
-            if (affected.length) review = { downgraded_from: prior.tier, awards_to_review: affected };
-        }
-    }
-    res.json({ ok: true, ...out, ...(review ? { review } : {}) });
+    const review = downgradeReview(wp, prior, tier);
+    const ev = db.prepare(`
+        SELECT we.status,
+               (SELECT COUNT(*) FROM wbl_work_event_participants p
+                 WHERE p.work_event_id = we.id
+                   AND NOT EXISTS (SELECT 1 FROM wbl_holistic_calls hc WHERE hc.participant_id = p.id)) AS uncalled
+        FROM wbl_work_events we WHERE we.id = ?
+    `).get(wp.work_event_id);
+    res.json({
+        ok: true, assessed: planned.length, ...out, ...(review ? { review } : {}),
+        event_ready_to_close: ev.status !== 'complete' && ev.uncalled === 0,
+    });
 });
 
 router.patch('/transfer-claims/:id/verify', requireTeacher, (req, res) => {

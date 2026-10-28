@@ -261,27 +261,53 @@ function recomputeAttainment(programId, studentId, earnedInClassId = null) {
     return { awarded, phase };
 }
 
-// Auto-advance from the prerequisite credential set, with the instructor
+// Each Phase 2 prerequisite and whether the student has met it. Three kinds,
+// all ANDed: credentials (awarded, not revoked), templates (a Holistic Call of
+// Meets spec or better on a Work Event started from the template — the call is
+// the sign-off, so a Not shippable onboarding project doesn't clear it), and,
+// where the program requires it, the safety sign-off on the enrollment.
+// `configured` is false when the program sets no prereq at all, in which case
+// nobody advances without an override.
+function phase2Status(programId, studentId) {
+    const credentials = db.prepare(`
+        SELECT c.id, c.name,
+               EXISTS (SELECT 1 FROM wbl_credential_awards a
+                       WHERE a.credential_id = c.id AND a.student_id = ? AND a.revoked_at IS NULL) AS met
+        FROM wbl_phase2_prereqs p JOIN wbl_credentials c ON c.id = p.credential_id
+        WHERE p.program_id = ? ORDER BY c.order_idx, c.id
+    `).all(studentId, programId);
+    const templates = db.prepare(`
+        SELECT t.id, t.code, t.title,
+               EXISTS (SELECT 1 FROM wbl_work_events we
+                       JOIN wbl_work_event_participants wp ON wp.work_event_id = we.id
+                       JOIN wbl_holistic_calls hc ON hc.participant_id = wp.id
+                       JOIN wbl_holistic_tiers ht ON ht.tier = hc.tier
+                       WHERE we.program_id = t.program_id AND we.template_code = t.code AND wp.student_id = ?
+                         AND ht.rank >= (SELECT rank FROM wbl_holistic_tiers WHERE tier = 'meets')) AS met
+        FROM wbl_phase2_prereq_templates p JOIN wbl_work_event_templates t ON t.id = p.template_id
+        WHERE p.program_id = ? ORDER BY t.onboarding DESC, t.order_idx, t.id
+    `).all(studentId, programId);
+    const required = !!db.prepare('SELECT phase2_requires_safety FROM wbl_programs WHERE id = ?').get(programId)?.phase2_requires_safety;
+    const signedOffOn = db.prepare(
+        'SELECT safety_signed_off_on FROM wbl_program_enrollments WHERE program_id = ? AND student_id = ?'
+    ).get(programId, studentId)?.safety_signed_off_on ?? null;
+
+    const all = [...credentials, ...templates].map(r => (r.met = !!r.met, r));
+    const configured = all.length > 0 || required;
+    return {
+        configured,
+        credentials, templates,
+        safety: { required, signed_off_on: signedOffOn },
+        ready: configured && all.every(r => r.met) && (!required || !!signedOffOn),
+    };
+}
+
+// Auto-advance from the prerequisites (phase2Status), with the instructor
 // override left untouched. Never demotes: a student already doing Phase 2 work
 // should not silently lose the transfer lens because a prereq list was edited.
 function recomputePhase(programId, studentId) {
     ensurePhaseRow(programId, studentId);
-    const prereqs = db.prepare(
-        'SELECT credential_id FROM wbl_phase2_prereqs WHERE program_id = ?'
-    ).all(programId);
-
-    let computed = 1;
-    if (prereqs.length) {
-        const missing = db.prepare(`
-            SELECT COUNT(*) AS n FROM wbl_phase2_prereqs p
-            WHERE p.program_id = ?
-              AND NOT EXISTS (
-                  SELECT 1 FROM wbl_credential_awards a
-                  WHERE a.credential_id = p.credential_id
-                    AND a.student_id = ? AND a.revoked_at IS NULL)
-        `).get(programId, studentId).n;
-        if (missing === 0) computed = 2;
-    }
+    let computed = phase2Status(programId, studentId).ready ? 2 : 1;
 
     const row = db.prepare(
         'SELECT computed_phase, transitioned_at FROM wbl_student_phase WHERE program_id = ? AND student_id = ?'
@@ -617,7 +643,7 @@ module.exports = {
     isoWeek, isDate, today, dayCount, datesBetween, maxDate, minDate, meetingDates,
     EVIDENCE_LETTER, WORK_EVENT_KINDS, evidenceLetter,
     resolveStudent, ownedProgram, ownerOf,
-    ensurePhaseRow, effectivePhase, recomputePhase, addParticipants,
+    ensurePhaseRow, effectivePhase, phase2Status, recomputePhase, addParticipants,
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,

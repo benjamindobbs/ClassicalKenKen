@@ -674,6 +674,17 @@
                         <div id="wbl-templates-body"></div>
 
                         <div class="classes-header" style="margin-top:2rem">
+                            <div class="section-title" style="margin:0">Shop Ready &rarr; Phase 2</div>
+                        </div>
+                        <p class="lookup-note">
+                            A student moves to Phase 2 once every prerequisite ticked here is met. A template counts when
+                            a Work Event started from it gets a Holistic Call of Meets spec or better. Adding prerequisites
+                            never moves anyone back to Phase 1. Per-student checklists, the safety sign-off and overrides
+                            are under Roster &rarr; Phase.
+                        </p>
+                        <div id="wbl-phase2-body"></div>
+
+                        <div class="classes-header" style="margin-top:2rem">
                             <div class="section-title" style="margin:0">QC Spot Check Criteria</div>
                             <button class="btn btn-outline btn-sm" onclick="openWblQcModal()">New Criterion</button>
                         </div>
@@ -2902,7 +2913,7 @@
             el.innerHTML = `
                 <div class="portal-table-wrap"><table class="portal-table">
                     <thead><tr>
-                        <th>Student</th><th>ID</th><th>Phase</th><th>Pathway Year</th>
+                        <th>Student</th><th>ID</th><th>Phase</th><th>Shop Ready</th><th>Pathway Year</th>
                         <th>Credentials</th><th>Last QC</th><th></th>
                     </tr></thead>
                     <tbody>${rows.map(r => {
@@ -2912,7 +2923,10 @@
                             <td>${wblEsc(r.student_name || '—')}</td>
                             <td>${wblEsc(r.student_id)}</td>
                             <td><span class="wbl-phase wbl-phase-${r.phase}">Phase ${r.phase}</span>
-                                ${r.override_phase ? ' <span class="wbl-pill">override</span>' : ''}</td>
+                                ${r.override_phase ? ` <span class="wbl-pill" title="${wblEsc(r.override_note || '')}">override</span>` : ''}</td>
+                            <td>${r.shop_ready
+                                ? `<span class="wbl-pill${r.shop_ready.ready ? ' wbl-pill-good' : ''}">${r.shop_ready.met}/${r.shop_ready.total}</span>`
+                                : '<span class="wbl-pill" title="No Phase 2 prerequisites set (Catalog)">—</span>'}</td>
                             <td>${r.pathway_year}</td>
                             <td>${r.credentials}</td>
                             <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
@@ -2920,12 +2934,84 @@
                                 ${r.exited_on ? `<span class="wbl-pill">exited${r.exit_reason ? ' — ' + wblEsc(r.exit_reason) : ''}</span>` : ''}
                                 ${r.exited_on ? '' : `<button class="btn btn-outline btn-sm" title="Start a practical, project or module for this student"
                                     onclick="openWblTemplateStartModal('${wblEsc(r.student_id)}')">Start Template</button>`}
+                                <button class="btn btn-outline btn-sm" title="Shop Ready checklist, safety sign-off and phase override"
+                                    onclick="wblPhaseModal('${wblEsc(r.student_id)}')">Phase</button>
                                 <button class="btn btn-outline btn-sm" onclick="wblCalledOutModal('${wblEsc(r.student_id)}')">Called Out${coCount ? ` (${coCount})` : ''}</button>
                             </td>
                         </tr>`;
                     }).join('')}
                     </tbody>
                 </table></div>`;
+        }
+
+        // Shop Ready checklist, the safety sign-off flag and the phase override
+        // for one student. Prereqs are set under Catalog → Shop Ready.
+        async function wblPhaseModal(studentId) {
+            const student = wblRosterRows.find(r => r.student_id === studentId);
+            const ph = await wblApi('GET', `/programs/${wblProgramId()}/students/${encodeURIComponent(studentId)}/phase`);
+            const pr = ph.prereqs;
+            const mark = met => `<span class="wbl-pill ${met ? 'wbl-pill-good' : 'wbl-pill-warn'}">${met ? 'done' : 'not yet'}</span>`;
+            const row = (label, met) => `<div class="wbl-check-row"><span style="flex:1">${label}</span>${mark(met)}</div>`;
+            const sid = wblEsc(studentId);
+            wblOpenModal(`
+                <h3>Phase &mdash; ${wblEsc(student?.student_name || studentId)}</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Now <span class="wbl-phase wbl-phase-${ph.phase}">Phase ${ph.phase}</span>
+                    ${ph.override_phase ? ` &mdash; pinned by override (computed: Phase ${ph.computed_phase})` : ''}
+                </p>
+                <div class="section-title" style="font-size:0.95rem;margin:0.5rem 0">Shop Ready</div>
+                ${pr.configured ? `
+                    <div class="wbl-modal-group">
+                        ${pr.templates.map(t => row(`${wblEsc(t.code)} &middot; ${wblEsc(t.title)}`, t.met)).join('')}
+                        ${pr.credentials.map(c => row(`Credential: ${wblEsc(c.name)}`, c.met)).join('')}
+                        ${pr.safety.required ? row('Safety sign-off', !!pr.safety.signed_off_on) : ''}
+                    </div>
+                    <p class="lookup-note">A template counts once a Work Event started from it has a Holistic Call of Meets spec or better.</p>`
+                    : '<p class="lookup-note">No Phase 2 prerequisites are set for this program (Catalog &rarr; Shop Ready), so students reach Phase 2 only by override.</p>'}
+                <div class="section-title" style="font-size:0.95rem;margin:0.75rem 0 0.5rem">Safety sign-off${pr.safety.required ? '' : ' <span class="wbl-pill">not a Phase 2 prereq here</span>'}</div>
+                ${pr.safety.signed_off_on ? `
+                    <div class="wbl-check-row">
+                        <span style="flex:1">Signed off ${wblEsc(pr.safety.signed_off_on)}</span>
+                        <button class="btn btn-outline btn-sm" onclick="wblSaveSafety('${sid}', false)">Clear</button>
+                    </div>` : `
+                    <div class="wbl-check-row">
+                        <input type="date" id="wbl-safety-on" value="${wblToday()}" style="flex:1">
+                        <button class="btn btn-primary btn-sm" onclick="wblSaveSafety('${sid}', true)">Record Sign-off</button>
+                    </div>`}
+                <div class="section-title" style="font-size:0.95rem;margin:0.75rem 0 0.5rem">Override</div>
+                <label class="wbl-field"><span>Phase</span>
+                    <select id="wbl-ov-phase">
+                        <option value=""${ph.override_phase ? '' : ' selected'}>Automatic (from prerequisites)</option>
+                        <option value="1"${ph.override_phase === 1 ? ' selected' : ''}>Pin to Phase 1</option>
+                        <option value="2"${ph.override_phase === 2 ? ' selected' : ''}>Pin to Phase 2</option>
+                    </select></label>
+                <label class="wbl-field"><span>Reason (required to pin)</span>
+                    <input type="text" id="wbl-ov-note" value="${wblEsc(ph.override_note || '')}"
+                           placeholder="e.g. finished onboarding before templates were set up"></label>
+                ${ph.override_at ? `<p class="lookup-note">Set by ${wblEsc(ph.override_by)} on ${new Date(ph.override_at).toLocaleDateString()}.</p>` : ''}
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Close</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveOverride('${sid}')">Save Override</button>
+                </div>
+            `);
+        }
+
+        async function wblSaveSafety(studentId, signedOff) {
+            const on = document.getElementById('wbl-safety-on')?.value;
+            await wblApi('PUT', `/programs/${wblProgramId()}/students/${encodeURIComponent(studentId)}/safety`,
+                         signedOff ? { on } : { signed_off: false });
+            await loadWblRoster();
+            wblPhaseModal(studentId);
+        }
+
+        async function wblSaveOverride(studentId) {
+            const v = document.getElementById('wbl-ov-phase').value;
+            const note = document.getElementById('wbl-ov-note').value.trim();
+            if (v && !note) return alert('Give a reason for pinning the phase.');
+            await wblApi('PUT', `/programs/${wblProgramId()}/students/${encodeURIComponent(studentId)}/phase`,
+                         { phase: v ? Number(v) : null, note });
+            await loadWblRoster();
+            wblPhaseModal(studentId);
         }
 
         function wblCalledOutModal(studentId) {
@@ -3288,6 +3374,49 @@
                 ['meets', 'Meets spec'], ['exceeds', 'Exceeds spec'],
             ];
             const checkedThisWeek = wblP.qc_checks.some(c => c.iso_week === wblIsoWeek(wblToday()));
+            // Practicals, projects and modules are signed off in one step: the
+            // skill results and the Holistic Call are picked here, then saved
+            // together by wblSignOff. Jobs keep saving each change as it's made.
+            const signOff = !!p.event_kind && p.event_kind !== 'job';
+            wblSignOffDirty = new Set();
+            wblPickedTier = wblP.holistic?.tier || '';
+
+            const holisticLens = `
+                <div class="wbl-lens">
+                    <div class="wbl-lens-head"><span>${signOff ? 'Sign-off &middot; Holistic Output Call' : 'Holistic Output Call'}</span>
+                        <span>${signOff ? (wblP.holistic ? 'signed off' : 'not yet signed off') : 'at job completion'}</span></div>
+                    <div class="wbl-lens-body">
+                        <div class="wbl-tier-row" id="wbl-tier-row">
+                            ${TIERS.map(([t, label]) => `
+                                <button class="wbl-tier${wblP.holistic?.tier === t ? ' sel' : ''}" data-tier="${t}"
+                                        onclick="${signOff ? `wblPickTier('${t}')` : `saveWblHolistic('${t}')`}">${label}</button>`).join('')}
+                        </div>
+                        <input class="wbl-inline-input" style="width:100%" id="wbl-rationale"
+                               placeholder="Rationale (optional)"
+                               value="${wblEsc(wblP.holistic?.rationale || '')}"
+                               onchange="${signOff ? '' : 'saveWblHolistic(wblP.holistic?.tier)'}" />
+                        ${signOff ? `
+                        <div style="margin-top:0.75rem">
+                            <button class="btn btn-primary btn-sm" onclick="wblSignOff()">
+                                ${wblP.holistic ? 'Update Sign-off' : 'Sign Off'}</button>
+                        </div>
+                        <div class="wbl-note">
+                            Saves the skill results above and this call together. A skill counts toward a credential
+                            only with a call at or above the credential's threshold.
+                        </div>` : `
+                        <div class="wbl-note">
+                            Informed by the spot-check history above, not averaged from it. A skill counts toward
+                            a credential only when demonstrated on a job that clears the credential's threshold.
+                        </div>`}
+                        <div class="wbl-note">
+                            ${wblP.attendance
+                                ? `Attendance: ${wblEsc(String(wblP.attendance.days_counted))} day(s) counted,
+                                   ${Math.round(wblP.attendance.ratio * 100)}% attended &mdash; 20% of the synced
+                                   holistic score on this job.`
+                                : 'No attendance data pulled for this job yet — the synced holistic score is the direct assessment only.'}
+                        </div>
+                    </div>
+                </div>`;
 
             host.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
@@ -3319,11 +3448,11 @@
                                         <span class="wbl-skill-crit" id="wbl-crit-${s.id}">${
                                             s.criteria.map(c => `<label><input type="checkbox" data-crit="${c.id}"
                                                 ${met.has(c.id) ? 'checked' : ''}
-                                                onchange="saveWblSkill(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
+                                                onchange="${signOff ? 'wblSignOffDirty.add' : 'saveWblSkill'}(${s.id})" /> ${wblEsc(c.name)}</label>`).join('')
                                         }</span>
                                     </div>
                                     <select class="wbl-inline-input" id="wbl-res-${s.id}"
-                                            onchange="saveWblSkill(${s.id})">
+                                            onchange="${signOff ? 'wblSignOffDirty.add' : 'saveWblSkill'}(${s.id})">
                                         <option value="">— not assessed —</option>
                                         ${RESULTS.map(r => `<option value="${r}"${a?.result === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('')}
                                     </select>
@@ -3346,6 +3475,8 @@
                     </div>
                 </div>
 
+                ${signOff ? holisticLens : ''}
+
                 <div class="wbl-lens">
                     <div class="wbl-lens-head">
                         <span>QC Spot Checks</span>
@@ -3366,31 +3497,7 @@
                     </div>
                 </div>
 
-                <div class="wbl-lens">
-                    <div class="wbl-lens-head"><span>Holistic Output Call</span><span>at job completion</span></div>
-                    <div class="wbl-lens-body">
-                        <div class="wbl-tier-row">
-                            ${TIERS.map(([t, label]) => `
-                                <button class="wbl-tier${wblP.holistic?.tier === t ? ' sel' : ''}"
-                                        onclick="saveWblHolistic('${t}')">${label}</button>`).join('')}
-                        </div>
-                        <input class="wbl-inline-input" style="width:100%" id="wbl-rationale"
-                               placeholder="Rationale (optional)"
-                               value="${wblEsc(wblP.holistic?.rationale || '')}"
-                               onchange="saveWblHolistic(wblP.holistic?.tier)" />
-                        <div class="wbl-note">
-                            Informed by the spot-check history above, not averaged from it. A skill counts toward
-                            a credential only when demonstrated on a job that clears the credential's threshold.
-                        </div>
-                        <div class="wbl-note">
-                            ${wblP.attendance
-                                ? `Attendance: ${wblEsc(String(wblP.attendance.days_counted))} day(s) counted,
-                                   ${Math.round(wblP.attendance.ratio * 100)}% attended &mdash; 20% of the synced
-                                   holistic score on this job.`
-                                : 'No attendance data pulled for this job yet — the synced holistic score is the direct assessment only.'}
-                        </div>
-                    </div>
-                </div>
+                ${signOff ? '' : holisticLens}
 
                 ${wblP.transfer_claims.length ? `
                 <div class="wbl-lens">
@@ -3463,6 +3570,52 @@
             openWblParticipant(wblP.participant.id);
         }
 
+        // Sign-off mode (practicals, projects, modules): edits stay local until
+        // wblSignOff. Only skills touched here are sent, so re-signing never
+        // re-pins an earlier assessment to a newer skill version.
+        let wblSignOffDirty = new Set();
+        let wblPickedTier = '';
+
+        function wblPickTier(tier) {
+            wblPickedTier = tier;
+            document.querySelectorAll('#wbl-tier-row .wbl-tier')
+                .forEach(b => b.classList.toggle('sel', b.dataset.tier === tier));
+        }
+
+        async function wblSignOff() {
+            if (!wblPickedTier) return alert('Pick a Holistic Output Call to sign off.');
+            const skills = [...wblSignOffDirty].map(id => ({
+                skill_id: id,
+                result: document.getElementById('wbl-res-' + id)?.value || '',
+                criteria: [...document.querySelectorAll(`#wbl-crit-${id} input[data-crit]`)]
+                    .map(i => ({ criterion_id: Number(i.dataset.crit), met: i.checked })),
+            }));
+            const unpicked = skills.filter(s => !s.result);
+            if (unpicked.length) return alert('Pick a result for every skill whose criteria you ticked.');
+            const planned = wblP.planned_skill_ids || [];
+            const assessed = new Set([...wblP.hard_skills.map(a => a.skill_id), ...skills.map(s => s.skill_id)]);
+            if (planned.length && !planned.some(id => assessed.has(id))
+                && !confirm('No planned skill has a result. Sign off with the Holistic Call only?')) return;
+
+            const r = await wblApi('POST', `/participants/${wblP.participant.id}/sign-off`, {
+                tier: wblPickedTier,
+                rationale: document.getElementById('wbl-rationale')?.value || '',
+                skills,
+            });
+            if (r.awarded?.length) alert(`Credential earned — ${r.awarded.length} awarded. Phase is now ${r.phase}.`);
+            if (r.review) {
+                alert('This call was downgraded from "' + r.review.downgraded_from + '".\n\n'
+                    + 'These credentials rest on evidence from this work event and are flagged for your review '
+                    + '(nothing was revoked automatically):\n\n'
+                    + r.review.awards_to_review.map(a => '· ' + a.name).join('\n'));
+            }
+            if (r.event_ready_to_close
+                && confirm(`Everyone on "${wblP.participant.event_title}" is signed off. Mark it complete?`)) {
+                await wblApi('PATCH', `/work-events/${wblP.participant.work_event_id}`, { status: 'complete' });
+            }
+            openWblParticipant(wblP.participant.id);
+        }
+
         async function wblFactcheck(claimId) {
             const f = await wblApi('GET', `/transfer-claims/${claimId}/factcheck`);
             let msg;
@@ -3522,16 +3675,41 @@
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers, classes, templates] = await Promise.all([
+            const [creds, skills, qc, tiers, classes, templates, prereqs] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
                 wblApi('GET', `/programs/${pid}/tier-points`),
                 wblApi('GET', `/programs/${pid}/classes`),
                 wblApi('GET', `/programs/${pid}/templates`),
+                wblApi('GET', `/programs/${pid}/phase2-prereqs`),
             ]);
             wblCatalogSkills = skills;
             wblTemplates = templates;
+
+            const tplOn = new Set(prereqs.template_ids), credOn = new Set(prereqs.credential_ids);
+            const tplBox = t => `<label class="wbl-check-row"><input type="checkbox" data-p2-tpl="${t.id}"
+                ${tplOn.has(t.id) ? 'checked' : ''}> ${wblEsc(t.code)} &middot; ${wblEsc(t.title)}</label>`;
+            const onboarding = templates.filter(t => t.onboarding);
+            const others = templates.filter(t => !t.onboarding);
+            document.getElementById('wbl-phase2-body').innerHTML = `
+                <div class="wbl-modal-group">
+                    ${templates.length ? `<div class="wbl-note" style="margin-top:0">Templates</div>
+                        ${onboarding.map(tplBox).join('')}
+                        ${others.length ? `<details><summary class="wbl-back" style="display:inline;cursor:pointer">
+                            + ${others.length} other template(s)</summary>${others.map(tplBox).join('')}</details>` : ''}` : ''}
+                    ${creds.length ? `<div class="wbl-note">Credentials</div>
+                        ${creds.map(c => `<label class="wbl-check-row"><input type="checkbox" data-p2-cred="${c.id}"
+                            ${credOn.has(c.id) ? 'checked' : ''}> ${wblEsc(c.name)}</label>`).join('')}` : ''}
+                    <div class="wbl-note">Safety</div>
+                    <label class="wbl-check-row"><input type="checkbox" id="wbl-p2-safety"
+                        ${prereqs.requires_safety ? 'checked' : ''}> Require the safety sign-off (Roster &rarr; Phase)</label>
+                </div>
+                <div style="margin-top:0.75rem">
+                    ${onboarding.length ? `<button class="btn btn-outline btn-sm" onclick="wblPhase2UseOnboarding()"
+                        title="Tick the onboarding templates and the safety sign-off">Use Onboarding Set</button>` : ''}
+                    <button class="btn btn-primary btn-sm" onclick="wblSavePhase2()">Save Prerequisites</button>
+                </div>`;
 
             document.getElementById('wbl-templates-body').innerHTML = templates.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -3971,6 +4149,24 @@
             wblSwitchSub('events', { load: false });
             await loadWblEvents();   // renders the detail host openWblEvent fills
             openWblEvent(r.id);
+        }
+
+        function wblPhase2UseOnboarding() {
+            const ids = new Set(wblTemplates.filter(t => t.onboarding).map(t => String(t.id)));
+            document.querySelectorAll('[data-p2-tpl]').forEach(b => { if (ids.has(b.dataset.p2Tpl)) b.checked = true; });
+            document.getElementById('wbl-p2-safety').checked = true;
+        }
+
+        async function wblSavePhase2() {
+            const picked = attr => [...document.querySelectorAll(`[${attr}]`)].filter(b => b.checked)
+                .map(b => Number(b.getAttribute(attr)));
+            const r = await wblApi('PUT', `/programs/${wblProgramId()}/phase2-prereqs`, {
+                template_ids: picked('data-p2-tpl'),
+                credential_ids: picked('data-p2-cred'),
+                requires_safety: document.getElementById('wbl-p2-safety').checked,
+            });
+            alert(`Saved. ${r.promoted ? `${r.promoted} student(s) moved to Phase 2.` : 'No one moved phase.'}`);
+            loadWblCatalog();
         }
 
         async function wblEditTemplate(id) {
