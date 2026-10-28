@@ -170,6 +170,15 @@
         .wbl-crit-row    { display:flex; justify-content:space-between; align-items:center; gap:0.75rem;
                            padding:0.2rem 0 0.2rem 0.75rem; font-size:0.8rem; color:#475569; }
         .wbl-crit-row select { flex:none; font-size:0.8rem; }
+        /* Collapsible Catalog sections; the open/closed state is remembered per section. */
+        .wbl-cat-tools   { display:flex; justify-content:flex-end; gap:1rem; }
+        .wbl-cat-sec .classes-header { margin:1.25rem 0 0.5rem; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:0.5rem; }
+        .wbl-cat-toggle  { display:flex; align-items:center; gap:0.5rem; background:none; border:none; padding:0; cursor:pointer; text-align:left; }
+        .wbl-cat-toggle .section-title { margin:0; }
+        .wbl-chev        { color:#64748b; font-size:0.8rem; width:0.8rem; display:inline-block; transition:transform 0.15s; }
+        .wbl-cat-count   { font-size:0.75rem; color:#64748b; font-weight:500; }
+        .wbl-cat-sec.collapsed .wbl-chev { transform:rotate(-90deg); }
+        .wbl-cat-sec.collapsed .wbl-cat-body { display:none; }
         .wbl-tier-row    { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem; }
         .wbl-tier        { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:0.4rem 0.75rem; font-size:0.8125rem; cursor:pointer; }
         .wbl-tier.sel    { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; font-weight:600; }
@@ -630,79 +639,126 @@
                     </div>
 
                     <div id="wbl-sub-catalog" style="display:none">
-                        <div class="classes-header">
-                            <div class="section-title" style="margin:0">Linked Classes</div>
-                            <button class="btn btn-outline btn-sm" onclick="openWblLinkClassModal()">Link Class</button>
+                        <div class="wbl-cat-tools">
+                            <button class="wbl-back" style="margin:0" onclick="wblSetCatSecs(false)">Expand all</button>
+                            <button class="wbl-back" style="margin:0" onclick="wblSetCatSecs(true)">Collapse all</button>
                         </div>
-                        <p class="lookup-note">
-                            Gradebook classes feeding this program. A class must be linked here before it shows
-                            the WBL sync button in PowerSchool, and before enrolled students see this program.
-                        </p>
-                        <div id="wbl-classes-body"></div>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">Micro-credentials</div>
-                            <div style="display:flex;gap:0.5rem;align-items:center">
-                                <button class="btn btn-outline btn-sm" onclick="downloadWblCsvTemplate()">Download Template</button>
-                                <label class="lookup-note" style="margin:0;display:flex;align-items:center;gap:0.375rem"
-                                       title="Required demonstrations (distinct Work Events) for each credential-skill link the import creates">
-                                    Demos per skill
-                                    <input type="number" id="wbl-csv-demos" min="1" step="1" value="1"
-                                           style="width:3.5rem;padding:0.25rem 0.375rem;border:1px solid var(--border);border-radius:var(--radius)">
-                                </label>
-                                <label class="btn btn-outline btn-sm" for="wbl-csv-input" style="cursor:pointer">Import CSV</label>
-                                <input type="file" id="wbl-csv-input" accept=".csv,.txt" style="display:none" onchange="handleWblCsvUpload(event)">
-                                <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
+                        <section class="wbl-cat-sec" data-sec="classes">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Linked Classes</span>
+                                    <span class="wbl-cat-count" id="wbl-count-classes"></span></button>
+                                <button class="btn btn-outline btn-sm" onclick="openWblLinkClassModal()">Link Class</button>
                             </div>
-                        </div>
-                        <p class="lookup-note" id="wbl-csv-note"></p>
-                        <div id="wbl-credentials-body"></div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    Gradebook classes feeding this program. A class must be linked here before it shows
+                                    the WBL sync button in PowerSchool, and before enrolled students see this program.
+                                </p>
+                                <div id="wbl-classes-body"></div>
+                            </div>
+                        </section>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">Skills</div>
-                            <button class="btn btn-outline btn-sm" onclick="openWblSkillModal()">New Skill</button>
-                        </div>
-                        <p class="lookup-note">
-                            Skills are versioned rather than edited in place. Publishing freezes a version so the
-                            record of what a student was assessed against cannot change underneath them.
-                        </p>
-                        <div id="wbl-skills-body"></div>
+                        <section class="wbl-cat-sec" data-sec="credentials">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Micro-credentials</span>
+                                    <span class="wbl-cat-count" id="wbl-count-credentials"></span></button>
+                                <div style="display:flex;gap:0.5rem;align-items:center">
+                                    <button class="btn btn-outline btn-sm" onclick="downloadWblCsvTemplate()">Download Template</button>
+                                    <label class="lookup-note" style="margin:0;display:flex;align-items:center;gap:0.375rem"
+                                           title="Required demonstrations (distinct Work Events) for each credential-skill link the import creates">
+                                        Demos per skill
+                                        <input type="number" id="wbl-csv-demos" min="1" step="1" value="1"
+                                               style="width:3.5rem;padding:0.25rem 0.375rem;border:1px solid var(--border);border-radius:var(--radius)">
+                                    </label>
+                                    <label class="btn btn-outline btn-sm" for="wbl-csv-input" style="cursor:pointer">Import CSV</label>
+                                    <input type="file" id="wbl-csv-input" accept=".csv,.txt" style="display:none" onchange="handleWblCsvUpload(event)">
+                                    <button class="btn btn-outline btn-sm" onclick="openWblCredentialModal()">New Credential</button>
+                                </div>
+                            </div>
+                            <p class="lookup-note" id="wbl-csv-note"></p>
+                            <div class="wbl-cat-body">
+                                <div id="wbl-credentials-body"></div>
+                            </div>
+                        </section>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">Work Event Templates</div>
-                        </div>
-                        <p class="lookup-note">
-                            Practicals, library projects and business modules a teacher starts for one or more students
-                            from the Work Events tab. Loaded from the curriculum file; paste each brief's link here.
-                        </p>
-                        <div id="wbl-templates-body"></div>
+                        <section class="wbl-cat-sec" data-sec="skills">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Skills</span>
+                                    <span class="wbl-cat-count" id="wbl-count-skills"></span></button>
+                                <button class="btn btn-outline btn-sm" onclick="openWblSkillModal()">New Skill</button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    Skills are versioned rather than edited in place. Publishing freezes a version so the
+                                    record of what a student was assessed against cannot change underneath them.
+                                </p>
+                                <div id="wbl-skills-body"></div>
+                            </div>
+                        </section>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">Shop Ready &rarr; Phase 2</div>
-                        </div>
-                        <p class="lookup-note">
-                            A student moves to Phase 2 once every prerequisite ticked here is met. A template counts when
-                            a Work Event started from it gets a Holistic Call of Meets spec or better. Adding prerequisites
-                            never moves anyone back to Phase 1. Per-student checklists, the safety sign-off and overrides
-                            are under Roster &rarr; Phase.
-                        </p>
-                        <div id="wbl-phase2-body"></div>
+                        <section class="wbl-cat-sec" data-sec="templates">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Work Event Templates</span>
+                                    <span class="wbl-cat-count" id="wbl-count-templates"></span></button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    Practicals, library projects and business modules a teacher starts for one or more students
+                                    from the Work Events tab. Loaded from the curriculum file; paste each brief's link here.
+                                </p>
+                                <div id="wbl-templates-body"></div>
+                            </div>
+                        </section>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">QC Spot Check Criteria</div>
-                            <button class="btn btn-outline btn-sm" onclick="openWblQcModal()">New Criterion</button>
-                        </div>
-                        <div id="wbl-qc-body"></div>
+                        <section class="wbl-cat-sec" data-sec="phase2">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Shop Ready &rarr; Phase 2</span>
+                                    <span class="wbl-cat-count" id="wbl-count-phase2"></span></button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    A student moves to Phase 2 once every prerequisite ticked here is met. A template counts when
+                                    a Work Event started from it gets a Holistic Call of Meets spec or better. Adding prerequisites
+                                    never moves anyone back to Phase 1. Per-student checklists, the safety sign-off and overrides
+                                    are under Roster &rarr; Phase.
+                                </p>
+                                <div id="wbl-phase2-body"></div>
+                            </div>
+                        </section>
 
-                        <div class="classes-header" style="margin-top:2rem">
-                            <div class="section-title" style="margin:0">Gradebook Weighting</div>
-                            <button class="btn btn-outline btn-sm" onclick="saveWblTierPoints()">Save</button>
-                        </div>
-                        <p class="lookup-note">
-                            What each Holistic Output Call is worth as a percentage of the assignment when
-                            grades are pushed to PowerSchool.
-                        </p>
-                        <div id="wbl-tier-body"></div>
+                        <section class="wbl-cat-sec" data-sec="qc">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">QC Spot Check Criteria</span>
+                                    <span class="wbl-cat-count" id="wbl-count-qc"></span></button>
+                                <button class="btn btn-outline btn-sm" onclick="openWblQcModal()">New Criterion</button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <div id="wbl-qc-body"></div>
+                            </div>
+                        </section>
+
+                        <section class="wbl-cat-sec" data-sec="tiers">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Gradebook Weighting</span>
+                                    <span class="wbl-cat-count" id="wbl-count-tiers"></span></button>
+                                <button class="btn btn-outline btn-sm" onclick="saveWblTierPoints()">Save</button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    What each Holistic Output Call is worth as a percentage of the assignment when
+                                    grades are pushed to PowerSchool.
+                                </p>
+                                <div id="wbl-tier-body"></div>
+                            </div>
+                        </section>
                     </div>
                 </div>
 
@@ -3721,6 +3777,20 @@
             wblCatalogSkills = skills;
             wblTemplates = templates;
 
+            const n = (count, one, many = one + 's') => `${count} ${count === 1 ? one : many}`;
+            const prereqCount = prereqs.template_ids.length + prereqs.credential_ids.length + (prereqs.requires_safety ? 1 : 0);
+            const counts = {
+                classes: n(classes.length, 'class', 'classes'),
+                credentials: n(creds.length, 'credential'),
+                skills: n(skills.length, 'skill'),
+                templates: n(templates.length, 'template'),
+                phase2: prereqCount ? n(prereqCount, 'prerequisite') : 'not set',
+                qc: n(qc.length, 'criterion', 'criteria'),
+                tiers: n(tiers.length, 'tier'),
+            };
+            for (const [k, v] of Object.entries(counts)) document.getElementById('wbl-count-' + k).textContent = `· ${v}`;
+            wblRestoreCatSecs();
+
             const tplOn = new Set(prereqs.template_ids), credOn = new Set(prereqs.credential_ids);
             const tplBox = t => `<label class="wbl-check-row"><input type="checkbox" data-p2-tpl="${t.id}"
                 ${tplOn.has(t.id) ? 'checked' : ''}> ${wblEsc(t.code)} &middot; ${wblEsc(t.title)}</label>`;
@@ -4183,6 +4253,30 @@
             wblSwitchSub('events', { load: false });
             await loadWblEvents();   // renders the detail host openWblEvent fills
             openWblEvent(r.id);
+        }
+
+        // Catalog sections start collapsed; a teacher's open/closed choice per
+        // section is kept in this browser only.
+        const WBL_CAT_KEY = 'wblCatalogCollapsed';
+        function wblCatState() {
+            try { return JSON.parse(localStorage.getItem(WBL_CAT_KEY)) || {}; } catch { return {}; }
+        }
+        function wblSaveCatState() {
+            const state = {};
+            document.querySelectorAll('.wbl-cat-sec').forEach(s => { state[s.dataset.sec] = s.classList.contains('collapsed'); });
+            try { localStorage.setItem(WBL_CAT_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+        }
+        function wblRestoreCatSecs() {
+            const state = wblCatState();
+            document.querySelectorAll('.wbl-cat-sec').forEach(s => s.classList.toggle('collapsed', state[s.dataset.sec] ?? true));
+        }
+        function wblToggleCatSec(btn) {
+            btn.closest('.wbl-cat-sec').classList.toggle('collapsed');
+            wblSaveCatState();
+        }
+        function wblSetCatSecs(collapsed) {
+            document.querySelectorAll('.wbl-cat-sec').forEach(s => s.classList.toggle('collapsed', collapsed));
+            wblSaveCatState();
         }
 
         function wblPhase2UseOnboarding() {
