@@ -15,6 +15,18 @@ const { listRoles } = require('./roles');
 
 const METHODS = ['screen', 'dtf', 'embroidery', 'solvent'];
 const FILE_KEYS = ['drive_folder_url', 'approved_art_url', 'proof_url', 'stitch_file_url'];
+// The CGL request form's standard picks (v1.1); anything else must read
+// "Other: <what the requester typed>".
+const LOCATIONS = ['Full Chest', 'Full Back', 'Front Pocket', 'Sleeve'];
+const GARMENT_TYPES = ['Tee-Shirt', 'Long Sleeve Tee', 'Crew Neck', 'Pull Over', 'Full Zip', 'Polo'];
+const SIZES = ['YS', 'YM', 'YL', 'YXL', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+// Colors per design location: the screen presses are 4-color, the embroidery
+// machine has 15 needles. Other methods have no limit here.
+const MAX_COLORS = { screen: 4, embroidery: 15 };
+const standardOrOther = (v, list) => list.includes(v) || /^Other:\s*\S/.test(v);
+// A color count is a whole number from 1 to the method's limit, or "not_sure".
+const colorsOk = (v, max = Infinity) => v == null || v === 'not_sure' || (Number.isInteger(v) && v >= 1 && v <= max);
+const isWeb = u => /^https?:\/\//i.test(u);
 
 const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 const text = v => (v == null ? '' : String(v).trim());
@@ -30,14 +42,34 @@ function validatePacket(programId, packet) {
     else if (jobNumber.length > 64) errors.push('job_number too long');
 
     const order = obj(packet.order), process = obj(packet.process), assessment = obj(packet.assessment);
+    const product = obj(packet.product);
     if (text(order.due_date) && !L.isDate(text(order.due_date))) errors.push('order.due_date must be YYYY-MM-DD');
+    // Quantities are by size ({size, qty}) or one total ({qty}, no size).
     if (packet.order?.quantities != null && !Array.isArray(packet.order.quantities)) errors.push('order.quantities must be an array');
+    (Array.isArray(order.quantities) ? order.quantities : []).forEach((q, i) => {
+        if (!Number.isInteger(q?.qty) || q.qty < 1) errors.push(`order.quantities[${i}].qty must be a whole number of at least 1`);
+        if (text(q?.size) && !SIZES.includes(text(q.size))) warnings.push(`order.quantities[${i}].size "${text(q.size)}" is not one of ${SIZES.join(', ')}`);
+    });
+    const maxColors = MAX_COLORS[text(process.method)] ?? Infinity;
+    const colorsRule = Number.isFinite(maxColors) ? `1 to ${maxColors} for ${text(process.method)}` : 'a whole number of at least 1';
     if (packet.placement != null && !Array.isArray(packet.placement)) errors.push('placement must be an array');
-    // The Drive links are rendered as links, so only web links are accepted.
+    (Array.isArray(packet.placement) ? packet.placement : []).forEach((pl, i) => {
+        if (!pl || typeof pl !== 'object' || Array.isArray(pl)) return errors.push(`placement[${i}] must be an object`);
+        if (!colorsOk(pl.colors, maxColors)) errors.push(`placement[${i}].colors must be ${colorsRule}, or "not_sure"`);
+        if (text(pl.location) && !standardOrOther(text(pl.location), LOCATIONS)) {
+            warnings.push(`placement[${i}].location "${text(pl.location)}" is not one of ${LOCATIONS.join(', ')} or "Other: …"`);
+        }
+    });
+    if (!colorsOk(process.colors, maxColors)) errors.push(`process.colors must be ${colorsRule}, or "not_sure"`);
+    if (text(product.garment_type) && !standardOrOther(text(product.garment_type), GARMENT_TYPES)) {
+        warnings.push(`product.garment_type "${text(product.garment_type)}" is not one of ${GARMENT_TYPES.join(', ')} or "Other: …"`);
+    }
+    // These are rendered as links, so only web links are accepted.
     for (const k of FILE_KEYS) {
         const u = text(obj(packet.files)[k]);
-        if (u && !/^https?:\/\//i.test(u)) errors.push(`files.${k} must start with http:// or https://`);
+        if (u && !isWeb(u)) errors.push(`files.${k} must start with http:// or https://`);
     }
+    if (text(product.blank_url) && !isWeb(text(product.blank_url))) errors.push('product.blank_url must start with http:// or https://');
     if (text(process.method) && !METHODS.includes(text(process.method))) {
         warnings.push(`process.method "${text(process.method)}" is not one of ${METHODS.join(', ')}`);
     }
@@ -51,12 +83,14 @@ function validatePacket(programId, packet) {
     return { errors, warnings };
 }
 
-// "Acme Band · 12 navy Gildan 5000" — the customer plus a short product
-// description; a house job without a customer reads "House job".
+// "Acme Band · 12 Navy Gildan 5000" — the customer plus a short product
+// description (the blank's model, else the garment type); a house job
+// without a customer reads "House job".
 function packetTitle(packet) {
     const order = obj(packet.order), product = obj(packet.product);
     const qty = (Array.isArray(order.quantities) ? order.quantities : []).reduce((n, q) => n + (Number(q?.qty) || 0), 0);
-    const what = [qty || '', text(product.color), text(product.brand_style) || text(product.type)].filter(Boolean).join(' ');
+    const item = text(product.brand_style) || text(product.garment_type).replace(/^Other:\s*/, '') || text(product.type);
+    const what = [qty || '', text(product.color), item].filter(Boolean).join(' ');
     const who = text(order.customer) || (packet.is_house ? 'House job' : text(packet.job_number));
     return what ? `${who} · ${what}` : who;
 }
@@ -107,4 +141,4 @@ function importPacket(programId, packet) {
 
 const parsePacket = (json) => { try { return json ? JSON.parse(json) : null; } catch { return null; } };
 
-module.exports = { METHODS, validatePacket, packetTitle, importPacket, parsePacket };
+module.exports = { METHODS, LOCATIONS, GARMENT_TYPES, SIZES, MAX_COLORS, validatePacket, packetTitle, importPacket, parsePacket };

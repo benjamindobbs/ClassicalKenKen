@@ -3624,12 +3624,26 @@
             openWblEvent(r.id);
         }
 
+        // Packet v1.1 pieces, shared with the student page's copy: quantities
+        // are by size or one total; colors are a count or "not_sure".
+        const wblPacketColors = c => c === 'not_sure' ? 'colors not sure' : c ? `${c} color${c === 1 ? '' : 's'}` : '';
+        const wblPacketQty = qs => (qs || []).map(q => q.size ? `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}` : `${wblEsc(q.qty)} total`).join(', ');
+        const wblPacketPlacement = pl => [pl.location, wblPacketColors(pl.colors), pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ');
+        const wblPacketProduct = pr => [
+            pr.garment_type && wblEsc(pr.garment_type),
+            pr.brand_style && (wblIsHttp(pr.blank_url) ? `<a href="${wblEsc(pr.blank_url)}" target="_blank" rel="noopener">${wblEsc(pr.brand_style)} &nearr;</a>` : wblEsc(pr.brand_style)),
+            !pr.brand_style && wblIsHttp(pr.blank_url) && `<a href="${wblEsc(pr.blank_url)}" target="_blank" rel="noopener">Blank &nearr;</a>`,
+            pr.color && wblEsc(pr.color),
+            pr.type && pr.type !== 'garment' && wblEsc(pr.type),
+            pr.supplied_by && `supplied by ${wblEsc(pr.supplied_by)}`,
+        ].filter(Boolean).join(' &middot; ');
+
         // The packet fields a student needs to run the job without asking.
         function wblPacketHtml(pk) {
             if (!pk) return '';
             const o = pk.order || {}, pr = pk.product || {}, pc = pk.process || {}, f = pk.files || {}, a = pk.assessment || {};
             const row = (label, val) => val ? `<tr><th style="width:140px">${label}</th><td>${val}</td></tr>` : '';
-            const qty = (o.quantities || []).map(q => `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}`).join(', ');
+            const qty = wblPacketQty(o.quantities);
             const links = [['drive_folder_url', 'Drive folder'], ['approved_art_url', 'Approved art'], ['proof_url', 'Proof'], ['stitch_file_url', 'Stitch file']]
                 .filter(([k]) => wblIsHttp(f[k]))
                 .map(([k, l]) => `<a href="${wblEsc(f[k])}" target="_blank" rel="noopener">${l} &nearr;</a>`).join(' &middot; ');
@@ -3640,9 +3654,9 @@
                         ${row('Customer', [o.customer, o.contact].filter(Boolean).map(wblEsc).join(' &middot; '))}
                         ${row('Due', wblEsc(o.due_date || ''))}
                         ${row('Quantities', qty)}
-                        ${row('Product', [pr.brand_style, pr.color, pr.type, pr.supplied_by && `supplied by ${pr.supplied_by}`].filter(Boolean).map(wblEsc).join(' &middot; '))}
-                        ${row('Process', [pc.method, pc.colors && `${pc.colors} color(s)`, (pc.ink_or_thread || []).join(', '), pc.media_finish].filter(Boolean).map(wblEsc).join(' &middot; '))}
-                        ${row('Placement', (pk.placement || []).map(pl => [pl.location, pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ')).join('<br>'))}
+                        ${row('Product', wblPacketProduct(pr))}
+                        ${row('Process', [pc.method, wblPacketColors(pc.colors), (pc.ink_or_thread || []).join(', '), pc.media_finish].filter(Boolean).map(wblEsc).join(' &middot; '))}
+                        ${row('Placement', (pk.placement || []).map(wblPacketPlacement).join('<br>'))}
                         ${row('Files', links)}
                         ${row('Roles needed', (a.roles_needed || []).map(c => wblEsc(wblRoleLabel(c))).join(', '))}
                         ${row('Machines', (a.machines || []).map(c => wblEsc(wblMachineLabel(c))).join(', '))}

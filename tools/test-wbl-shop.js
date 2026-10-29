@@ -80,7 +80,7 @@ const PACKET = {
     order: { customer: 'Acme Band', contact: 'Jo', due_date: '2026-11-14', quantities: [{ size: 'M', qty: 12 }, { size: 'L', qty: 8 }] },
     product: { type: 'garment', brand_style: 'Gildan 5000', color: 'Navy', supplied_by: 'ordered' },
     process: { method: 'screen', colors: 2, ink_or_thread: ['PMS 286 C'] },
-    placement: [{ location: 'full front', size: '11 in wide', from: '3 in below collar' }],
+    placement: [{ location: 'Full Chest', colors: 2, size: '11 in wide', from: '3 in below collar' }],
     files: { drive_folder_url: 'https://drive.example/acme' },
     assessment: {
         roles_needed: ['job_lead', 'production'], machines: ['screen-press', 'x-vactor-exposure'],
@@ -118,6 +118,46 @@ test('packet: unknown method, role, machine and skill import with warnings', () 
     assert.strictEqual(r.title, 'House job');
     assert.strictEqual(r.warnings.length, 3);
     assert.deepStrictEqual(r.unresolved, ['Silk Screening / Nope']);
+});
+
+test('packet v1.1: bad quantities, color counts, placement entries and blank links are refused', () => {
+    const bad = patch => assert.throws(() => P.importPacket(cgl, { job_number: 'CGL-26-090', ...patch }));
+    bad({ order: { quantities: [{ size: 'M', qty: 0 }] } });
+    bad({ order: { quantities: [{ qty: '12' }] } });
+    bad({ order: { quantities: [{ qty: 2.5 }] } });
+    bad({ placement: [{ location: 'Full Chest', colors: 'lots' }] });
+    bad({ placement: [{ location: 'Full Chest', colors: 0 }] });
+    bad({ placement: ['Full Chest'] });
+    bad({ process: { colors: 'some' } });
+    bad({ product: { blank_url: 'ftp://supplier/g5000' } });
+    bad({ process: { method: 'screen' }, placement: [{ location: 'Full Back', colors: 5 }] });      // presses are 4-color
+    bad({ process: { method: 'embroidery' }, placement: [{ location: 'Full Chest', colors: 16 }] }); // 15 needles
+    bad({ process: { method: 'screen', colors: 5 } });
+    assert.strictEqual(db.prepare(`SELECT COUNT(*) n FROM wbl_work_events WHERE external_ref = 'CGL-26-090'`).get().n, 0);
+});
+
+test('packet v1.1: standard and Other labels import cleanly; a total titles by garment type', () => {
+    const r = P.importPacket(cgl, {
+        job_number: 'CGL-26-091',
+        order: { customer: 'Ms. Rivera (Bulkeley HS)', quantities: [{ qty: 120 }] },
+        product: { type: 'garment', garment_type: 'Other: Tote bag', color: 'Natural', blank_url: 'https://supplier.example/tote' },
+        process: { method: 'dtf' },
+        placement: [{ location: 'Full Chest' }, { location: 'Other: Left hip', colors: 'not_sure' }, { location: 'Sleeve', colors: 3 }],
+    });
+    assert.deepStrictEqual(r.warnings, []);
+    assert.strictEqual(r.title, 'Ms. Rivera (Bulkeley HS) · 120 Natural Tote bag');
+    const emb = P.importPacket(cgl, {
+        job_number: 'CGL-26-093', process: { method: 'embroidery' },
+        order: { quantities: [{ size: 'YXL', qty: 4 }, { size: 'XS', qty: 2 }] },
+        placement: [{ location: 'Front Pocket', colors: 15 }, { location: 'Full Back', colors: 5 }],
+    });
+    assert.deepStrictEqual(emb.warnings, [], 'embroidery allows up to 15 colors; YXL and XS are standard sizes');
+    const odd = P.importPacket(cgl, {
+        job_number: 'CGL-26-092', product: { garment_type: 'Hoodie' }, placement: [{ location: 'full front' }],
+        order: { quantities: [{ size: '5XL', qty: 1 }] },
+    });
+    assert.strictEqual(odd.warnings.length, 3);
+    for (const ref of ['CGL-26-091', 'CGL-26-092', 'CGL-26-093']) complete(db.prepare('SELECT id FROM wbl_work_events WHERE external_ref = ?').get(ref).id);
 });
 
 test('packet: a re-import updates the same job, adds skills, keeps participants and status', () => {

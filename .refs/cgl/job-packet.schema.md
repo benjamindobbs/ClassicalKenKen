@@ -1,4 +1,4 @@
-# CGL job packet format (v1)
+# CGL job packet format (v1.1)
 
 The CGL website exports a **job packet**: one JSON file per job. ClassicalKenKen imports it as a live job (a Work Event with `kind = 'job'`). This file is the contract between the two repos. Change it here first, then on both sides.
 
@@ -8,6 +8,13 @@ The CGL website exports a **job packet**: one JSON file per job. ClassicalKenKen
   - Or call `POST /api/wbl/programs/:id/work-events/import` with the packet as the JSON body, or `{ "text": "<the JSON>" }`.
   - Teacher auth only. For now the integration is file-based (export, then import). Server-to-server auth can come later.
 - **Code:** `server/wbl/packets.js`. Tests: `tools/test-wbl-shop.js`.
+- **v1.1 (2026-10-29)** adds the CGL request form's apparel fields:
+  - `product.garment_type` and `product.blank_url`;
+  - a color count per design location (`placement[].colors`);
+  - standard labels for location and garment type;
+  - a quantity with no size, meaning a plain total.
+
+  Every addition is optional, so a v1 packet still imports. The CGL side's build notes are in `HANDOFF-CGL-Website.md`.
 
 ## Example
 
@@ -17,15 +24,19 @@ The CGL website exports a **job packet**: one JSON file per job. ClassicalKenKen
   "is_house": false,
   "order":     { "customer": "Acme Band", "contact": "Jo Rivera", "due_date": "2026-11-14",
                  "quantities": [{ "size": "M", "qty": 12 }, { "size": "L", "qty": 8 }], "invoice_ref": "INV-0142" },
-  "product":   { "type": "garment", "brand_style": "Gildan 5000", "color": "Navy", "supplied_by": "ordered" },
-  "process":   { "method": "screen", "colors": 2, "ink_or_thread": ["PMS 286 C", "White"], "media_finish": "" },
-  "placement": [{ "location": "full front", "size": "11 in wide", "from": "3 in below collar", "notes": "" }],
+  "product":   { "type": "garment", "garment_type": "Tee-Shirt", "brand_style": "Gildan 5000", "blank_url": "",
+                 "color": "Navy", "supplied_by": "ordered" },
+  "process":   { "method": "screen", "ink_or_thread": ["PMS 286 C", "White"], "media_finish": "" },
+  "placement": [{ "location": "Full Chest", "colors": 2, "size": "11 in wide", "from": "3 in below collar", "notes": "" },
+                { "location": "Sleeve", "colors": "not_sure" }],
   "files":     { "drive_folder_url": "https://drive.google.com/drive/folders/…", "approved_art_url": "", "proof_url": "", "stitch_file_url": "" },
   "assessment":{ "roles_needed": ["job_lead", "buyer_receiver", "qc_inspector", "shipper", "photographer", "production"],
                  "machines": ["screen-press", "x-vactor-exposure"],
                  "suggested_skills": [{ "credential": "Silk Screening", "skill": "Single & Multi-Color Printing" }] }
 }
 ```
+
+A job ordered as one total quantity rather than by size uses `"quantities": [{ "qty": 120 }]`.
 
 ## Fields
 
@@ -35,13 +46,18 @@ The CGL website exports a **job packet**: one JSON file per job. ClassicalKenKen
 | `is_house` | boolean | Marks a house (internal) job. Optional. |
 | `order.customer`, `.contact`, `.invoice_ref` | string | Optional. The customer name starts the job's title. |
 | `order.due_date` | `YYYY-MM-DD` | Optional. If present it must be a real date. It's shown to students as the due date. It doesn't close the job. |
-| `order.quantities` | array of `{size, qty}` | Optional. If present it must be an array. The total quantity goes into the title. |
+| `order.quantities` | array of `{size?, qty}` | Optional. If present it must be an array, and each `qty` must be a whole number ≥ 1; otherwise the import is refused. An entry with no `size` is a total for the job. Sizes are YS, YM, YL, YXL, XS, S, M, L, XL, 2XL, 3XL, 4XL; any other size imports with a warning. The sum of the quantities goes into the title. |
 | `product.type` | `garment` \| `substrate` | Optional. |
-| `product.brand_style`, `.color` | string | Optional. Used in the title. |
+| `product.garment_type` | Tee-Shirt \| Long Sleeve Tee \| Crew Neck \| Pull Over \| Full Zip \| Polo \| `Other: …` | Optional. Any other value imports with a warning. Used in the title when there's no `brand_style`. |
+| `product.brand_style`, `.color` | string | Optional. The blank's model name and the garment color. Used in the title. |
+| `product.blank_url` | `http(s)://` URL or empty | Optional. A link to the blank. **A non-web value refuses the import.** |
 | `product.supplied_by` | `customer` \| `ordered` | Optional. |
 | `process.method` | `screen` \| `dtf` \| `embroidery` \| `solvent` | Optional. Any other value imports with a warning. |
-| `process.colors`, `.ink_or_thread`, `.media_finish` | number / string array / string | Optional. Shown on the job page. |
-| `placement` | array of `{location, size, from, notes}` | Optional. If present it must be an array. |
+| `process.colors` | whole number ≥ 1, or `"not_sure"` | Optional, for one count for the whole job. Prefer `placement[].colors`. The same per-method maximum applies. Any other value **refuses the import**. |
+| `process.ink_or_thread`, `.media_finish` | string array / string | Optional. Shown on the job page. |
+| `placement` | array of `{location, colors?, size?, from?, notes?}` | Optional. If present it must be an array of objects; anything else refuses the import. |
+| `placement[].location` | Full Chest \| Full Back \| Front Pocket \| Sleeve \| `Other: …` | Any other value imports with a warning. |
+| `placement[].colors` | whole number ≥ 1, or `"not_sure"` | Optional. It's asked for screen printing and embroidery, not DTF. The maximum per location is **4** for `screen` and **15** for `embroidery`. Any other value, or a count over the maximum, **refuses the import**. |
 | `files.drive_folder_url`, `.approved_art_url`, `.proof_url`, `.stitch_file_url` | `http(s)://` URL or empty | **Any non-web link refuses the import**, because these are rendered as links. The Drive folder is the source of truth for files, and it's the "packet link" students see on their Today screen. |
 | `assessment.roles_needed` | array of role codes | Shown on the job page. Codes not in the program's role list import with a warning. |
 | `assessment.machines` | array of machine codes | Shown on the job page. Unknown codes import with a warning. |
@@ -53,7 +69,7 @@ Unknown extra fields are kept in the stored packet and ignored.
 
 - **New `job_number`:** creates a `kind = 'job'` Work Event.
   - It opens today.
-  - Its title is the customer plus a short product description, for example `Acme Band · 20 Navy Gildan 5000`. A house job with no customer is titled `House job · …`.
+  - Its title is the customer plus a short product description: total quantity, color, then the blank's model, else the garment type. For example, `Acme Band · 20 Navy Gildan 5000`, or `Acme Band · 20 Navy Tee-Shirt`. A house job with no customer is titled `House job · …`.
   - The full packet is stored in `wbl_work_events.packet_json`, and the resolved suggested skills become its planned skills.
 - **Existing `job_number`:**
   - Updates the title, the house flag and the stored packet.
