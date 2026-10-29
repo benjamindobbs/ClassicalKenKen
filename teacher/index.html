@@ -540,6 +540,8 @@
                         <button class="wbl-subbtn active" id="wbl-sub-btn-roster"   onclick="wblSwitchSub('roster')">Roster</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-skillchecks" onclick="wblSwitchSub('skillchecks')">Skill Checks</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-events"   onclick="wblSwitchSub('events')">Work Events</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-stations" onclick="wblSwitchSub('stations')">Stations</button>
+                        <button class="wbl-subbtn"        id="wbl-sub-btn-coverage" onclick="wblSwitchSub('coverage')">Coverage</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-rotation" onclick="wblSwitchSub('rotation')">QC Rotation</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-exitslips" onclick="wblSwitchSub('exitslips')">Exit Slips</button>
                         <button class="wbl-subbtn"        id="wbl-sub-btn-catalog"  onclick="wblSwitchSub('catalog')">Catalog</button>
@@ -597,11 +599,31 @@
                         <div class="classes-header">
                             <div class="section-title" style="margin:0">Work Events</div>
                             <div style="display:flex;gap:0.5rem">
+                                <button class="btn btn-outline btn-sm" onclick="openWblPacketImportModal()">Import Job Packet</button>
                                 <button class="btn btn-outline btn-sm" onclick="openWblTemplateStartModal()">Start from Template</button>
                                 <button class="btn btn-outline btn-sm" onclick="openWblEventModal()">New Work Event</button>
                             </div>
                         </div>
                         <div id="wbl-events-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-stations" style="display:none">
+                        <div class="section-title">Station Board</div>
+                        <p class="lookup-note">
+                            Every machine, its status and who is on it for an active job. Students see this board
+                            (read-only) on their Today screen. Status never blocks anything.
+                        </p>
+                        <div id="wbl-stations-body"></div>
+                    </div>
+
+                    <div id="wbl-sub-coverage" style="display:none">
+                        <div class="section-title">Credential Coverage</div>
+                        <p class="lookup-note">
+                            For each skill, how many enrolled students have 0, 1, or 2+ qualifying demonstrations
+                            (mastered on a Work Event with a Holistic Call at the credential's threshold, plus a Skill
+                            Check). Where the 0 column is large, plan a job or station for it.
+                        </p>
+                        <div id="wbl-coverage-body"></div>
                     </div>
 
                     <div id="wbl-sub-rotation" style="display:none">
@@ -748,6 +770,22 @@
                                     a program without roles keeps a free-text role.
                                 </p>
                                 <div id="wbl-roles-body"></div>
+                            </div>
+                        </section>
+
+                        <section class="wbl-cat-sec" data-sec="pacing">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Term &amp; Pacing</span>
+                                    <span class="wbl-cat-count" id="wbl-count-pacing"></span></button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    Each student's week counts from the term start. A milestone is due by the end of its
+                                    week; a student who has missed one is flagged below the floor on the Roster and sorted
+                                    to the top. The floor is loaded from the curriculum file.
+                                </p>
+                                <div id="wbl-pacing-body"></div>
                             </div>
                         </section>
 
@@ -2843,7 +2881,7 @@
         // load: false when the caller loads the tab itself and needs to await it.
         function wblSwitchSub(name, { load = true } = {}) {
             wblSub = name;
-            ['roster', 'skillchecks', 'events', 'rotation', 'exitslips', 'catalog'].forEach(s => {
+            ['roster', 'skillchecks', 'events', 'stations', 'coverage', 'rotation', 'exitslips', 'catalog'].forEach(s => {
                 document.getElementById('wbl-sub-' + s).style.display = s === name ? '' : 'none';
                 document.getElementById('wbl-sub-btn-' + s).classList.toggle('active', s === name);
             });
@@ -2869,6 +2907,8 @@
             if (wblSub === 'roster')      loadWblRoster();
             if (wblSub === 'skillchecks') loadWblSkillChecks();
             if (wblSub === 'events')    loadWblEvents();
+            if (wblSub === 'stations')  loadWblStations();
+            if (wblSub === 'coverage')  loadWblCoverage();
             if (wblSub === 'rotation')  loadWblRotation();
             if (wblSub === 'exitslips') loadWblExitSlips();
             if (wblSub === 'catalog')   loadWblCatalog();
@@ -3008,6 +3048,9 @@
             ]);
             document.getElementById('wbl-rotation-btn').style.display = wblRoles.length ? '' : 'none';
             wblGates = gates;
+            // Below the pacing floor first (CGL §7): they get priority for the next job or station.
+            rows.sort((a, b) => (b.pace?.below ? 1 : 0) - (a.pace?.below ? 1 : 0));
+            const hasPace = rows.some(r => r.pace);
             wblRosterRows = rows;
             wblCalledOuts = calledOuts;
             const el = document.getElementById('wbl-roster-body');
@@ -3015,7 +3058,7 @@
             el.innerHTML = `
                 <div class="portal-table-wrap"><table class="portal-table">
                     <thead><tr>
-                        <th>Student</th><th>ID</th><th>Phase</th><th>Shop Ready</th><th>Pathway Year</th>
+                        <th>Student</th><th>ID</th><th>Phase</th><th>Shop Ready</th>${hasPace ? '<th>Pace</th>' : ''}<th>Pathway Year</th>
                         <th>Credentials</th><th>Last QC</th><th></th>
                     </tr></thead>
                     <tbody>${rows.map(r => {
@@ -3029,6 +3072,11 @@
                             <td>${r.shop_ready
                                 ? `<span class="wbl-pill${r.shop_ready.ready ? ' wbl-pill-good' : ''}">${r.shop_ready.met}/${r.shop_ready.total}</span>`
                                 : '<span class="wbl-pill" title="No Phase 2 prerequisites set (Catalog)">—</span>'}</td>
+                            ${hasPace ? `<td style="white-space:nowrap">${r.pace ? `Wk ${r.pace.week}
+                                ${r.pace.below
+                                    ? ` <span class="wbl-pill wbl-pill-bad" title="Missed: ${wblEsc(r.pace.missing.join('; '))}">below floor</span>`
+                                    : r.pace.next ? ` <span class="wbl-ver" title="Next: ${wblEsc(r.pace.next.milestone)} by end of week ${r.pace.next.week}">${r.pace.next.met ? 'ahead' : 'on pace'}</span>` : ''}`
+                                : '—'}</td>` : ''}
                             <td>${r.pathway_year}</td>
                             <td>${r.credentials}</td>
                             <td>${r.last_qc_week ? wblEsc(r.last_qc_week) : '<span class="wbl-pill wbl-pill-warn">never</span>'}</td>
@@ -3441,7 +3489,7 @@
         }
 
         async function openWblEvent(id) {
-            const [w] = await Promise.all([wblApi('GET', `/work-events/${id}`), wblLoadRoles()]);
+            const [w] = await Promise.all([wblApi('GET', `/work-events/${id}`), wblLoadRoles(), wblLoadMachines()]);
             wblRoster = { eventId: w.id, ids: w.participants.map(p => p.id) };
 
             // Participants come back grouped by class already (server orders by
@@ -3480,6 +3528,7 @@
                 ${wblIsHttp(t?.brief_url) ? `<p style="margin:0.25rem 0"><a href="${wblEsc(t.brief_url)}" target="_blank" rel="noopener">Open the brief &nearr;</a></p>` : ''}
                 ${t?.notes ? `<p class="lookup-note" style="margin:0.25rem 0">${wblEsc(t.notes)}</p>` : ''}
                 ${w.description ? `<p style="font-size:0.875rem;color:#334155;white-space:pre-wrap;margin:0.5rem 0">${wblEsc(w.description)}</p>` : ''}
+                ${wblPacketHtml(w.packet)}
                 <button class="btn btn-outline btn-sm" onclick="openWblEventEditModal(${w.id})">Edit Details</button>
                 ${w.participants.length ? '' : `<button class="btn btn-outline btn-sm" style="color:#dc2626" onclick="wblDeleteEvent(${w.id})">Delete Event</button>`}
                 <div class="section-title" style="margin-top:1.5rem">Participants</div>
@@ -3535,6 +3584,114 @@
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Close</button>
                 </div>`);
+        }
+
+        // ── Job packets (CGL §7, .refs/cgl/job-packet.schema.md) ─────────────
+        function openWblPacketImportModal() {
+            wblOpenModal(`
+                <h3>Import Job Packet</h3>
+                <p class="lookup-note" style="margin:0 0 0.5rem">
+                    Paste the packet JSON exported from the CGL website, or pick the file. Re-importing a job number
+                    updates that job; its participants are left alone.
+                </p>
+                <input type="file" accept=".json,application/json" onchange="wblReadPacketFile(this)" style="margin-bottom:0.5rem">
+                <textarea id="wbl-packet-text" style="width:100%;min-height:220px;font-family:monospace;font-size:0.75rem"
+                          placeholder='{ "job_number": "CGL-26-014", … }'></textarea>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblImportPacket()">Import</button>
+                </div>`);
+        }
+
+        async function wblReadPacketFile(input) {
+            const f = input.files?.[0];
+            if (f) document.getElementById('wbl-packet-text').value = await f.text();
+        }
+
+        async function wblImportPacket() {
+            const text = document.getElementById('wbl-packet-text').value.trim();
+            if (!text) return;
+            let r;
+            try { r = await wblApi('POST', `/programs/${wblProgramId()}/work-events/import`, { text }); }
+            catch (e) {
+                return alert('Not imported:\n\n' + (e.body?.errors?.length ? e.body.errors.map(x => '· ' + x).join('\n') : e.message));
+            }
+            const notes = [...r.warnings, ...r.unresolved.map(u => 'skill not found: ' + u)];
+            alert(`${r.created ? 'Created' : 'Updated'} "${r.title}".`
+                + (notes.length ? '\n\nWarnings:\n' + notes.map(x => '· ' + x).join('\n') : ''));
+            wblCloseModal();
+            await loadWblEvents();
+            openWblEvent(r.id);
+        }
+
+        // The packet fields a student needs to run the job without asking.
+        function wblPacketHtml(pk) {
+            if (!pk) return '';
+            const o = pk.order || {}, pr = pk.product || {}, pc = pk.process || {}, f = pk.files || {}, a = pk.assessment || {};
+            const row = (label, val) => val ? `<tr><th style="width:140px">${label}</th><td>${val}</td></tr>` : '';
+            const qty = (o.quantities || []).map(q => `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}`).join(', ');
+            const links = [['drive_folder_url', 'Drive folder'], ['approved_art_url', 'Approved art'], ['proof_url', 'Proof'], ['stitch_file_url', 'Stitch file']]
+                .filter(([k]) => wblIsHttp(f[k]))
+                .map(([k, l]) => `<a href="${wblEsc(f[k])}" target="_blank" rel="noopener">${l} &nearr;</a>`).join(' &middot; ');
+            return `
+                <div class="wbl-lens" style="margin-top:0.75rem">
+                    <div class="wbl-lens-head"><span>Job Packet ${wblEsc(pk.job_number || '')}</span><span>${pk.is_house ? 'house job' : wblEsc(o.customer || '')}</span></div>
+                    <div class="wbl-lens-body"><div class="portal-table-wrap"><table class="portal-table">
+                        ${row('Customer', [o.customer, o.contact].filter(Boolean).map(wblEsc).join(' &middot; '))}
+                        ${row('Due', wblEsc(o.due_date || ''))}
+                        ${row('Quantities', qty)}
+                        ${row('Product', [pr.brand_style, pr.color, pr.type, pr.supplied_by && `supplied by ${pr.supplied_by}`].filter(Boolean).map(wblEsc).join(' &middot; '))}
+                        ${row('Process', [pc.method, pc.colors && `${pc.colors} color(s)`, (pc.ink_or_thread || []).join(', '), pc.media_finish].filter(Boolean).map(wblEsc).join(' &middot; '))}
+                        ${row('Placement', (pk.placement || []).map(pl => [pl.location, pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ')).join('<br>'))}
+                        ${row('Files', links)}
+                        ${row('Roles needed', (a.roles_needed || []).map(c => wblEsc(wblRoleLabel(c))).join(', '))}
+                        ${row('Machines', (a.machines || []).map(c => wblEsc(wblMachineLabel(c))).join(', '))}
+                        ${row('Invoice', wblEsc(o.invoice_ref || ''))}
+                    </table></div></div>
+                </div>`;
+        }
+
+        // ── Station board (CGL §7) ───────────────────────────────────────────
+        async function loadWblStations() {
+            const rows = await wblApi('GET', `/programs/${wblProgramId()}/stations`);
+            const el = document.getElementById('wbl-stations-body');
+            if (!rows.length) { el.innerHTML = '<div class="wbl-empty">No machines in this program (Catalog &rarr; Machines).</div>'; return; }
+            const STATUSES = [['available', 'Available'], ['in_use', 'In use'], ['down', 'Down']];
+            el.innerHTML = `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Machine</th><th>Status</th><th>Note</th><th>On it (active jobs)</th></tr></thead>
+                    <tbody>${rows.map(m => `
+                        <tr>
+                            <td>${wblEsc(m.label)}${m.gate_template_code ? ` <span class="wbl-ver">gate ${wblEsc(m.gate_template_code)}</span>` : ''}</td>
+                            <td style="white-space:nowrap">${STATUSES.map(([v, l]) => `
+                                <button class="btn btn-sm ${m.status === v ? 'btn-primary' : 'btn-outline'}"
+                                        onclick="wblPatchMachine(${m.id}, { status: '${v}' }).then(loadWblStations)">${l}</button>`).join('')}</td>
+                            <td><input class="wbl-inline-input" style="width:100%" value="${wblEsc(m.note)}" placeholder="e.g. needle broken"
+                                       onchange="wblPatchMachine(${m.id}, { note: this.value })"></td>
+                            <td>${m.assigned.length
+                                ? m.assigned.map(a => `${wblEsc(a.student_name || '')} <span class="wbl-ver">${wblEsc(a.title)}</span>`).join('<br>')
+                                : '<span style="color:#94a3b8">—</span>'}</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`;
+        }
+
+        // ── Credential coverage (CGL §7) ─────────────────────────────────────
+        async function loadWblCoverage() {
+            const creds = await wblApi('GET', `/programs/${wblProgramId()}/coverage`);
+            const el = document.getElementById('wbl-coverage-body');
+            if (!creds.length) { el.innerHTML = '<div class="wbl-empty">No credentials in this program.</div>'; return; }
+            const cell = (n, tone) => `<td style="text-align:center">${n ? `<span class="wbl-pill${tone && n ? ' wbl-pill-' + tone : ''}">${n}</span>` : '<span style="color:#94a3b8">0</span>'}</td>`;
+            el.innerHTML = creds.map(c => `
+                <div class="section-title" style="font-size:0.95rem;margin:1rem 0 0.5rem">${wblEsc(c.name)}
+                    <span class="wbl-ver">${c.satisfied} of ${c.students} student(s) have every skill</span></div>
+                ${c.skills.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Skill</th><th style="text-align:center">Needs</th><th style="text-align:center">0</th>
+                        <th style="text-align:center">1</th><th style="text-align:center">2+</th></tr></thead>
+                    <tbody>${c.skills.map(s => `
+                        <tr><td>${wblEsc(s.name)}</td><td style="text-align:center">${s.required}</td>
+                            ${cell(s.zero, 'bad')}${cell(s.one, 'warn')}${cell(s.two_plus, 'good')}</tr>`).join('')}
+                    </tbody></table></div>` : '<div class="wbl-empty">No skills linked.</div>'}`).join('');
         }
 
         // The server only allows this while no participant has ever been added.
@@ -4036,7 +4193,7 @@
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers, classes, templates, prereqs, machines, roles] = await Promise.all([
+            const [creds, skills, qc, tiers, classes, templates, prereqs, machines, roles, pacing] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
@@ -4046,6 +4203,7 @@
                 wblApi('GET', `/programs/${pid}/phase2-prereqs`),
                 wblLoadMachines(),
                 wblLoadRoles(),
+                wblApi('GET', `/programs/${pid}/pacing`),
             ]);
             wblCatalogSkills = skills;
             wblTemplates = templates;
@@ -4059,6 +4217,7 @@
                 templates: n(templates.length, 'template'),
                 machines: n(machines.length, 'machine'),
                 roles: roles.length ? n(roles.length, 'role') : 'free text',
+                pacing: pacing.term_start ? `term began ${pacing.term_start}` : 'no term start',
                 phase2: prereqCount ? n(prereqCount, 'prerequisite') : 'not set',
                 qc: n(qc.length, 'criterion', 'criteria'),
                 tiers: n(tiers.length, 'tier'),
@@ -4125,6 +4284,22 @@
                         </tr>`).join('')}
                     </tbody></table></div>`
                 : '<div class="wbl-empty">No machines yet — load them with tools/seed-cgl-templates.js, or add one.</div>';
+
+            document.getElementById('wbl-pacing-body').innerHTML = `
+                <div class="wbl-check-row">
+                    <label for="wbl-term-start" style="flex:1">Term start (week 1 begins)</label>
+                    <input type="date" id="wbl-term-start" value="${wblEsc(pacing.term_start || '')}">
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveTermStart()">Save</button>
+                </div>
+                ${pacing.week ? `<p class="lookup-note">This is week ${pacing.week}.</p>` : ''}
+                ${pacing.floor.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th style="width:80px">By week</th><th>Minimum</th></tr></thead>
+                    <tbody>${pacing.floor.map(m => `
+                        <tr${pacing.week && pacing.week > m.week ? ' style="color:#64748b"' : ''}>
+                            <td>${m.week}</td><td>${wblEsc(m.milestone)}${m.note ? ` <span class="wbl-ver">${wblEsc(m.note)}</span>` : ''}</td></tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No pacing floor — load one with tools/seed-cgl-templates.js.</div>'}`;
 
             document.getElementById('wbl-roles-body').innerHTML = roles.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -4585,6 +4760,13 @@
             wblSaveCatState();
         }
 
+        async function wblSaveTermStart() {
+            const v = document.getElementById('wbl-term-start').value;
+            try { await wblApi('PATCH', `/programs/${wblProgramId()}`, { term_start: v || null }); }
+            catch (e) { return alert('Could not save: ' + e.message); }
+            loadWblCatalog();
+        }
+
         async function wblPatchMachine(id, fields) {
             await wblApi('PATCH', `/machines/${id}`, fields);
         }
@@ -4663,7 +4845,11 @@
                 ? await wblApi('GET', `/programs/${wblProgramId()}/rotation`) : null;
             const next = new Map((rot?.students || []).filter(s => s.suggested)
                 .map(s => [s.student_id, roles.find(r => r.code === s.suggested)?.label]));
-            const nextHint = sid => next.has(sid) ? ` — next: ${next.get(sid)}` : '';
+            // Students below the pacing floor get priority for the next job or station.
+            const pacing = we.kind === 'job' ? await wblApi('GET', `/programs/${wblProgramId()}/pacing`) : null;
+            const behind = new Set((pacing?.students || []).filter(s => s.pace?.below).map(s => s.student_id));
+            const nextHint = sid => (behind.has(sid) ? ' — behind pace' : '') + (next.has(sid) ? ` — next: ${next.get(sid)}` : '');
+            const onPacket = new Set(we.packet?.assessment?.machines || []);
             if (!byClass.length) {
                 return alert('No classes linked to this program yet — link one under Catalog first.');
             }
@@ -4677,7 +4863,8 @@
                     ${machines.map(m => `
                         <div class="wbl-check-row">
                             <input type="checkbox" id="wbl-ppm-${wblEsc(m.code)}" data-machine="${wblEsc(m.code)}">
-                            <label for="wbl-ppm-${wblEsc(m.code)}">${wblEsc(m.label)}${m.status === 'down' ? ' <span class="wbl-pill wbl-pill-bad">down</span>' : ''}</label>
+                            <label for="wbl-ppm-${wblEsc(m.code)}">${wblEsc(m.label)}${m.status === 'down' ? ' <span class="wbl-pill wbl-pill-bad">down</span>' : ''}${
+                                onPacket.has(m.code) ? ' <span class="wbl-ver">on packet</span>' : ''}</label>
                         </div>`).join('')}
                 </div>` : '';
             const rolePicker = we.kind === 'job' ? `
@@ -4717,7 +4904,8 @@
                                            data-class="${c.class_id}" ${already.has(s.student_id) ? 'checked disabled' : ''}>
                                     <label for="wbl-pp-${s.student_id}">${wblEsc(s.student_name)}${already.has(s.student_id)
                                         ? ' <span class="wbl-pill">already on this job</span>'
-                                        : next.has(s.student_id) ? ` <span class="wbl-ver">next: ${wblEsc(next.get(s.student_id))}</span>` : ''}</label>
+                                        : (behind.has(s.student_id) ? ' <span class="wbl-pill wbl-pill-bad">behind pace</span>' : '')
+                                          + (next.has(s.student_id) ? ` <span class="wbl-ver">next: ${wblEsc(next.get(s.student_id))}</span>` : '')}</label>
                                 </div>`).join('')
                                 : '<div class="wbl-empty" style="padding:0.25rem 0">No enrolled students in this class.</div>'}
                         </div>`).join('');

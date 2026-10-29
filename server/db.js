@@ -1173,6 +1173,19 @@ db.exec(`
     );
 `);
 
+// Job packets, the Today screen and pacing — the CGL handoff §7.
+// packet_json holds a job packet imported from the CGL website
+// (.refs/cgl/job-packet.schema.md); external_ref carries its job_number and
+// re-importing updates the event. uses_machines (comma-separated codes) is the
+// machines a template's practical runs on: the Today screen suggests one only
+// when those machines are available and the student is cleared on every gated
+// one other than the practical's own gate. term_start and pacing_floor_json
+// drive each student's week and the below-floor flag (server/wbl/shop.js).
+try { db.prepare('ALTER TABLE wbl_work_events ADD COLUMN packet_json TEXT').run(); } catch { /* already exists */ }
+try { db.prepare("ALTER TABLE wbl_work_event_templates ADD COLUMN uses_machines TEXT NOT NULL DEFAULT ''").run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_programs ADD COLUMN term_start TEXT').run(); } catch { /* already exists */ }
+try { db.prepare('ALTER TABLE wbl_programs ADD COLUMN pacing_floor_json TEXT').run(); } catch { /* already exists */ }
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

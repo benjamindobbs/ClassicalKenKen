@@ -305,6 +305,7 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -321,6 +322,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "epson-et8550"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -337,6 +341,9 @@
         }
       ],
       "gate_for_machine": "x-vactor-exposure",
+      "uses_machines": [
+        "x-vactor-exposure"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -353,6 +360,7 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -369,6 +377,9 @@
         }
       ],
       "gate_for_machine": "screen-press",
+      "uses_machines": [
+        "screen-press"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -389,6 +400,10 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "screen-press",
+        "ryocure-dryer"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -405,6 +420,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "x-vactor-exposure"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -416,6 +434,10 @@
       "evidence": "P",
       "planned_skills": [],
       "gate_for_machine": null,
+      "uses_machines": [
+        "screen-press",
+        "ryocure-dryer"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": "Extension: evidence for Extending Knowledge citation only"
@@ -432,6 +454,9 @@
         }
       ],
       "gate_for_machine": "mimaki-txf150",
+      "uses_machines": [
+        "mimaki-txf150"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -448,6 +473,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "mimaki-txf150"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -464,6 +492,9 @@
         }
       ],
       "gate_for_machine": "heater-shaker",
+      "uses_machines": [
+        "heater-shaker"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -480,6 +511,9 @@
         }
       ],
       "gate_for_machine": "heat-press",
+      "uses_machines": [
+        "heat-press"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -496,6 +530,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "heat-press"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -512,6 +549,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "heat-press"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -528,6 +568,7 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -544,6 +585,9 @@
         }
       ],
       "gate_for_machine": "ricoma-mt1501",
+      "uses_machines": [
+        "ricoma-mt1501"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -560,6 +604,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "ricoma-mt1501"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -576,6 +623,9 @@
         }
       ],
       "gate_for_machine": "mimaki-cjv200",
+      "uses_machines": [
+        "mimaki-cjv200"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -592,6 +642,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "mimaki-cjv200"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -608,6 +661,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "mimaki-cjv200"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -624,6 +680,7 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -640,6 +697,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "mimaki-cjv200"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -656,6 +716,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "photo-station"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -672,6 +735,9 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [
+        "photo-station"
+      ],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -688,6 +754,7 @@
         }
       ],
       "gate_for_machine": null,
+      "uses_machines": [],
       "onboarding": false,
       "brief_url": null,
       "notes": ""
@@ -1007,20 +1074,34 @@
   "pacing_floor": [
     {
       "week": 3,
-      "milestone": "Shop Ready (onboarding templates IL-00, IL-04, IL-15, IL-01, IL-02, IL-03 + safety sign-off)"
+      "milestone": "Shop Ready",
+      "shop_ready": true,
+      "note": "Onboarding templates IL-00, IL-04, IL-15, IL-01, IL-02, IL-03 + safety sign-off"
     },
     {
       "week": 8,
-      "credentials_min": 3,
-      "note": "Habits of Work, Adobe Illustrator and one equipment credential"
+      "milestone": "Adobe Illustrator + one equipment credential",
+      "credentials_min": 2,
+      "required": [
+        "Adobe Illustrator"
+      ],
+      "one_of": [
+        "Silk Screening",
+        "Direct to Film",
+        "Embroidery",
+        "Digital Signmaking & Printing"
+      ]
     },
     {
       "week": 13,
-      "credentials_min": 5
+      "milestone": "4 credentials",
+      "credentials_min": 4
     },
     {
       "week": 18,
-      "credentials_min": 9
+      "milestone": "All 8 credentials",
+      "credentials_min": 8
     }
-  ]
+  ],
+  "pacing_floor_note": "Counts only the 8 awardable credentials; Habits of Work is synced separately and excluded (Ben, 2026-10-22, decision 6)."
 }

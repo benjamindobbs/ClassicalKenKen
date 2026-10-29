@@ -46,16 +46,17 @@ function seedTemplates(programId, templates) {
         const fields = {
             title: t.title, kind: t.kind, gate_machine_code: t.gate_for_machine || null,
             onboarding: t.onboarding ? 1 : 0, notes: t.notes || '', order_idx: i,
+            uses_machines: (t.uses_machines || []).join(','),
         };
 
         let row = find.get(programId, t.code);
         if (!row) {
             const info = db.prepare(`
                 INSERT INTO wbl_work_event_templates
-                    (program_id, code, title, kind, gate_machine_code, onboarding, brief_url, notes, order_idx, created_at)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (program_id, code, title, kind, gate_machine_code, onboarding, brief_url, notes, order_idx, uses_machines, created_at)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(programId, t.code, fields.title, fields.kind, fields.gate_machine_code, fields.onboarding,
-                   t.brief_url || '', fields.notes, fields.order_idx, Date.now());
+                   t.brief_url || '', fields.notes, fields.order_idx, fields.uses_machines, Date.now());
             row = { id: Number(info.lastInsertRowid) };
             report.created.push(t.code);
         } else {

@@ -133,6 +133,16 @@
         .wbl-ev-P       { background:#fef3c7; color:#92400e; }
         .wbl-ev-D       { background:#ede9fe; color:#5b21b6; }
         .wbl-ev-B       { background:#dcfce7; color:#166534; }
+        /* Today screen (CGL open shop) */
+        .wbl-lane       { display:inline-block; font-size:0.6875rem; font-weight:700; letter-spacing:0.03em; text-transform:uppercase; color:#475569; margin-bottom:0.25rem; }
+        .wbl-step       { font-size:1rem; font-weight:600; color:#0f172a; margin:0.15rem 0 0.35rem; }
+        .wbl-bar-row    { display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; margin:0.3rem 0; }
+        .wbl-bar-row > span:first-child { flex:0 0 42%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .wbl-bar        { flex:1; height:8px; background:#e2e8f0; border-radius:9999px; overflow:hidden; }
+        .wbl-bar > div  { height:100%; background:#2563eb; }
+        .wbl-bar.done > div { background:#16a34a; }
+        .wbl-packet     { font-size:0.8125rem; color:#334155; margin:0.4rem 0 0; }
+        .wbl-packet div { margin:0.1rem 0; }
 
         /* Habits of Work — Do Now / Exit Slip (non-WBL classes) */
         .how-opt        { display:flex; align-items:flex-start; gap:0.625rem; padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; margin-bottom:0.4rem; }
@@ -218,6 +228,7 @@
                     <span id="wbl-phase-tag"></span>
                     <span id="wbl-year" class="wbl-card-sub" style="margin:0"></span>
                 </div>
+                <div id="wbl-today"></div>
                 <div id="wbl-donow"></div>
                 <div id="wbl-exit"></div>
                 <div id="wbl-transfer"></div>
@@ -897,6 +908,31 @@
         const wblEvBadge = j => j.evidence
             ? `<span class="wbl-ev wbl-ev-${j.evidence}" title="${WBL_EV_LABEL[j.evidence] || ''}">${j.evidence}</span>` : '';
 
+        const wblIsHttp = url => /^https?:\/\//i.test(url || '');
+        // Your role, the due date and the job packet (CGL), so the job can be
+        // run without asking.
+        function wblJobFacts(j) {
+            const pk = j.packet, o = pk?.order || {}, pr = pk?.product || {}, pc = pk?.process || {}, f = pk?.files || {};
+            const line = (label, val) => val ? `<div><strong>${label}:</strong> ${val}</div>` : '';
+            const links = [['drive_folder_url', 'Job folder'], ['approved_art_url', 'Approved art'], ['proof_url', 'Proof'], ['stitch_file_url', 'Stitch file']]
+                .filter(([k]) => wblIsHttp(f[k]))
+                .map(([k, l]) => `<a href="${wblEsc(f[k])}" target="_blank" rel="noopener">${l} &nearr;</a>`).join(' &middot; ');
+            const facts = [
+                line('Your role', wblEsc(j.role || '')),
+                line('Machines', (j.machines || []).map(wblEsc).join(', ')),
+                pk ? [
+                    line('Job', wblEsc(pk.job_number || '')),
+                    line('Due', wblEsc(o.due_date || '')),
+                    line('Quantities', (o.quantities || []).map(q => `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}`).join(', ')),
+                    line('Product', [pr.brand_style, pr.color].filter(Boolean).map(wblEsc).join(' &middot; ')),
+                    line('Process', [pc.method, pc.colors && `${pc.colors} color(s)`, (pc.ink_or_thread || []).join(', ')].filter(Boolean).map(wblEsc).join(' &middot; ')),
+                    line('Placement', (pk.placement || []).map(pl => [pl.location, pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ')).join('; ')),
+                    links ? `<div>${links}</div>` : '',
+                ].join('') : '',
+            ].join('');
+            return facts ? `<div class="wbl-packet">${facts}</div>` : '';
+        }
+
         function wblActiveJobRow(j) {
             return `
                 <div class="wbl-job">
@@ -905,6 +941,7 @@
                         <span class="wbl-job-dates">Since ${wblEsc(j.opened_on)}</span>
                     </div>
                     ${j.description ? `<p class="wbl-job-desc">${wblEsc(j.description)}</p>` : ''}
+                    ${wblJobFacts(j)}
                     ${j.coworkers.length ? `
                         <select style="margin-top:0.5rem">
                             <option>On this job with you (${j.coworkers.length})</option>
@@ -960,9 +997,70 @@
             document.getElementById('wbl-year').textContent =
                 p.pathway_year ? `Year ${p.pathway_year}` : '';
             wblDay = await wblApi('GET', `/me/do-now?program_id=${p.id}&date=${wblToday()}`);
+            renderWblToday(p.id);
             renderWblDoNow();
             await renderWblExit();
             await renderWblTransfer();
+        }
+
+        // ── Today (CGL open shop): today's lane and the single next step, a
+        // progress bar per credential, and the station board ──────────────
+        const WBL_LANE = { 1: 'Lane 1 · Live job', 2: 'Lane 2 · Station practical', 3: 'Lane 3 · Project library' };
+        async function renderWblToday(programId) {
+            const el = document.getElementById('wbl-today');
+            let t;
+            try { t = await wblApi('GET', `/me/today?program_id=${programId}`); }
+            catch { el.innerHTML = ''; return; }
+            if (!t.open_shop) { el.innerHTML = ''; return; }
+            const s = t.step;
+            const link = (url, label) => wblIsHttp(url) ? ` <a href="${wblEsc(url)}" target="_blank" rel="noopener">${label} &nearr;</a>` : '';
+            let step;
+            if (!s) {
+                step = `<p class="wbl-step">You're caught up.</p><p class="wbl-card-sub">Check in with your teacher for what's next.</p>`;
+            } else if (s.type === 'job') {
+                step = `
+                    <p class="wbl-step">${wblEsc(s.title)}</p>
+                    <p class="wbl-card-sub" style="margin:0">
+                        ${s.role ? `You're <strong>${wblEsc(s.role)}</strong>. ` : ''}${s.due_date ? `Due ${wblEsc(s.due_date)}.` : ''}
+                        ${link(s.packet_url, 'Job folder')}</p>
+                    ${t.jobs > 1 ? `<p class="wbl-card-sub" style="margin:0.25rem 0 0">You're on ${t.jobs} jobs — see Active Jobs above.</p>` : ''}`;
+            } else if (s.type === 'in_progress') {
+                step = `<p class="wbl-step">Keep going: ${wblEsc(s.title)}</p>
+                        <p class="wbl-card-sub" style="margin:0">${link(s.brief_url, 'Open the brief')}</p>`;
+            } else {
+                step = `
+                    <p class="wbl-step">Next: ${wblEsc(s.code)} &middot; ${wblEsc(s.title)}</p>
+                    <p class="wbl-card-sub" style="margin:0">${wblEsc(s.why)} Ask your teacher to start it.${link(s.brief_url, 'Open the brief')}</p>
+                    ${s.skills.length ? `<p class="wbl-card-sub" style="margin:0.25rem 0 0">Works on: ${s.skills.map(k =>
+                        `${wblEsc(k.name)}${k.required ? ` (${k.demos}/${k.required})` : ''}`).join(', ')}</p>` : ''}`;
+            }
+            const pace = t.pace ? `
+                <p class="wbl-card-sub" style="margin:0.6rem 0 0">Week ${t.pace.week} &middot; ${
+                    t.pace.below ? `<span class="wbl-pill wbl-pill-bad">behind</span> ${wblEsc(t.pace.missing.join('; '))}`
+                    : t.pace.next ? `next goal: ${wblEsc(t.pace.next.milestone)} by the end of week ${t.pace.next.week}${t.pace.next.met ? ' &check;' : ''}`
+                    : 'on pace'}</p>` : '';
+            const bars = t.credentials.map(c => {
+                const pct = c.skills_total ? Math.round(100 * c.skills_satisfied / c.skills_total) : 0;
+                return `<div class="wbl-bar-row"><span title="${wblEsc(c.name)}">${wblEsc(c.name)}</span>
+                    <div class="wbl-bar${c.awarded ? ' done' : ''}"><div style="width:${c.awarded ? 100 : pct}%"></div></div>
+                    <span class="wbl-card-sub" style="margin:0;min-width:3.5rem;text-align:right">${c.awarded ? 'earned' : `${c.skills_satisfied}/${c.skills_total}`}</span></div>`;
+            }).join('');
+            const STATUS = { available: ['free', 'good'], in_use: ['in use', ''], down: ['down', 'bad'] };
+            const stations = t.stations.length ? `
+                <details style="margin-top:0.6rem"><summary class="wbl-card-sub" style="cursor:pointer;margin:0">Station board</summary>
+                    ${t.stations.map(m => `<div class="wbl-bar-row"><span>${wblEsc(m.label)}</span>
+                        <span class="wbl-pill${STATUS[m.status]?.[1] ? ' wbl-pill-' + STATUS[m.status][1] : ''}">${STATUS[m.status]?.[0] || wblEsc(m.status)}</span>
+                        ${m.note ? `<span class="wbl-card-sub" style="margin:0">${wblEsc(m.note)}</span>` : ''}</div>`).join('')}
+                </details>` : '';
+            el.innerHTML = `
+                <div class="wbl-card" style="border-left:3px solid #16a34a">
+                    <p class="wbl-card-title">Today</p>
+                    ${s ? `<span class="wbl-lane">${WBL_LANE[s.lane]}</span>` : ''}
+                    ${step}
+                    ${pace}
+                    ${bars ? `<div style="margin-top:0.75rem">${bars}</div>` : ''}
+                    ${stations}
+                </div>`;
         }
 
         // ── Do Now (session entry) ────────────────────────────────────────────

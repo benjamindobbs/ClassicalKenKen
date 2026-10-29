@@ -1,5 +1,5 @@
-// Seeds a program's Work Event templates, machines and shop roles from the
-// CGL curriculum file. Dry run by default; --apply commits.
+// Seeds a program's Work Event templates, machines, shop roles and pacing
+// floor from the CGL curriculum file. Dry run by default; --apply commits.
 //
 //   node tools/seed-cgl-templates.js --db <path> <programId> [templates.json] [--apply]
 //
@@ -9,6 +9,7 @@
 // tools/apply-credential-changelog.js first; role skills resolve the same
 // way. Re-running updates templates from the file but keeps any brief_url the
 // teacher has pasted in, and any machine status or note the teacher has set.
+// The term start date is the teacher's to set (Catalog → Term & Pacing).
 
 const fs = require('fs');
 const path = require('path');
@@ -38,11 +39,16 @@ const file = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
 console.log(`${apply ? 'APPLY' : 'DRY RUN'} — ${file.templates.length} templates into program #${programId} "${program.name}" (${program.teacher_key})\n`);
 db.exec('BEGIN');
-let report, machines, roles;
+let report, machines, roles, floorChanged = false;
 try {
     report = seedTemplates(programId, file.templates);
     machines = seedMachines(programId, file.machines || []);
     roles = seedRoles(programId, file.roles || []);
+    if (Array.isArray(file.pacing_floor)) {
+        const json = JSON.stringify(file.pacing_floor);
+        floorChanged = program.pacing_floor_json !== json;
+        if (floorChanged) db.prepare('UPDATE wbl_programs SET pacing_floor_json = ? WHERE id = ?').run(json, programId);
+    }
     db.exec(apply ? 'COMMIT' : 'ROLLBACK');
 } catch (e) {
     db.exec('ROLLBACK');
@@ -57,6 +63,8 @@ console.log(`unchanged ${report.unchanged.length}`);
 console.log(`by kind   ${Object.entries(byKind).map(([k, n]) => `${k} ${n}`).join(', ')}`);
 console.log(`machines  ${machines.created.length} created, ${machines.updated.length} updated, ${machines.unchanged.length} unchanged`);
 console.log(`roles     ${roles.created.length} created, ${roles.updated.length} updated, ${roles.unchanged.length} unchanged`);
+console.log(`pacing    ${file.pacing_floor ? `${file.pacing_floor.length} milestones, ${floorChanged ? 'updated' : 'unchanged'}` : 'none in file'}`
+    + (program.term_start ? `; term starts ${program.term_start}` : '; no term start set yet'));
 const codes = new Set(file.templates.map(t => t.code));
 const badGates = (file.machines || []).filter(m => m.gate && !codes.has(m.gate)).map(m => `${m.code} → ${m.gate}`);
 if (badGates.length) {

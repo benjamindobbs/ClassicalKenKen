@@ -13,6 +13,8 @@ const { importCatalogRows } = require('../wbl/catalogImport');
 const T = require('../wbl/templates');
 const G = require('../wbl/gates');
 const R = require('../wbl/roles');
+const P = require('../wbl/packets');
+const S = require('../wbl/shop');
 
 const router = Router();
 
@@ -85,12 +87,20 @@ router.post('/programs', requireTeacher, (req, res) => {
     }
 });
 
+// term_start (YYYY-MM-DD, or null to clear) and pacing_floor (an array, see
+// server/wbl/shop.js) drive the pacing floor (CGL §7).
 router.patch('/programs/:id', requireTeacher, (req, res) => {
     if (!program(req, res, req.params.id)) return;
-    const f = ['name', 'description', 'qc_max_weeks_unchecked', 'shareable'].filter(k => k in (req.body || {}));
+    const body = req.body || {};
+    if ('term_start' in body && body.term_start !== null && !L.isDate(body.term_start)) return bad(res, 'term_start must be YYYY-MM-DD');
+    if ('pacing_floor' in body && !Array.isArray(body.pacing_floor)) return bad(res, 'pacing_floor must be an array');
+    const cols = { pacing_floor: 'pacing_floor_json' };
+    const f = ['name', 'description', 'qc_max_weeks_unchecked', 'shareable', 'term_start', 'pacing_floor'].filter(k => k in body);
     if (!f.length) return bad(res, 'nothing to update');
-    const vals = f.map(k => (k === 'shareable' ? (req.body[k] ? 1 : 0) : req.body[k]));
-    db.prepare(`UPDATE wbl_programs SET ${f.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+    const vals = f.map(k => (k === 'shareable' ? (body[k] ? 1 : 0)
+                           : k === 'pacing_floor' ? JSON.stringify(body[k])
+                           : body[k]));
+    db.prepare(`UPDATE wbl_programs SET ${f.map(k => `${cols[k] || k} = ?`).join(', ')} WHERE id = ?`)
         .run(...vals, Number(req.params.id));
     res.json({ ok: true });
 });
@@ -330,8 +340,11 @@ router.get('/programs/:id/roster', requireTeacher, (req, res) => {
         if (s.safety.required) items.push(!!s.safety.signed_off_on);
         return { met: items.filter(Boolean).length, total: items.length, ready: s.ready };
     };
+    // Pacing floor (CGL §7): the student's week and whether they're below it.
+    const pacing = S.pacingConfig(p.id);
     res.json(rows.map(r => ({
         ...r, phase: r.override_phase ?? r.computed_phase ?? 1, shop_ready: shopReady(r.student_id),
+        pace: S.pace(p.id, r.student_id, L.today(), pacing),
     })));
 });
 
@@ -1088,7 +1101,7 @@ router.get('/work-events/:id', requireTeacher, (req, res) => {
                       FROM wbl_work_event_templates WHERE program_id = ? AND code = ?`).get(we.program_id, we.template_code) ?? null
         : null;
     for (const pt of participants) pt.machines = G.participantMachines(pt.id);
-    res.json({ ...we, evidence: L.evidenceLetter(we.kind), template, participants, skill_ids });
+    res.json({ ...we, evidence: L.evidenceLetter(we.kind), template, participants, skill_ids, packet: P.parsePacket(we.packet_json) });
 });
 
 // Closing a job is the one place the framework's cadence is enforced rather
@@ -1226,10 +1239,12 @@ router.patch('/templates/:id', requireTeacher, (req, res) => {
     if ('brief_url' in body && str(body.brief_url).trim() && !/^https?:\/\//i.test(str(body.brief_url).trim())) {
         return bad(res, 'brief_url must start with http:// or https://');
     }
-    const f = ['title', 'kind', 'brief_url', 'notes', 'onboarding', 'order_idx', 'gate_machine_code'].filter(k => k in body);
+    if ('uses_machines' in body && !Array.isArray(body.uses_machines)) return bad(res, 'uses_machines must be an array of machine codes');
+    const f = ['title', 'kind', 'brief_url', 'notes', 'onboarding', 'order_idx', 'gate_machine_code', 'uses_machines'].filter(k => k in body);
     const val = k => k === 'onboarding' ? (body[k] ? 1 : 0)
                    : k === 'order_idx' ? int(body[k]) ?? 0
                    : k === 'gate_machine_code' ? (str(body[k]).trim() || null)
+                   : k === 'uses_machines' ? body[k].map(str).filter(Boolean).join(',')
                    : str(body[k]).trim();
     if (f.length) {
         db.prepare(`UPDATE wbl_work_event_templates SET ${f.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
@@ -1258,6 +1273,24 @@ router.post('/programs/:id/work-events/from-template', requireTeacher, (req, res
         }));
     } catch (e) {
         if (e.status === 404) return nf(res, 'template_not_found');
+        bad(res, e.message);
+    }
+});
+
+// Job packet import (CGL §7, server/wbl/packets.js): creates the kind='job'
+// event from a CGL website packet, or updates the one with the same
+// job_number. Body: the packet itself, or { text } holding pasted/uploaded JSON.
+router.post('/programs/:id/work-events/import', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    let packet = req.body;
+    if (typeof req.body?.text === 'string') {
+        try { packet = JSON.parse(req.body.text); }
+        catch (e) { return bad(res, 'not valid JSON: ' + e.message); }
+    }
+    try { res.json(P.importPacket(p.id, packet)); }
+    catch (e) {
+        if (e.status === 400) return res.status(400).json({ error: e.message, errors: e.errors });
         bad(res, e.message);
     }
 });
@@ -1405,8 +1438,43 @@ router.put('/participants/:id/machines', requireTeacher, (req, res) => {
     } catch (e) { db.exec('ROLLBACK'); bad(res, e.message); }
 });
 
+// The station board (CGL §7): every machine with its status and who is on it
+// for an active job today.
+router.get('/programs/:id/stations', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const onIt = db.prepare(`
+        SELECT pm.machine_code, we.id AS work_event_id, we.title,
+               (SELECT student_name FROM class_students cs WHERE cs.student_id = wp.student_id LIMIT 1) AS student_name
+        FROM wbl_participant_machines pm
+        JOIN wbl_work_event_participants wp ON wp.id = pm.participant_id AND wp.left_on IS NULL
+        JOIN wbl_work_events we ON we.id = wp.work_event_id AND we.status = 'active'
+        WHERE we.program_id = ? ORDER BY student_name
+    `).all(p.id);
+    res.json(G.listMachines(p.id).map(m => ({ ...m, assigned: onIt.filter(o => o.machine_code === m.code) })));
+});
+
 // =============================================================================
-// 4c. Shop roles and rotation (CGL handoff §6, server/wbl/roles.js)
+// 4c. Pacing floor and credential coverage (CGL §7, server/wbl/shop.js)
+// =============================================================================
+
+router.get('/programs/:id/pacing', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    const config = S.pacingConfig(p.id);
+    const students = db.prepare('SELECT student_id FROM wbl_program_enrollments WHERE program_id = ? AND exited_on IS NULL')
+        .all(p.id).map(r => ({ student_id: r.student_id, pace: S.pace(p.id, r.student_id, L.today(), config) }));
+    res.json({ ...config, week: S.weekOf(config.term_start, L.today()), students });
+});
+
+router.get('/programs/:id/coverage', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(S.coverage(p.id));
+});
+
+// =============================================================================
+// 4d. Shop roles and rotation (CGL handoff §6, server/wbl/roles.js)
 // =============================================================================
 
 // The program's role vocabulary with each role's skills. Empty for a program
@@ -1437,7 +1505,7 @@ router.put('/participants/:id/role', requireTeacher, (req, res) => {
 });
 
 // =============================================================================
-// 4d. Skill Checks — standing credit outside any Work Event
+// 4e. Skill Checks — standing credit outside any Work Event
 // =============================================================================
 
 // All skill checks for a program, for the crediting grid's checked state.
@@ -1879,13 +1947,23 @@ router.get('/me/work-events', requireAuth, (req, res) => {
     const s = me(req, res); if (!s) return;
     const jobs = db.prepare(`
         SELECT wp.id AS participant_id, we.id AS work_event_id, we.title, we.description, we.status,
-               we.kind, we.template_code, we.opened_on, we.program_id, wp.phase_at_start,
+               we.kind, we.template_code, we.opened_on, we.program_id, wp.phase_at_start, wp.role,
+               we.external_ref, we.packet_json,
                (SELECT name FROM wbl_programs WHERE id = we.program_id) AS program_name
         FROM wbl_work_event_participants wp
         JOIN wbl_work_events we ON we.id = wp.work_event_id
         WHERE wp.student_id = ? AND we.status = 'active' AND wp.left_on IS NULL
         ORDER BY we.opened_on DESC
-    `).all(s.student_id).map(j => ({ ...j, evidence: L.evidenceLetter(j.kind) }));
+    `).all(s.student_id).map(({ packet_json, ...j }) => {
+        // The job packet (CGL §7) lets a student run the job without asking;
+        // the role shows as labels where the program has a vocabulary.
+        const roles = R.listRoles(j.program_id);
+        return {
+            ...j, evidence: L.evidenceLetter(j.kind), packet: P.parsePacket(packet_json),
+            role: R.parseRoles(j.role).map(c => roles.find(r => r.code === c)?.label || c).join(' + '),
+            machines: G.participantMachines(j.participant_id).map(m => m.label || m.machine_code),
+        };
+    });
     const coworkers = db.prepare(`
         SELECT (SELECT student_name FROM class_students cs
                  WHERE cs.student_id = wp.student_id AND cs.class_id = wp.class_id LIMIT 1) AS student_name
@@ -1897,6 +1975,16 @@ router.get('/me/work-events', requireAuth, (req, res) => {
         ...j,
         coworkers: coworkers.all(j.work_event_id, s.student_id).map(r => r.student_name).filter(Boolean),
     })));
+});
+
+// The Today screen (CGL §7, server/wbl/shop.js): the student's lane and single
+// next step in one program, a progress bar per credential, the station board
+// (read-only) and their pace.
+router.get('/me/today', requireAuth, (req, res) => {
+    const s = me(req, res); if (!s) return;
+    const programId = int(req.query.program_id);
+    if (!programId || !myPrograms(s).some(p => p.id === programId)) return res.status(404).json({ error: 'program_not_found' });
+    res.json(S.today(programId, s.student_id));
 });
 
 // Every completed job a student has been on, with the verdict they received
