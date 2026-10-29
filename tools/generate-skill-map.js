@@ -270,7 +270,10 @@ const indexHtml =
   '    <a class="nav-brand" href="../../index.html">Classical Technology</a>\n' +
   '    <div class="nav-links">\n' +
   '      <a href="../../KenKen/">Play KenKen</a>\n' +
-  '      <a href="../../SAT-Questions/">Practice SAT</a>\n' +
+  '      <a href="../../SAT-Questions/">SAT English</a>\n' +
+  '      <a href="../../SAT-Math/">SAT Math</a>\n' +
+  '      <a href="../../Measurement/">Ruler Game</a>\n' +
+  '      <a href="../../Projections/">Projections</a>\n' +
   '      <a href="../index.html" class="active">Skill Maps</a>\n' +
   '      <a href="../../readme/">ReadMe</a>\n' +
   '      <a href="../../teacher/index.html" class="nav-teacher">Teacher</a>\n' +

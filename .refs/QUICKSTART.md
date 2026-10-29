@@ -194,3 +194,4 @@ Full walkthrough:
 - **[Managing Classes & Rosters](https://github.com/benjamindobbs/ClassicalKenKen/wiki/Managing-Classes-and-Rosters)** — mid-year enrollment changes.
 - **[Daily Practice & Assignments](https://github.com/benjamindobbs/ClassicalKenKen/wiki/Daily-Practice-and-Assignments)** — students in multiple classes, domain restrictions.
 - **[Work-Based Learning Guide](https://github.com/benjamindobbs/ClassicalKenKen/wiki/Work-Based-Learning-Guide)** — assessing real shop/job work.
+- **[CGL Program Setup](https://github.com/benjamindobbs/ClassicalKenKen/wiki/CGL-Program-Setup)** — setting up and running the Graphics & Printing (Classical Graphics Lab) program.

@@ -198,6 +198,15 @@ window.SKILL_MAP_DATA = {
         { label: "Production & Automation", color: "#D84315" },
         { label: "Safety & Quality Assurance", color: "#D84315" }
       ],
+      },
+      {
+        name: "Screen Reclaim & Cleanup",
+        icon: "cleaning_services",
+        description: "Strip, clean and dehaze used screens with the shop chemicals and leave the press station ready for the next job.",
+        clusterTags: [
+        { label: "Production & Automation", color: "#D84315" },
+        { label: "Safety & Quality Assurance", color: "#D84315" }
+      ],
       }
     ],
   },
@@ -209,7 +218,7 @@ window.SKILL_MAP_DATA = {
     glow: "rgba(20,184,166,0.35)",
     bg: "rgba(20,184,166,0.12)",
     icon: "laundry",
-    description: "Explore the intersection of craft and technology in machine embroidery. Students develop skills in digitizing artwork for stitch output, setting up and operating commercial equipment, and maintaining machines for consistent, high-quality results.",
+    description: "Explore the intersection of craft and technology in machine embroidery. Students develop skills in preparing artwork for digitizing and checking the stitch files that come back, setting up and operating commercial equipment, and maintaining machines for consistent, high-quality results.",
     clusterTags: [
         { label: "Arts, Entertainment & Design", color: "#C2185B" },
         { label: "Advanced Manufacturing", color: "#D84315" }
@@ -227,7 +236,7 @@ window.SKILL_MAP_DATA = {
       {
         name: "Embroidery Digitizing",
         icon: "code",
-        description: "Use digitizing software to convert artwork into a stitch file, defining stitch types, directions, densities, and color sequences for accurate machine output.",
+        description: "Prepare artwork and a complete order for outsourced digitizing, then verify the returned stitch file before it goes into production.",
         clusterTags: [
         { label: "Design & Digital Arts", color: "#C2185B" },
         { label: "Software Solutions", color: "#4527A0" }
