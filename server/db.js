@@ -1145,6 +1145,34 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_wbl_gate_events_student ON wbl_gate_clearance_events(program_id, student_id);
 `);
 
+// Shop roles — the CGL handoff §6. A program's role vocabulary (Job Lead, QC
+// Inspector, …) with the skills each role exercises; those lead the Hard
+// Skills lens alongside the job's planned skills. A program with no roles
+// keeps wbl_work_event_participants.role as free text. With a vocabulary, the
+// column holds role codes, comma-separated when a student doubles up on a
+// small job (server/wbl/roles.js). rotates = 0 leaves a role (Production) out
+// of the rotation view's "hold every business role once" count.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wbl_roles (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id  INTEGER NOT NULL REFERENCES wbl_programs(id),
+        code        TEXT    NOT NULL,
+        label       TEXT    NOT NULL,
+        rotates     INTEGER NOT NULL DEFAULT 1,
+        note        TEXT    NOT NULL DEFAULT '',
+        order_idx   INTEGER NOT NULL DEFAULT 0,
+        archived_at INTEGER,
+        created_at  INTEGER NOT NULL,
+        UNIQUE(program_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS wbl_role_skills (
+        role_id   INTEGER NOT NULL REFERENCES wbl_roles(id),
+        skill_id  INTEGER NOT NULL REFERENCES wbl_skills(id),
+        order_idx INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (role_id, skill_id)
+    );
+`);
+
 // ---------------------------------------------------------------------------
 // Habits of Work (HoW) for NON-WBL classes — a parallel, class-scoped Do Now /
 // Exit Slip flow. Deliberately separate from the wbl_* tables above: keyed

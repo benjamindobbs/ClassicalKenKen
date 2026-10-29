@@ -12,6 +12,7 @@ const L = require('../wbl/logic');
 const { importCatalogRows } = require('../wbl/catalogImport');
 const T = require('../wbl/templates');
 const G = require('../wbl/gates');
+const R = require('../wbl/roles');
 
 const router = Router();
 
@@ -1168,12 +1169,16 @@ router.post('/work-events/:id/participants', requireTeacher, (req, res) => {
     if (!ids.length) return bad(res, 'student_ids required');
 
     const on = L.isDate(req.body?.joined_on) ? req.body.joined_on : L.today();
+    // role: one code, a comma list or an array of the program's role codes
+    // (CGL §6); free text in a program with no role vocabulary.
+    const { role, error: roleError } = R.normalizeRole(p.id, req.body?.role ?? '');
+    if (roleError) return bad(res, roleError);
 
     // machine_codes: the machines these students run (CGL §5). On a job, any
     // student not cleared for one gets a 409 listing the gaps unless
     // override_note is sent — checked before anyone is added.
     const codes = Array.isArray(req.body?.machine_codes) ? [...new Set(req.body.machine_codes.map(str).filter(Boolean))] : [];
-    if (!codes.length) return res.json({ ok: true, added: L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on) });
+    if (!codes.length) return res.json({ ok: true, added: L.addParticipants(p.id, weId, classId, ids, role, on) });
     const unknown = codes.filter(c => !G.machineExists(p.id, c));
     if (unknown.length) return bad(res, 'unknown machine: ' + unknown.join(', '));
     const kind = db.prepare('SELECT kind FROM wbl_work_events WHERE id = ?').get(weId).kind;
@@ -1183,7 +1188,7 @@ router.post('/work-events/:id/participants', requireTeacher, (req, res) => {
 
     db.exec('BEGIN');
     try {
-        const added = L.addParticipants(p.id, weId, classId, ids, str(req.body?.role), on);
+        const added = L.addParticipants(p.id, weId, classId, ids, role, on);
         const find = db.prepare('SELECT * FROM wbl_work_event_participants WHERE work_event_id = ? AND student_id = ?');
         for (const sid of ids) {
             const wp = find.get(weId, sid);
@@ -1401,7 +1406,38 @@ router.put('/participants/:id/machines', requireTeacher, (req, res) => {
 });
 
 // =============================================================================
-// 4c. Skill Checks — standing credit outside any Work Event
+// 4c. Shop roles and rotation (CGL handoff §6, server/wbl/roles.js)
+// =============================================================================
+
+// The program's role vocabulary with each role's skills. Empty for a program
+// that uses free-text roles.
+router.get('/programs/:id/roles', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(R.listRoles(p.id));
+});
+
+// Jobs held per role for each active student, the rotating roles they've
+// never held, and the suggested role for their next job.
+router.get('/programs/:id/rotation', requireTeacher, (req, res) => {
+    const p = program(req, res, req.params.id);
+    if (!p) return;
+    res.json(R.rotation(p.id));
+});
+
+// Sets a participant's role(s): { role: 'qc_inspector' | 'job_lead,shipper' | [codes] }.
+// An empty role clears it.
+router.put('/participants/:id/role', requireTeacher, (req, res) => {
+    const wp = participantCtx(req, res, req.params.id);
+    if (!wp) return;
+    const { role, error } = R.normalizeRole(wp.program_id, req.body?.role ?? '');
+    if (error) return bad(res, error);
+    db.prepare('UPDATE wbl_work_event_participants SET role = ? WHERE id = ?').run(role, wp.id);
+    res.json({ ok: true, role, role_skill_ids: R.roleSkillIds(wp.program_id, role) });
+});
+
+// =============================================================================
+// 4d. Skill Checks — standing credit outside any Work Event
 // =============================================================================
 
 // All skill checks for a program, for the crediting grid's checked state.
@@ -1493,6 +1529,9 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
         evidence: L.evidenceLetter(wp.event_kind),
         phase_now: L.effectivePhase(wp.program_id, wp.student_id),
         planned_skill_ids: plannedSkillIds,
+        // The skills the participant's role exercises (CGL §6); the Hard
+        // Skills lens leads with these and the planned skills.
+        role_skill_ids: R.roleSkillIds(wp.program_id, wp.role),
         machines: G.participantMachines(wp.id),
         gate,
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),

@@ -553,6 +553,8 @@
                                 <label style="font-size:0.8125rem;color:#64748b;display:flex;align-items:center;gap:0.35rem">
                                     <input type="checkbox" id="wbl-show-exited" onchange="loadWblRoster()"> Show exited
                                 </label>
+                                <button class="btn btn-outline btn-sm" id="wbl-rotation-btn" style="display:none"
+                                        onclick="wblRotationModal()">Role Rotation</button>
                                 <button class="btn btn-outline btn-sm" onclick="wblSyncRoster()">Sync Roster</button>
                                 <button class="btn btn-outline btn-sm" onclick="wblRollYear()">Advance Pathway Year</button>
                             </div>
@@ -729,6 +731,23 @@
                                     for the shop floor; it never blocks anything.
                                 </p>
                                 <div id="wbl-machines-body"></div>
+                            </div>
+                        </section>
+
+                        <section class="wbl-cat-sec" data-sec="roles">
+                            <div class="classes-header">
+                                <button class="wbl-cat-toggle" onclick="wblToggleCatSec(this)">
+                                    <span class="wbl-chev">&#9662;</span><span class="section-title">Shop Roles</span>
+                                    <span class="wbl-cat-count" id="wbl-count-roles"></span></button>
+                            </div>
+                            <div class="wbl-cat-body">
+                                <p class="lookup-note">
+                                    The roles a student can hold on a job. A role's skills lead the Hard Skills lens
+                                    alongside the job's planned skills. Roster &rarr; Role Rotation shows who has held
+                                    which role and suggests each student's next one. Loaded from the curriculum file;
+                                    a program without roles keeps a free-text role.
+                                </p>
+                                <div id="wbl-roles-body"></div>
                             </div>
                         </section>
 
@@ -2985,7 +3004,9 @@
                 wblApi('GET', `/programs/${wblProgramId()}/called-outs`),
                 wblApi('GET', `/programs/${wblProgramId()}/gates`),
                 wblLoadMachines(),
+                wblLoadRoles(),
             ]);
+            document.getElementById('wbl-rotation-btn').style.display = wblRoles.length ? '' : 'none';
             wblGates = gates;
             wblRosterRows = rows;
             wblCalledOuts = calledOuts;
@@ -3353,6 +3374,31 @@
                 ? `<span class="wbl-pill">${wblEsc(m.label || m.machine_code)}</span>`
                 : `<span class="wbl-pill wbl-pill-warn" title="Not cleared — override: ${wblEsc(m.override_note)}">${wblEsc(m.label || m.machine_code)} &#9888;</span>`).join(' ')
             : '<span style="color:#94a3b8">—</span>';
+        // Shop roles (CGL §6). With a vocabulary a participant's role is a
+        // comma list of codes; without one it's free text, shown as typed.
+        let wblRoles = [];
+        async function wblLoadRoles() {
+            wblRoles = await wblApi('GET', `/programs/${wblProgramId()}/roles`);
+            return wblRoles;
+        }
+        const wblRoleCodes = text => String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+        const wblRoleLabel = text => wblRoles.length
+            ? wblRoleCodes(text).map(c => wblRoles.find(r => r.code === c)?.label || c).join(' + ')
+            : String(text || '');
+        // Checkboxes for the vocabulary, else one text input; read back with
+        // wblReadRolePicker. hints: optional code -> note shown beside a role.
+        const wblRolePicker = (current, hints = {}) => wblRoles.length
+            ? wblRoles.map(r => `
+                <div class="wbl-check-row">
+                    <input type="checkbox" id="wbl-role-${wblEsc(r.code)}" data-role="${wblEsc(r.code)}"
+                           ${wblRoleCodes(current).includes(r.code) ? 'checked' : ''}>
+                    <label for="wbl-role-${wblEsc(r.code)}">${wblEsc(r.label)}${hints[r.code] ? ` <span class="wbl-ver">${wblEsc(hints[r.code])}</span>` : ''}</label>
+                </div>`).join('')
+            : `<input type="text" class="wbl-inline-input" style="width:100%" id="wbl-role-text" value="${wblEsc(current || '')}" placeholder="e.g. Lead">`;
+        const wblReadRolePicker = () => wblRoles.length
+            ? [...document.querySelectorAll('[data-role]:checked')].map(b => b.dataset.role).join(',')
+            : (document.getElementById('wbl-role-text')?.value || '').trim();
+
         // Lists who isn't cleared on what and asks for the override note.
         // Returns the note, or '' when the teacher cancels.
         function wblGateOverridePrompt(gaps, names) {
@@ -3395,7 +3441,7 @@
         }
 
         async function openWblEvent(id) {
-            const w = await wblApi('GET', `/work-events/${id}`);
+            const [w] = await Promise.all([wblApi('GET', `/work-events/${id}`), wblLoadRoles()]);
             wblRoster = { eventId: w.id, ids: w.participants.map(p => p.id) };
 
             // Participants come back grouped by class already (server orders by
@@ -3404,12 +3450,14 @@
             let wblLastGroupClass;
             const participantRows = w.participants.map(p => {
                 const header = p.class_name !== wblLastGroupClass
-                    ? `<tr class="wbl-table-group-row"><td colspan="7">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
+                    ? `<tr class="wbl-table-group-row"><td colspan="8">${wblEsc(p.class_name || 'Unknown class')}</td></tr>`
                     : '';
                 wblLastGroupClass = p.class_name;
                 return header + `
                         <tr>
                             <td><a href="#" onclick="openWblParticipant(${p.id});return false">${wblEsc(p.student_name || p.student_id)}</a></td>
+                            <td><a href="#" title="Change role" onclick="wblRoleModal(${p.id}, ${wblEsc(JSON.stringify(p.role))}, () => openWblEvent(${w.id}));return false">${
+                                p.role ? wblEsc(wblRoleLabel(p.role)) : '<span style="color:#94a3b8">set role</span>'}</a></td>
                             <td><span class="wbl-phase wbl-phase-${p.phase_at_start}">Phase ${p.phase_at_start}</span></td>
                             <td>${wblMachineChips(p.machines)}</td>
                             <td>${p.assessments}</td>
@@ -3438,8 +3486,55 @@
                 <button class="btn btn-outline btn-sm" onclick="openWblParticipantModal(${w.id})">Add Participants</button>
                 ${w.participants.length ? `
                 <div class="portal-table-wrap" style="margin-top:0.75rem"><table class="portal-table">
-                    <thead><tr><th>Student</th><th>Phase at start</th><th>Machines</th><th>Skills</th><th>QC</th><th>Holistic</th><th></th></tr></thead>
+                    <thead><tr><th>Student</th><th>Role</th><th>Phase at start</th><th>Machines</th><th>Skills</th><th>QC</th><th>Holistic</th><th></th></tr></thead>
                     <tbody>${participantRows}</tbody></table></div>` : '<div class="wbl-empty">No participants yet.</div>'}`;
+        }
+
+        // A participant's role(s) on this job. after() re-renders the caller.
+        let wblRoleAfter = null;
+        function wblRoleModal(pid, current, after) {
+            wblRoleAfter = after;
+            wblOpenModal(`
+                <h3>Role</h3>
+                ${wblRoles.length ? '<p class="lookup-note" style="margin:0 0 0.5rem">Tick more than one when a student doubles up on a small job.</p>' : ''}
+                <div class="wbl-modal-group">${wblRolePicker(current)}</div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="wblSaveRole(${pid})">Save</button>
+                </div>`);
+        }
+
+        async function wblSaveRole(pid) {
+            try { await wblApi('PUT', `/participants/${pid}/role`, { role: wblReadRolePicker() }); }
+            catch (e) { return alert('Could not save: ' + e.message); }
+            wblCloseModal();
+            wblRoleAfter?.();
+        }
+
+        // Jobs held per role for every active student. Rotating roles never
+        // held are amber; the suggestion is the rotating role held least.
+        async function wblRotationModal() {
+            const rot = await wblApi('GET', `/programs/${wblProgramId()}/rotation`);
+            const label = code => rot.roles.find(r => r.code === code)?.label || code;
+            wblOpenModal(`
+                <h3>Role Rotation</h3>
+                <p class="lookup-note" style="margin:0 0 0.75rem">
+                    Jobs held in each role. Every student should hold each business role at least once;
+                    amber marks one they haven't held yet.
+                </p>
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Student</th>${rot.roles.map(r => `<th style="text-align:center">${wblEsc(r.label)}</th>`).join('')}<th>Next</th></tr></thead>
+                    <tbody>${rot.students.map(s => `
+                        <tr>
+                            <td>${wblEsc(s.student_name || s.student_id)}</td>
+                            ${rot.roles.map(r => `<td style="text-align:center">${r.rotates && !s.counts[r.code]
+                                ? '<span class="wbl-pill wbl-pill-warn">0</span>' : s.counts[r.code]}</td>`).join('')}
+                            <td>${s.suggested ? wblEsc(label(s.suggested)) : '—'}</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>
+                <div class="wbl-modal-actions">
+                    <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Close</button>
+                </div>`);
         }
 
         // The server only allows this while no participant has ever been added.
@@ -3501,7 +3596,7 @@
             wblP = await wblApi('GET', `/participants/${pid}`);
             const skills = await wblApi('GET', `/programs/${wblP.participant.program_id}/skills`);
             const qcCrit = await wblApi('GET', `/programs/${wblP.participant.program_id}/qc-criteria`);
-            await wblLoadMachines();
+            await Promise.all([wblLoadMachines(), wblLoadRoles()]);
             wblP.catalogSkills = skills.filter(s => s.status === 'published');
             wblP.qcCriteria    = qcCrit;
             await wblEnsureRoster(wblP.participant.work_event_id);
@@ -3618,6 +3713,9 @@
                     <span class="wbl-phase wbl-phase-${wblP.phase_now}">Phase ${wblP.phase_now} now</span>
                     ${p.phase_at_start !== wblP.phase_now
                         ? `<span class="wbl-pill">was Phase ${p.phase_at_start} on this job</span>` : ''}
+                    ${p.event_kind === 'job' || p.role ? `
+                        <span class="wbl-pill">${p.role ? wblEsc(wblRoleLabel(p.role)) : 'no role'}</span>
+                        <button class="btn btn-outline btn-sm" onclick="wblRoleModal(${p.id}, ${wblEsc(JSON.stringify(p.role))}, () => openWblParticipant(${p.id}))">Role</button>` : ''}
                 </div>
 
                 <div class="wbl-lens">
@@ -3628,12 +3726,15 @@
                                 + RESULTS.map(r => `<option value="${r}"${cur === r ? ' selected' : ''}>${r.replace(/_/g, ' ')}</option>`).join('');
                             // A skill with criteria is judged per criterion and its result derived
                             // (shown as a pill); a skill without criteria keeps one result dropdown.
+                            // Skills the participant's role exercises carry a role tag (CGL §6).
+                            const roleSkills = new Set(wblP.role_skill_ids || []);
+                            const roleTag = s => roleSkills.has(s.id) ? ` <span class="wbl-pill">${wblEsc(wblRoleLabel(p.role))}</span>` : '';
                             const skillRow = (s) => {
                                 const a = done.get(s.id);
                                 const onchg = signOff ? `wblCritChanged(${s.id})` : `saveWblSkill(${s.id})`;
                                 if (!s.criteria.length) return `
                                 <div class="wbl-skill-row">
-                                    <div class="wbl-skill-name">${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span></div>
+                                    <div class="wbl-skill-name">${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}</div>
                                     <select class="wbl-inline-input" id="wbl-res-${s.id}" onchange="${onchg}">${options(a?.result)}</select>
                                 </div>`;
                                 // Rows recorded before per-criterion results carry only met.
@@ -3641,7 +3742,7 @@
                                 return `
                                 <div class="wbl-skill-row">
                                     <div class="wbl-skill-name">
-                                        ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>
+                                        ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}
                                         <div class="wbl-crit-list" id="wbl-crit-${s.id}">${
                                             s.criteria.map(c => `
                                             <div class="wbl-crit-row">
@@ -3654,7 +3755,8 @@
                                 </div>`;
                             };
                             if (!wblP.catalogSkills.length) return '<div class="wbl-empty">No published skills in this program yet.</div>';
-                            const planned = new Set(wblP.planned_skill_ids || []);
+                            // Lead with the job's planned skills plus the role's skills.
+                            const planned = new Set([...(wblP.planned_skill_ids || []), ...roleSkills]);
                             if (!planned.size) return wblP.catalogSkills.map(skillRow).join('');
                             const lead = wblP.catalogSkills.filter(s => planned.has(s.id));
                             const rest = wblP.catalogSkills.filter(s => !planned.has(s.id));
@@ -3934,7 +4036,7 @@
         // ── Catalog ───────────────────────────────────────────────────────────
         async function loadWblCatalog() {
             const pid = wblProgramId();
-            const [creds, skills, qc, tiers, classes, templates, prereqs, machines] = await Promise.all([
+            const [creds, skills, qc, tiers, classes, templates, prereqs, machines, roles] = await Promise.all([
                 wblApi('GET', `/programs/${pid}/credentials`),
                 wblApi('GET', `/programs/${pid}/skills`),
                 wblApi('GET', `/programs/${pid}/qc-criteria`),
@@ -3943,6 +4045,7 @@
                 wblApi('GET', `/programs/${pid}/templates`),
                 wblApi('GET', `/programs/${pid}/phase2-prereqs`),
                 wblLoadMachines(),
+                wblLoadRoles(),
             ]);
             wblCatalogSkills = skills;
             wblTemplates = templates;
@@ -3955,6 +4058,7 @@
                 skills: n(skills.length, 'skill'),
                 templates: n(templates.length, 'template'),
                 machines: n(machines.length, 'machine'),
+                roles: roles.length ? n(roles.length, 'role') : 'free text',
                 phase2: prereqCount ? n(prereqCount, 'prerequisite') : 'not set',
                 qc: n(qc.length, 'criterion', 'criteria'),
                 tiers: n(tiers.length, 'tier'),
@@ -4021,6 +4125,20 @@
                         </tr>`).join('')}
                     </tbody></table></div>`
                 : '<div class="wbl-empty">No machines yet — load them with tools/seed-cgl-templates.js, or add one.</div>';
+
+            document.getElementById('wbl-roles-body').innerHTML = roles.length ? `
+                <div class="portal-table-wrap"><table class="portal-table">
+                    <thead><tr><th>Role</th><th>Skills</th><th>Rotation</th></tr></thead>
+                    <tbody>${roles.map(r => `
+                        <tr>
+                            <td>${wblEsc(r.label)} <span class="wbl-ver">${wblEsc(r.code)}</span></td>
+                            <td>${r.skills.length
+                                ? r.skills.map(s => `${wblEsc(s.name)} <span class="wbl-ver">${wblEsc(s.credential_name || '')}</span>`).join('<br>')
+                                : `<span style="color:#94a3b8">${wblEsc(r.note || '—')}</span>`}</td>
+                            <td>${r.rotates ? 'every student holds it once' : '<span style="color:#94a3b8">not rotated</span>'}</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`
+                : '<div class="wbl-empty">No role vocabulary — participants take a free-text role. Load one with tools/seed-cgl-templates.js.</div>';
 
             document.getElementById('wbl-classes-body').innerHTML = classes.length ? `
                 <div class="portal-table-wrap"><table class="portal-table">
@@ -4534,11 +4652,18 @@
         let wblPPNames = new Map();   // student_id -> name, for the gate warning
 
         async function openWblParticipantModal(weId) {
-            const [byClass, we, machines] = await Promise.all([
+            const [byClass, we, machines, roles] = await Promise.all([
                 wblApi('GET', `/programs/${wblProgramId()}/roster-by-class`),
                 wblApi('GET', `/work-events/${weId}`),
                 wblLoadMachines(),
+                wblLoadRoles(),
             ]);
+            // On a job, each student's suggested next role from the rotation (CGL §6).
+            const rot = we.kind === 'job' && roles.length
+                ? await wblApi('GET', `/programs/${wblProgramId()}/rotation`) : null;
+            const next = new Map((rot?.students || []).filter(s => s.suggested)
+                .map(s => [s.student_id, roles.find(r => r.code === s.suggested)?.label]));
+            const nextHint = sid => next.has(sid) ? ` — next: ${next.get(sid)}` : '';
             if (!byClass.length) {
                 return alert('No classes linked to this program yet — link one under Catalog first.');
             }
@@ -4554,6 +4679,11 @@
                             <input type="checkbox" id="wbl-ppm-${wblEsc(m.code)}" data-machine="${wblEsc(m.code)}">
                             <label for="wbl-ppm-${wblEsc(m.code)}">${wblEsc(m.label)}${m.status === 'down' ? ' <span class="wbl-pill wbl-pill-bad">down</span>' : ''}</label>
                         </div>`).join('')}
+                </div>` : '';
+            const rolePicker = we.kind === 'job' ? `
+                <div class="wbl-modal-group">
+                    <div class="wbl-modal-group-title">Role (optional)</div>
+                    ${wblRolePicker('')}
                 </div>` : '';
 
             // One linked class: the familiar checkbox list. Several linked
@@ -4573,7 +4703,7 @@
                         <label class="wbl-field"><span>${wblEsc(c.class_name)}</span>
                             <select class="wbl-pp-select" data-class="${c.class_id}" multiple
                                     size="${Math.min(Math.max(opts.length, 2), 8)}">
-                                ${opts.map(s => `<option value="${s.student_id}">${wblEsc(s.student_name)}</option>`).join('')}
+                                ${opts.map(s => `<option value="${s.student_id}">${wblEsc(s.student_name + nextHint(s.student_id))}</option>`).join('')}
                             </select>
                             <small class="wbl-pp-hint">Ctrl/Cmd- or shift-click to pick several</small>
                         </label>`;
@@ -4585,7 +4715,9 @@
                                 <div class="wbl-check-row">
                                     <input type="checkbox" id="wbl-pp-${s.student_id}" value="${s.student_id}"
                                            data-class="${c.class_id}" ${already.has(s.student_id) ? 'checked disabled' : ''}>
-                                    <label for="wbl-pp-${s.student_id}">${wblEsc(s.student_name)}${already.has(s.student_id) ? ' <span class="wbl-pill">already on this job</span>' : ''}</label>
+                                    <label for="wbl-pp-${s.student_id}">${wblEsc(s.student_name)}${already.has(s.student_id)
+                                        ? ' <span class="wbl-pill">already on this job</span>'
+                                        : next.has(s.student_id) ? ` <span class="wbl-ver">next: ${wblEsc(next.get(s.student_id))}</span>` : ''}</label>
                                 </div>`).join('')
                                 : '<div class="wbl-empty" style="padding:0.25rem 0">No enrolled students in this class.</div>'}
                         </div>`).join('');
@@ -4595,6 +4727,7 @@
                 <div id="wbl-pp-groups">
                     ${body}
                 </div>
+                ${rolePicker}
                 ${machinePicker}
                 <div class="wbl-modal-actions">
                     <button class="btn btn-outline btn-sm" onclick="wblCloseModal()">Cancel</button>
@@ -4618,6 +4751,7 @@
                 .forEach(el => [...el.selectedOptions].forEach(o => add(el.dataset.class, o.value)));
             if (!byClass.size) return wblCloseModal();
             const machine_codes = [...document.querySelectorAll('[data-machine]:checked')].map(b => b.dataset.machine);
+            const role = wblReadRolePicker();
             let override_note = '';
             if (machine_codes.length) {
                 const { gaps } = await wblApi('POST', `/programs/${wblProgramId()}/gates/check`,
@@ -4629,7 +4763,7 @@
             }
             for (const [classId, student_ids] of byClass) {
                 await wblApi('POST', `/work-events/${weId}/participants`,
-                             { class_id: Number(classId), student_ids, machine_codes, override_note });
+                             { class_id: Number(classId), student_ids, role, machine_codes, override_note });
             }
             wblCloseModal();
             openWblEvent(weId);

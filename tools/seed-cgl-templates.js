@@ -1,14 +1,14 @@
-// Seeds a program's Work Event templates and machines from the CGL curriculum
-// file. Dry run by default; --apply commits.
+// Seeds a program's Work Event templates, machines and shop roles from the
+// CGL curriculum file. Dry run by default; --apply commits.
 //
 //   node tools/seed-cgl-templates.js --db <path> <programId> [templates.json] [--apply]
 //
 // templates.json defaults to .refs/cgl/cgl-work-event-templates.json. Each
 // template's {credential, skill} pairs resolve through the credential's links
 // (server/wbl/templates.js resolveSkill), so run the catalog import or
-// tools/apply-credential-changelog.js first. Re-running updates templates
-// from the file but keeps any brief_url the teacher has pasted in, and any
-// machine status or note the teacher has set.
+// tools/apply-credential-changelog.js first; role skills resolve the same
+// way. Re-running updates templates from the file but keeps any brief_url the
+// teacher has pasted in, and any machine status or note the teacher has set.
 
 const fs = require('fs');
 const path = require('path');
@@ -29,6 +29,7 @@ process.env.DB_PATH = path.resolve(dbPath);
 const { db } = require('../server/db');
 const { seedTemplates } = require('../server/wbl/templates');
 const { seedMachines } = require('../server/wbl/gates');
+const { seedRoles } = require('../server/wbl/roles');
 
 const programId = Number(programArg);
 const program = db.prepare('SELECT * FROM wbl_programs WHERE id = ?').get(programId);
@@ -37,10 +38,11 @@ const file = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
 console.log(`${apply ? 'APPLY' : 'DRY RUN'} — ${file.templates.length} templates into program #${programId} "${program.name}" (${program.teacher_key})\n`);
 db.exec('BEGIN');
-let report, machines;
+let report, machines, roles;
 try {
     report = seedTemplates(programId, file.templates);
     machines = seedMachines(programId, file.machines || []);
+    roles = seedRoles(programId, file.roles || []);
     db.exec(apply ? 'COMMIT' : 'ROLLBACK');
 } catch (e) {
     db.exec('ROLLBACK');
@@ -54,6 +56,7 @@ console.log(`updated   ${report.updated.length}${report.updated.length ? ': ' + 
 console.log(`unchanged ${report.unchanged.length}`);
 console.log(`by kind   ${Object.entries(byKind).map(([k, n]) => `${k} ${n}`).join(', ')}`);
 console.log(`machines  ${machines.created.length} created, ${machines.updated.length} updated, ${machines.unchanged.length} unchanged`);
+console.log(`roles     ${roles.created.length} created, ${roles.updated.length} updated, ${roles.unchanged.length} unchanged`);
 const codes = new Set(file.templates.map(t => t.code));
 const badGates = (file.machines || []).filter(m => m.gate && !codes.has(m.gate)).map(m => `${m.code} → ${m.gate}`);
 if (badGates.length) {
@@ -62,5 +65,9 @@ if (badGates.length) {
 if (report.unresolved.length) {
     console.log(`\nWARNINGS — planned skills not found in this program:\n${report.unresolved.map(u => '  ' + u).join('\n')}`);
     if (report.kept.length) console.log(`Existing templates kept their current planned skills: ${report.kept.join(' ')}`);
+}
+if (roles.unresolved.length) {
+    console.log(`\nWARNINGS — role skills not found in this program:\n${roles.unresolved.map(u => '  ' + u).join('\n')}`);
+    if (roles.kept.length) console.log(`Existing roles kept their current skills: ${roles.kept.join(' ')}`);
 }
 console.log(apply ? '\nApplied.' : '\nDry run — nothing changed. Re-run with --apply to commit.');
