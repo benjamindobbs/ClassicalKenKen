@@ -143,6 +143,10 @@
         .wbl-bar.done > div { background:#16a34a; }
         .wbl-packet     { font-size:0.8125rem; color:#334155; margin:0.4rem 0 0; }
         .wbl-packet div { margin:0.1rem 0; }
+        .wbl-roster     { overflow-x:auto; margin-top:0.35rem; }
+        .wbl-roster table { border-collapse:collapse; font-size:0.75rem; }
+        .wbl-roster th, .wbl-roster td { border:1px solid #e2e8f0; padding:0.2rem 0.4rem; text-align:left; white-space:nowrap; }
+        .wbl-roster th  { background:#f8fafc; color:#475569; font-weight:600; }
 
         /* Habits of Work — Do Now / Exit Slip (non-WBL classes) */
         .how-opt        { display:flex; align-items:flex-start; gap:0.625rem; padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; margin-bottom:0.4rem; }
@@ -909,12 +913,52 @@
             ? `<span class="wbl-ev wbl-ev-${j.evidence}" title="${WBL_EV_LABEL[j.evidence] || ''}">${j.evidence}</span>` : '';
 
         const wblIsHttp = url => /^https?:\/\//i.test(url || '');
+        // Job packet pieces (v1.1/v1.2), a copy of the teacher page's: what a
+        // location is made with when it isn't the job's method, and what it
+        // prints from the roster.
+        const WBL_METHOD_LABEL = { screen: 'Screen print', dtf: 'DTF', embroidery: 'Embroidery', solvent: 'Solvent' };
+        const WBL_NAME_NUMBER = { name_number: 'Name & Number', name: 'Name', number: 'Number' };
+        const wblPacketColors = c => c === 'not_sure' ? 'colors not sure' : c ? `${c} color${c === 1 ? '' : 's'}` : '';
+        function wblPacketQty(qs) {
+            const one = q => q.size ? `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}` : `${wblEsc(q.qty)} total`;
+            qs = qs || [];
+            if (!qs.some(q => q.color)) return qs.map(one).join(', ');
+            const byColor = new Map();
+            for (const q of qs) byColor.set(q.color || '', [...(byColor.get(q.color || '') || []), q]);
+            return [...byColor].map(([c, g]) => (c ? `${wblEsc(c)} ` : '') + g.map(one).join(', ')).join('; ');
+        }
+        function wblPacketPlacement(pl, jobMethod) {
+            const own = pl.method && pl.method !== jobMethod ? WBL_METHOD_LABEL[pl.method] || pl.method : '';
+            const rest = [own, WBL_NAME_NUMBER[pl.name_number], wblPacketColors(pl.colors), pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ');
+            return pl.location && rest ? `${wblEsc(pl.location)}: ${rest}` : wblEsc(pl.location || '') || rest;
+        }
+        // Each player and what's made for them at each name/number location.
+        function wblRosterHtml(pk, jobMethod) {
+            const r = pk.roster || {}, players = Array.isArray(r.players) ? r.players : [];
+            if (!players.length) return '';
+            const locs = (pk.placement || []).filter(pl => WBL_NAME_NUMBER[pl.name_number]);
+            const cell = (pl, p) => {
+                const name = String(p.name || '').trim().toUpperCase(), num = String(p.number || '').trim();
+                const flag = what => `<span class="wbl-pill wbl-pill-bad">no ${what}</span>`;
+                return [pl.name_number !== 'number' && (name ? wblEsc(name) : flag('name')),
+                        pl.name_number !== 'name' && (num ? wblEsc(num) : flag('number'))].filter(Boolean).join(' ');
+            };
+            const style = { male: 'Male jerseys', female: 'Female jerseys' }[r.jersey_style] || r.jersey_style || '';
+            return `
+                <div><strong>Roster:</strong> ${[r.name, style].filter(Boolean).map(wblEsc).join(' &middot; ')}</div>
+                <div class="wbl-roster"><table>
+                    <tr><th>#</th><th>Name</th><th>Number</th><th>Size</th><th>Color</th><th>Notes</th>
+                        ${locs.map(pl => `<th>${wblEsc(pl.location || '')} (${wblEsc(WBL_METHOD_LABEL[pl.method || jobMethod] || pl.method || jobMethod || '?')})</th>`).join('')}</tr>
+                    ${players.map((p, i) => `<tr><td>${i + 1}</td><td>${wblEsc(p.name || '')}</td><td>${wblEsc(p.number || '')}</td>
+                        <td>${wblEsc(p.size || '')}</td><td>${wblEsc(p.color || '')}</td><td>${wblEsc(p.info || '')}</td>
+                        ${locs.map(pl => `<td>${cell(pl, p)}</td>`).join('')}</tr>`).join('')}
+                </table></div>`;
+        }
         // Your role, the due date and the job packet (CGL), so the job can be
         // run without asking.
         function wblJobFacts(j) {
             const pk = j.packet, o = pk?.order || {}, pr = pk?.product || {}, pc = pk?.process || {}, f = pk?.files || {};
             const line = (label, val) => val ? `<div><strong>${label}:</strong> ${val}</div>` : '';
-            const colors = c => c === 'not_sure' ? 'colors not sure' : c ? `${c} color${c === 1 ? '' : 's'}` : '';
             const links = [['drive_folder_url', 'Job folder'], ['approved_art_url', 'Approved art'], ['proof_url', 'Proof'], ['stitch_file_url', 'Stitch file']]
                 .filter(([k]) => wblIsHttp(f[k]))
                 .map(([k, l]) => `<a href="${wblEsc(f[k])}" target="_blank" rel="noopener">${l} &nearr;</a>`).join(' &middot; ');
@@ -924,15 +968,18 @@
                 pk ? [
                     line('Job', wblEsc(pk.job_number || '')),
                     line('Due', wblEsc(o.due_date || '')),
-                    line('Quantities', (o.quantities || []).map(q => q.size ? `${wblEsc(q.size)} &times; ${wblEsc(q.qty)}` : `${wblEsc(q.qty)} total`).join(', ')),
-                    line('Garment', [
+                    line('Quantities', wblPacketQty(o.quantities)),
+                    line(pr.type === 'substrate' ? 'Product' : 'Garment', [
                         pr.garment_type && wblEsc(pr.garment_type),
                         pr.brand_style && wblEsc(pr.brand_style),
                         wblIsHttp(pr.blank_url) && `<a href="${wblEsc(pr.blank_url)}" target="_blank" rel="noopener">Blank &nearr;</a>`,
                         pr.color && wblEsc(pr.color),
                     ].filter(Boolean).join(' &middot; ')),
-                    line('Process', [pc.method, colors(pc.colors), (pc.ink_or_thread || []).join(', ')].filter(Boolean).map(wblEsc).join(' &middot; ')),
-                    line('Placement', (pk.placement || []).map(pl => [pl.location, colors(pl.colors), pl.size, pl.from, pl.notes].filter(Boolean).map(wblEsc).join(', ')).join('; ')),
+                    line('Finished size', wblEsc(pr.size || '')),
+                    line('Surface', wblEsc(pr.surface || '')),
+                    line('Process', [WBL_METHOD_LABEL[pc.method] || pc.method, wblPacketColors(pc.colors), (pc.ink_or_thread || []).join(', ')].filter(Boolean).map(wblEsc).join(' &middot; ')),
+                    line('Placement', (pk.placement || []).map(pl => wblPacketPlacement(pl, pc.method)).join('; ')),
+                    wblRosterHtml(pk, pc.method),
                     links ? `<div>${links}</div>` : '',
                 ].join('') : '',
             ].join('');

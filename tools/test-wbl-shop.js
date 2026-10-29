@@ -160,6 +160,75 @@ test('packet v1.1: standard and Other labels import cleanly; a total titles by g
     for (const ref of ['CGL-26-091', 'CGL-26-092', 'CGL-26-093']) complete(db.prepare('SELECT id FROM wbl_work_events WHERE external_ref = ?').get(ref).id);
 });
 
+// The CGL builder's v1.2 test packet: a screen job with a roster, two
+// garment colors and locations made by other methods.
+const ROSTER_PACKET = {
+    job_number: 'CGL-26-001',
+    order: {
+        customer: 'Coach Rivera (Bulkeley HS)',
+        quantities: [{ size: 'M', qty: 1, color: 'Navy' }, { size: 'L', qty: 1, color: 'Navy' }, { size: 'M', qty: 1, color: 'White' }],
+    },
+    product: { type: 'garment', garment_type: 'Tee-Shirt', color: 'Navy, White', size: '', surface: '' },
+    process: { method: 'screen' },
+    placement: [
+        { location: 'Full Chest', colors: 2 },
+        { location: 'Full Back', method: 'dtf', name_number: 'name_number' },
+        { location: 'Sleeve', colors: 8, method: 'embroidery', name_number: 'number' },
+        { location: 'Front Pocket', method: 'dtf', name_number: 'name' },
+    ],
+    roster: {
+        name: 'Varsity Soccer', jersey_style: 'female',
+        players: [
+            { name: 'Reyes', number: '12', size: 'M', color: 'Navy', info: '' },
+            { name: 'Lee', number: '7', size: 'L', color: 'navy', info: '' },
+            { name: 'Park', number: '', size: 'M', color: 'White', info: 'Captain' },
+        ],
+    },
+    assessment: { machines: ['screen-press', 'mimaki-txf150', 'heat-press', 'ricoma-mt1501'] },
+};
+const withPlacement = (i, patch) => ({ ...ROSTER_PACKET, placement: ROSTER_PACKET.placement.map((pl, j) => j === i ? { ...pl, ...patch } : pl) });
+
+test('packet v1.2: a location\'s own method sets its color limit; a missing number warns per location', () => {
+    const r = P.importPacket(cgl, ROSTER_PACKET);
+    assert.strictEqual(r.title, 'Coach Rivera (Bulkeley HS) · 3 Navy, White Tee-Shirt');
+    assert.deepStrictEqual(r.warnings, ['Full Back prints a number but Park has none', 'Sleeve prints a number but Park has none']);
+    assert.throws(() => P.importPacket(cgl, withPlacement(2, { method: '' })), /placement\[2\]\.colors must be 1 to 4 for screen/);
+    assert.throws(() => P.importPacket(cgl, withPlacement(2, { colors: 16 })), /1 to 15 for embroidery/);
+    // Fixing Park's number on a re-import updates the same job.
+    const players = ROSTER_PACKET.roster.players.map(p => p.name === 'Park' ? { ...p, number: '3' } : p);
+    const again = P.importPacket(cgl, { ...ROSTER_PACKET, roster: { ...ROSTER_PACKET.roster, players } });
+    assert.deepStrictEqual([again.created, again.id, again.warnings], [false, r.id, []]);
+    assert.strictEqual(P.parsePacket(db.prepare('SELECT packet_json FROM wbl_work_events WHERE id = ?').get(r.id).packet_json).roster.players[2].number, '3');
+    assert.strictEqual(db.prepare(`SELECT COUNT(*) n FROM wbl_work_events WHERE external_ref = 'CGL-26-001'`).get().n, 1);
+    complete(r.id);
+});
+
+test('packet v1.2: unknown method, name/number, jersey style and surface warn; a bad roster is refused', () => {
+    const r = P.importPacket(cgl, {
+        ...withPlacement(1, { method: 'laser', name_number: 'initials' }),
+        job_number: 'CGL-26-094', roster: { ...ROSTER_PACKET.roster, jersey_style: 'youth' },
+        product: { type: 'garment', surface: 'Ceiling' },
+    });
+    assert.strictEqual(r.warnings.length, 5, r.warnings.join(' | ')); // method, name_number, surface, jersey style, Sleeve's number
+    const noRoster = P.importPacket(cgl, { ...ROSTER_PACKET, job_number: 'CGL-26-095', roster: undefined });
+    assert.strictEqual(noRoster.warnings.filter(w => /no roster/.test(w)).length, 3);
+    assert.throws(() => P.importPacket(cgl, { job_number: 'CGL-26-096', roster: [] }), /roster must be an object/);
+    assert.throws(() => P.importPacket(cgl, { job_number: 'CGL-26-096', roster: { players: {} } }), /roster.players must be an array/);
+    for (const ref of ['CGL-26-094', 'CGL-26-095']) complete(db.prepare('SELECT id FROM wbl_work_events WHERE external_ref = ?').get(ref).id);
+});
+
+test('packet v1.2: a decal titles by count, size and surface; standard surfaces import cleanly', () => {
+    const decal = surface => P.importPacket(cgl, {
+        job_number: 'CGL-26-097', order: { customer: 'Acme Band', quantities: [{ qty: 4 }] },
+        product: { type: 'substrate', size: '24 in x 12 in', surface }, process: { method: 'solvent' },
+    });
+    assert.deepStrictEqual([decal('Window').title, decal('Window').warnings], ['Acme Band · 4 × 24 in x 12 in (Window)', []]);
+    assert.deepStrictEqual([decal('Not sure yet').title, decal('Not sure yet').warnings], ['Acme Band · 4 × 24 in x 12 in', []]);
+    assert.deepStrictEqual([decal('Other: Locker').title, decal('Other: Locker').warnings], ['Acme Band · 4 × 24 in x 12 in (Locker)', []]);
+    assert.strictEqual(decal('Ceiling').warnings.length, 1);
+    complete(db.prepare(`SELECT id FROM wbl_work_events WHERE external_ref = 'CGL-26-097'`).get().id);
+});
+
 test('packet: a re-import updates the same job, adds skills, keeps participants and status', () => {
     L.addParticipants(cgl, jobId, classId, ['5001'], 'job_lead');
     const extra = 'Single & Multi-Color Printing';

@@ -23,6 +23,11 @@ const SIZES = ['YS', 'YM', 'YL', 'YXL', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL',
 // Colors per design location: the screen presses are 4-color, the embroidery
 // machine has 15 needles. Other methods have no limit here.
 const MAX_COLORS = { screen: 4, embroidery: 15 };
+// v1.2: where a sticker, decal or sign goes; what a roster location prints
+// for each player; the roster's jersey cut.
+const SURFACES = ['Wall', 'Window', 'Floor', 'Vehicle', 'Sign', 'Not sure yet'];
+const NAME_NUMBER = ['name_number', 'name', 'number'];
+const JERSEY_STYLES = ['male', 'female'];
 const standardOrOther = (v, list) => list.includes(v) || /^Other:\s*\S/.test(v);
 // A color count is a whole number from 1 to the method's limit, or "not_sure".
 const colorsOk = (v, max = Infinity) => v == null || v === 'not_sure' || (Number.isInteger(v) && v >= 1 && v <= max);
@@ -32,7 +37,8 @@ const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 const text = v => (v == null ? '' : String(v).trim());
 
 // Checks a parsed packet. Errors refuse the import; warnings (an unknown
-// method, role or machine, a skill that doesn't resolve) are reported and the
+// method, role or machine, a skill that doesn't resolve, a roster player
+// missing a number a location prints) are reported and the
 // import goes ahead, since the CGL website may run ahead of this program.
 function validatePacket(programId, packet) {
     const errors = [], warnings = [];
@@ -50,20 +56,56 @@ function validatePacket(programId, packet) {
         if (!Number.isInteger(q?.qty) || q.qty < 1) errors.push(`order.quantities[${i}].qty must be a whole number of at least 1`);
         if (text(q?.size) && !SIZES.includes(text(q.size))) warnings.push(`order.quantities[${i}].size "${text(q.size)}" is not one of ${SIZES.join(', ')}`);
     });
-    const maxColors = MAX_COLORS[text(process.method)] ?? Infinity;
-    const colorsRule = Number.isFinite(maxColors) ? `1 to ${maxColors} for ${text(process.method)}` : 'a whole number of at least 1';
+    // The color limit follows the method a location is made with: its own
+    // (v1.2), else the job's.
+    const checkColors = (v, method, field) => {
+        const max = MAX_COLORS[method] ?? Infinity;
+        if (!colorsOk(v, max)) errors.push(`${field} must be ${Number.isFinite(max) ? `1 to ${max} for ${method}` : 'a whole number of at least 1'}, or "not_sure"`);
+    };
     if (packet.placement != null && !Array.isArray(packet.placement)) errors.push('placement must be an array');
-    (Array.isArray(packet.placement) ? packet.placement : []).forEach((pl, i) => {
+    const placement = (Array.isArray(packet.placement) ? packet.placement : []);
+    placement.forEach((pl, i) => {
         if (!pl || typeof pl !== 'object' || Array.isArray(pl)) return errors.push(`placement[${i}] must be an object`);
-        if (!colorsOk(pl.colors, maxColors)) errors.push(`placement[${i}].colors must be ${colorsRule}, or "not_sure"`);
+        checkColors(pl.colors, text(pl.method) || text(process.method), `placement[${i}].colors`);
         if (text(pl.location) && !standardOrOther(text(pl.location), LOCATIONS)) {
             warnings.push(`placement[${i}].location "${text(pl.location)}" is not one of ${LOCATIONS.join(', ')} or "Other: …"`);
         }
+        if (text(pl.method) && !METHODS.includes(text(pl.method))) {
+            warnings.push(`placement[${i}].method "${text(pl.method)}" is not one of ${METHODS.join(', ')}`);
+        }
+        if (text(pl.name_number) && !NAME_NUMBER.includes(text(pl.name_number))) {
+            warnings.push(`placement[${i}].name_number "${text(pl.name_number)}" is not one of ${NAME_NUMBER.join(', ')}`);
+        }
     });
-    if (!colorsOk(process.colors, maxColors)) errors.push(`process.colors must be ${colorsRule}, or "not_sure"`);
+    checkColors(process.colors, text(process.method), 'process.colors');
     if (text(product.garment_type) && !standardOrOther(text(product.garment_type), GARMENT_TYPES)) {
         warnings.push(`product.garment_type "${text(product.garment_type)}" is not one of ${GARMENT_TYPES.join(', ')} or "Other: …"`);
     }
+    if (text(product.surface) && !standardOrOther(text(product.surface), SURFACES)) {
+        warnings.push(`product.surface "${text(product.surface)}" is not one of ${SURFACES.join(', ')} or "Other: …"`);
+    }
+
+    // The roster (v1.2) and the locations that print from it.
+    const roster = packet.roster;
+    if (roster != null && (typeof roster !== 'object' || Array.isArray(roster))) errors.push('roster must be an object');
+    const players = obj(roster).players;
+    if (players != null && !Array.isArray(players)) errors.push('roster.players must be an array');
+    const playerList = Array.isArray(players) ? players : [];
+    playerList.forEach((p, i) => {
+        if (!p || typeof p !== 'object' || Array.isArray(p)) errors.push(`roster.players[${i}] must be an object`);
+    });
+    const style = text(obj(roster).jersey_style);
+    if (style && !JERSEY_STYLES.includes(style)) warnings.push(`roster.jersey_style "${style}" is not one of ${JERSEY_STYLES.join(', ')}`);
+    placement.forEach((pl, i) => {
+        const nn = text(pl?.name_number);
+        if (!NAME_NUMBER.includes(nn)) return;
+        if (!playerList.length) return warnings.push(`placement[${i}] (${text(pl.location)}) prints names/numbers but the packet has no roster`);
+        for (const [part, label] of [['number', 'number'], ['name', 'name']]) {
+            if (nn !== 'name_number' && nn !== part) continue;
+            const missing = playerList.map((p, j) => text(p?.[part]) ? '' : text(p?.name) || `player ${j + 1}`).filter(Boolean);
+            if (missing.length) warnings.push(`${text(pl.location)} prints a ${label} but ${missing.join(', ')} ${missing.length === 1 ? 'has' : 'have'} none`);
+        }
+    });
     // These are rendered as links, so only web links are accepted.
     for (const k of FILE_KEYS) {
         const u = text(obj(packet.files)[k]);
@@ -85,12 +127,17 @@ function validatePacket(programId, packet) {
 
 // "Acme Band · 12 Navy Gildan 5000" — the customer plus a short product
 // description (the blank's model, else the garment type); a house job
-// without a customer reads "House job".
+// without a customer reads "House job". A banner, sticker or decal has no
+// garment, so it's the count, finished size and surface:
+// "Acme Band · 4 × 24 in x 12 in (Window)".
 function packetTitle(packet) {
     const order = obj(packet.order), product = obj(packet.product);
     const qty = (Array.isArray(order.quantities) ? order.quantities : []).reduce((n, q) => n + (Number(q?.qty) || 0), 0);
-    const item = text(product.brand_style) || text(product.garment_type).replace(/^Other:\s*/, '') || text(product.type);
-    const what = [qty || '', text(product.color), item].filter(Boolean).join(' ');
+    const surface = text(product.surface).replace(/^Other:\s*/, '');
+    const what = product.type === 'substrate' && text(product.size)
+        ? [qty ? `${qty} ×` : '', text(product.size), surface && surface !== 'Not sure yet' ? `(${surface})` : ''].filter(Boolean).join(' ')
+        : [qty || '', text(product.color), text(product.brand_style) || text(product.garment_type).replace(/^Other:\s*/, '') || text(product.type)]
+            .filter(Boolean).join(' ');
     const who = text(order.customer) || (packet.is_house ? 'House job' : text(packet.job_number));
     return what ? `${who} · ${what}` : who;
 }
@@ -141,4 +188,4 @@ function importPacket(programId, packet) {
 
 const parsePacket = (json) => { try { return json ? JSON.parse(json) : null; } catch { return null; } };
 
-module.exports = { METHODS, LOCATIONS, GARMENT_TYPES, SIZES, MAX_COLORS, validatePacket, packetTitle, importPacket, parsePacket };
+module.exports = { METHODS, LOCATIONS, GARMENT_TYPES, SIZES, MAX_COLORS, SURFACES, NAME_NUMBER, JERSEY_STYLES, validatePacket, packetTitle, importPacket, parsePacket };
