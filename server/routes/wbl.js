@@ -1600,6 +1600,11 @@ router.get('/participants/:id', requireTeacher, (req, res) => {
         // The skills the participant's role exercises (CGL §6); the Hard
         // Skills lens leads with these and the planned skills.
         role_skill_ids: R.roleSkillIds(wp.program_id, wp.role),
+        // Skills the student has already earned (enough qualifying
+        // demonstrations for a credential); the lens pre-fills them as
+        // mastered until this participant's first Holistic Call.
+        earned_skill_ids: [...S.studentProgress(wp.program_id, wp.student_id).skills.values()]
+            .filter(s => s.satisfied).map(s => s.skill_id),
         machines: G.participantMachines(wp.id),
         gate,
         hard_skills: assessments.map(a => ({ ...a, criteria: critResults.all(a.id) })),

@@ -3852,7 +3852,17 @@
             // skill results and the Holistic Call are picked here, then saved
             // together by wblSignOff. Jobs keep saving each change as it's made.
             const signOff = !!p.event_kind && p.event_kind !== 'job';
-            wblSignOffDirty = new Set();
+            // The lens leads with the job's planned skills plus the role's skills
+            // (every skill when nothing is planned).
+            const roleSkills = new Set(wblP.role_skill_ids || []);
+            const planned = new Set([...(wblP.planned_skill_ids || []), ...roleSkills]);
+            const lead = planned.size ? wblP.catalogSkills.filter(s => planned.has(s.id)) : wblP.catalogSkills;
+            // Until the first Holistic Call, earned skills in the lead with no result
+            // here yet are pre-filled as mastered — still editable, and sent with the call.
+            const earned = new Set(wblP.earned_skill_ids || []);
+            wblPrefill = new Set(wblP.holistic ? [] :
+                lead.filter(s => earned.has(s.id) && !done.has(s.id)).map(s => s.id));
+            wblSignOffDirty = new Set(wblPrefill);
             wblPickedTier = wblP.holistic?.tier || '';
 
             const holisticLens = `
@@ -3945,38 +3955,37 @@
                             // A skill with criteria is judged per criterion and its result derived
                             // (shown as a pill); a skill without criteria keeps one result dropdown.
                             // Skills the participant's role exercises carry a role tag (CGL §6).
-                            const roleSkills = new Set(wblP.role_skill_ids || []);
                             const roleTag = s => roleSkills.has(s.id) ? ` <span class="wbl-pill">${wblEsc(wblRoleLabel(p.role))}</span>` : '';
+                            const earnedTag = s => wblPrefill.has(s.id)
+                                ? ` <span class="wbl-pill wbl-pill-good" title="Already earned — pre-filled as mastered; change it if this work event shows otherwise">earned &middot; pre-filled</span>` : '';
                             const skillRow = (s) => {
                                 const a = done.get(s.id);
+                                const pre = wblPrefill.has(s.id) ? 'mastered' : '';
                                 const onchg = signOff ? `wblCritChanged(${s.id})` : `saveWblSkill(${s.id})`;
                                 if (!s.criteria.length) return `
                                 <div class="wbl-skill-row">
-                                    <div class="wbl-skill-name">${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}</div>
-                                    <select class="wbl-inline-input" id="wbl-res-${s.id}" onchange="${onchg}">${options(a?.result)}</select>
+                                    <div class="wbl-skill-name">${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}${earnedTag(s)}</div>
+                                    <select class="wbl-inline-input" id="wbl-res-${s.id}" onchange="${onchg}">${options(a?.result || pre)}</select>
                                 </div>`;
                                 // Rows recorded before per-criterion results carry only met.
                                 const prior = new Map((a?.criteria || []).map(c => [c.criterion_id, c.result || (c.met ? 'mastered' : '')]));
                                 return `
                                 <div class="wbl-skill-row">
                                     <div class="wbl-skill-name">
-                                        ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}
+                                        ${wblEsc(s.name)} <span class="wbl-ver">v${s.version_no}</span>${roleTag(s)}${earnedTag(s)}
                                         <div class="wbl-crit-list" id="wbl-crit-${s.id}">${
                                             s.criteria.map(c => `
                                             <div class="wbl-crit-row">
                                                 <span>${wblEsc(c.name)}</span>
-                                                <select class="wbl-inline-input" data-crit="${c.id}" onchange="${onchg}">${options(prior.get(c.id))}</select>
+                                                <select class="wbl-inline-input" data-crit="${c.id}" onchange="${onchg}">${options(prior.get(c.id) || pre)}</select>
                                             </div>`).join('')
                                         }</div>
                                     </div>
-                                    <span id="wbl-skill-result-${s.id}">${wblResultPill(a?.result || '')}</span>
+                                    <span id="wbl-skill-result-${s.id}">${wblResultPill(a?.result || pre)}</span>
                                 </div>`;
                             };
                             if (!wblP.catalogSkills.length) return '<div class="wbl-empty">No published skills in this program yet.</div>';
-                            // Lead with the job's planned skills plus the role's skills.
-                            const planned = new Set([...(wblP.planned_skill_ids || []), ...roleSkills]);
-                            if (!planned.size) return wblP.catalogSkills.map(skillRow).join('');
-                            const lead = wblP.catalogSkills.filter(s => planned.has(s.id));
+                            if (!planned.size) return lead.map(skillRow).join('');
                             const rest = wblP.catalogSkills.filter(s => !planned.has(s.id));
                             return lead.map(skillRow).join('')
                                 + (rest.length ? `
@@ -4099,10 +4108,15 @@
 
         // The holistic call is what makes prior demonstrations on this job count,
         // so it can complete a credential with no new skill assessment at all.
+        // Pre-filled earned skills still standing go in with the first call,
+        // through the sign-off route so both land in one transaction.
         async function saveWblHolistic(tier) {
             if (!tier) return;
             const rationale = document.getElementById('wbl-rationale')?.value || '';
-            const r = await wblApi('PUT', `/participants/${wblP.participant.id}/holistic`, { tier, rationale });
+            const skills = [...wblPrefill].map(wblSkillBody).filter(Boolean);
+            const r = skills.length
+                ? await wblApi('POST', `/participants/${wblP.participant.id}/sign-off`, { tier, rationale, skills })
+                : await wblApi('PUT', `/participants/${wblP.participant.id}/holistic`, { tier, rationale });
             if (r.awarded?.length) {
                 alert(`Credential earned — ${r.awarded.length} awarded. Phase is now ${r.phase}.`);
             }
@@ -4120,6 +4134,8 @@
         // re-pins an earlier assessment to a newer skill version.
         let wblSignOffDirty = new Set();
         let wblPickedTier = '';
+        // Earned skills pre-filled as mastered on this participant (renderWblParticipant).
+        let wblPrefill = new Set();
 
         function wblPickTier(tier) {
             wblPickedTier = tier;
