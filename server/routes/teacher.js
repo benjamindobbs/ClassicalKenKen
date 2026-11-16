@@ -502,9 +502,12 @@ function gradeStudent(ctx, student, trace = false) {
     let studentDates = meetDates.filter(d => d >= effStart && d <= effEnd);
     const usedFallback = !studentDates.length;
     if (usedFallback) studentDates = L.datesBetween(effStart, effEnd);
+    // Class-wide "nothing synced" is reported by attendanceCoverage; this note
+    // is only for the narrower case of a student's enrolled slice having none.
     if (tr && usedFallback) {
         tr.calendar_source = 'calendar-fallback';
-        tr.notes.push('No PowerSchool attendance pulled for this class in the window — EVERY calendar day (weekends included) is graded. Pull attendance to fix.');
+        if (meetDates.length)
+            tr.notes.push("No PowerSchool attendance falls inside this student's enrolled dates — every calendar day (weekends included) in that span is graded.");
     }
 
     const attendance   = L.attendanceDetail(cid, student.student_id, effStart, effEnd);
@@ -750,8 +753,61 @@ router.get('/grades', requireTeacher, (req, res) => {
         class_id:  cid,
         start, end,
         max_score: ctx.maxScore,
+        attendance: attendanceCoverage(cid, start, end),
         students:  students.map(s => gradeStudent(ctx, s)),
     });
+});
+
+// Weekdays in [a, b] — the "should have had class" estimate for spotting
+// attendance gaps. Holidays will over-count, which only makes warnings louder.
+const weekdaysBetween = (a, b) => (a > b ? [] : L.datesBetween(a, b)
+    .filter(d => { const w = new Date(d + 'T12:00:00Z').getUTCDay(); return w !== 0 && w !== 6; }));
+
+// How well pulled PS attendance covers [start, end], plus a teacher-facing
+// `warning` (null when fine) the extension shows before submitting grades.
+// Meeting days come only from wbl_attendance (L.meetingDates), so:
+//   none synced     → every calendar day, weekends included, is graded;
+//   a gap at either end → weekdays outside the synced span are treated as
+//                     "no class", so work done on them never counts.
+// Today is ignored for the trailing gap — attendance may not be taken yet.
+function attendanceCoverage(cid, start, end) {
+    const span = db.prepare(`
+        SELECT MIN(date) AS first, MAX(date) AS last, COUNT(DISTINCT date) AS days, MAX(synced_at) AS synced_at
+        FROM wbl_attendance WHERE class_id = ? AND date BETWEEN ? AND ?
+    `).get(cid, start, end);
+    const lastEver = db.prepare('SELECT MAX(synced_at) AS t FROM wbl_attendance WHERE class_id = ?').get(cid)?.t ?? null;
+    const out = {
+        meeting_days: span.days, first_date: span.first, last_date: span.last,
+        last_synced_at: lastEver, missing_start: [], missing_end: [], warning: null,
+    };
+    if (!span.days) {
+        out.warning = `No PowerSchool attendance has been synced for ${start} to ${end}. `
+            + 'Every calendar day (weekends and days off included) will be graded, so students will lose credit for days class did not meet.';
+        return out;
+    }
+    const shift = (iso, days) => new Date(Date.parse(iso + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10);
+    out.missing_start = weekdaysBetween(start, shift(span.first, -1));
+    out.missing_end   = weekdaysBetween(shift(span.last, 1), minDate(end, shift(todayStr(), -1)));
+    const gaps = [];
+    if (out.missing_start.length) gaps.push(`${out.missing_start.length} weekday(s) before ${span.first}`);
+    if (out.missing_end.length)   gaps.push(`${out.missing_end.length} weekday(s) after ${span.last}`);
+    if (gaps.length)
+        out.warning = `Synced attendance only covers ${span.first} to ${span.last} (${span.days} meeting days). `
+            + `${gaps.join(' and ')} have no attendance, so they are treated as "no class" and work done on them will not count.`;
+    return out;
+}
+
+// Attendance coverage alone (no grading) — the extension's pre-sync check, so
+// it can warn before creating/writing a PS assignment for a class whose PS
+// attendance hasn't been synced for the range.
+router.get('/classes/:id/attendance-coverage', requireTeacher, (req, res) => {
+    const { start, end } = req.query;
+    if (!isDateStr(start) || !isDateStr(end) || start > end)
+        return res.status(400).json({ error: 'start, end (YYYY-MM-DD) required' });
+    const cid = Number(req.params.id);
+    if (!db.prepare('SELECT 1 FROM classes WHERE id = ? AND teacher_key = ?').get(cid, req.teacherKey))
+        return res.status(404).json({ error: 'Class not found' });
+    res.json(attendanceCoverage(cid, start, end));
 });
 
 // One student's /grades result with a per-day breakdown of how it was reached
@@ -774,7 +830,8 @@ router.get('/grades/debug', requireTeacher, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not on this roster' });
 
     const ctx = gradeContext(cls, req.teacherKey, start, end);
-    res.json({ class_id: cid, class_name: cls.name, max_score: ctx.maxScore, ...gradeStudent(ctx, student, true) });
+    res.json({ class_id: cid, class_name: cls.name, max_score: ctx.maxScore,
+               attendance: attendanceCoverage(cid, start, end), ...gradeStudent(ctx, student, true) });
 });
 
 // ── All data ──────────────────────────────────────────────────────────────────
