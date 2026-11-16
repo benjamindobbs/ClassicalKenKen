@@ -1930,6 +1930,8 @@
                         </select>
                     </td>
                     <td style="white-space:nowrap">
+                        <button class="btn btn-outline btn-sm" title="Day-by-day Daily Practice grade breakdown"
+                            onclick="openGradeDebug(${cls.id}, '${esc(s.student_id)}')">Grade</button>
                         ${toggleBtn}
                         <button class="btn btn-outline btn-sm" style="color:#dc2626"
                             onclick="removeStudent(${cls.id}, '${esc(s.student_id)}', this)">Remove</button>
@@ -2564,6 +2566,139 @@
         function toggleShowWithdrawn(classId) {
             showWithdrawn = document.getElementById('show-withdrawn').checked;
             viewClass(classId);
+        }
+
+        // ── Grade debug — why didn't a student get full Daily Practice credit? ──
+        // Same computation as GET /grades (what the extension syncs), with a
+        // per-day trace: attendance code, excusal, completions vs. requirement,
+        // the scoring rule applied, and work that didn't count (other class,
+        // below KenKen threshold, wrong answers, or on an ungraded day).
+        // The range is remembered across students so you can step through a roster.
+        const gradeDebugRange = (() => {
+            const d = new Date(), to = d.toISOString().slice(0, 10);
+            d.setUTCDate(d.getUTCDate() - 13);
+            return { from: d.toISOString().slice(0, 10), to };
+        })();
+
+        function openGradeDebug(classId, studentId) {
+            wblOpenModal(`
+                <h3>Daily Practice grade breakdown</h3>
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.9rem">
+                    <input type="date" id="gd-from" value="${gradeDebugRange.from}" style="width:auto">
+                    <span>to</span>
+                    <input type="date" id="gd-to" value="${gradeDebugRange.to}" style="width:auto">
+                    <button class="btn btn-primary btn-sm" onclick="loadGradeDebug(${classId}, '${esc(studentId)}')">Calculate</button>
+                    <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="wblCloseModal()">Close</button>
+                </div>
+                <div id="gd-body"><p class="lookup-note">Loading…</p></div>`);
+            const m = document.querySelector('#wbl-modal-backdrop .wbl-modal');
+            if (m) m.style.maxWidth = '1100px';
+            loadGradeDebug(classId, studentId);
+        }
+
+        async function loadGradeDebug(classId, studentId) {
+            const from = document.getElementById('gd-from').value;
+            const to   = document.getElementById('gd-to').value;
+            const body = document.getElementById('gd-body');
+            if (!from || !to || from > to) { body.innerHTML = '<p class="lookup-note">Pick a valid date range.</p>'; return; }
+            gradeDebugRange.from = from; gradeDebugRange.to = to;
+            body.innerHTML = '<p class="lookup-note">Loading…</p>';
+            const qs = new URLSearchParams({ class_id: classId, student_id: studentId, start: from, end: to });
+            const res = await teacherFetch('/api/teacher/grades/debug?' + qs);
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { body.innerHTML = `<p class="lookup-note" style="color:#dc2626">${esc(d.error || 'Request failed')}</p>`; return; }
+            body.innerHTML = renderGradeDebug(d);
+        }
+
+        function renderGradeDebug(d) {
+            const t = d.trace;
+            const gradeTxt = d.grade == null ? 'Exempt (not synced)' : `${d.grade} / ${d.max_score}`;
+            const head = `
+                <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:baseline;margin-bottom:0.75rem">
+                    <div><div style="font-size:0.75rem;color:#64748b">Student</div>
+                         <strong>${esc(d.student_name)}</strong> <span style="color:#64748b">(${esc(d.student_id)})</span></div>
+                    <div><div style="font-size:0.75rem;color:#64748b">Grade for range</div>
+                         <strong style="font-size:1.25rem">${esc(gradeTxt)}</strong></div>
+                    ${t.summary ? `<div><div style="font-size:0.75rem;color:#64748b">Calculation</div>
+                         ${t.summary.sum} ÷ ${t.summary.days_graded} graded day(s) = ${d.grade ?? '—'}
+                         <span style="color:#64748b">· ${t.summary.days_excused} excused</span></div>` : ''}
+                    <div><div style="font-size:0.75rem;color:#64748b">Graded window</div>
+                         ${esc(t.window.eff_start)} → ${esc(t.window.eff_end)}
+                         <span style="color:#64748b">(enrolled ${esc(d.enrolled_on || 'n/a')}${d.exited_on ? ', withdrawn ' + esc(d.exited_on) : ''})</span></div>
+                </div>`;
+
+            const reqTxt = t.required
+                ? (t.either ? 'KenKen <em>or</em> SAT English (whichever is higher): ' : '')
+                  + t.required.map(r => `${esc(r.label)} ×${r.per_day}${r.accuracy_mode ? ' (accuracy mode)' : ''}`).join(t.either ? ' / ' : ' + ')
+                  + ` per day · partial floor ${t.settings.completion_score_pct}% · no-submission ${t.settings.no_submission_score_pct}%`
+                  + ` · KenKen counts games ≥ ${t.kenken_threshold} (student's all-time avg)`
+                : '';
+            const rules = reqTxt ? `<p class="lookup-note" style="margin:0 0 0.6rem">${reqTxt}</p>` : '';
+
+            const notes = t.notes.length
+                ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;font-size:0.8125rem;color:#92400e">
+                     ${t.notes.map(n => `<div>⚠ ${esc(n)}</div>`).join('')}</div>`
+                : '';
+
+            if (!t.days.length) return head + notes;
+
+            const LABEL = { kenken: 'KenKen', sat: 'SAT Eng', 'sat-math': 'SAT Math', measurement: 'Ruler', projection: 'Proj' };
+            const STATUS = {
+                graded:         ['Graded',       '#0f172a'],
+                excused:        ['Excused',      '#2563eb'],
+                'no-class':     ['No class',     '#94a3b8'],
+                'not-enrolled': ['Not enrolled', '#94a3b8'],
+            };
+            const ruleColor = { full: '#16a34a', 'partial-ratio': '#d97706', 'partial-floor': '#d97706', none: '#dc2626' };
+            const weekday = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' });
+
+            // Work columns: every activity with ANY submissions in the window, required ones first.
+            const reqKeys = (t.required || []).map(r => r.key);
+            const seen = new Set(t.days.flatMap(x => Object.keys(x.work)));
+            const cols = [...reqKeys, ...Object.keys(LABEL).filter(k => seen.has(k) && !reqKeys.includes(k))];
+
+            const workCell = (day, key) => {
+                const w = day.work[key];
+                const req = reqKeys.includes(key);
+                if (!w) return `<td style="text-align:center;color:#cbd5e1">${req ? '0' : '·'}</td>`;
+                const extra = [];
+                if (w.not_qualifying) extra.push(`<span title="${key === 'kenken' ? 'Below KenKen threshold' : 'Incorrect answers'}" style="color:#d97706">+${w.not_qualifying}✗</span>`);
+                if (w.other_class)    extra.push(`<span title="Attributed to another class (or none) — never counts here" style="color:#dc2626">+${w.other_class} other</span>`);
+                // Accuracy-mode credit can differ from the raw correct count.
+                const credit = day.done && key in day.done && day.done[key] !== w.qualifying ? ` <span title="Credit after accuracy rule" style="color:#64748b">(→${day.done[key]})</span>` : '';
+                return `<td style="text-align:center;white-space:nowrap"><strong>${w.qualifying}</strong>${credit} ${extra.join(' ')}</td>`;
+            };
+
+            const rows = t.days.map(day => {
+                const [label, color] = STATUS[day.status];
+                const dim = day.status === 'no-class' || day.status === 'not-enrolled';
+                const att = day.attendance
+                    ? (day.attendance.code ? esc(day.attendance.code) : '<span style="color:#94a3b8">present</span>')
+                    : '<span style="color:#cbd5e1">—</span>';
+                const credit = day.status === 'graded' ? `${day.actual} / ${day.required}` : '';
+                const g = day.status === 'graded'
+                    ? `<strong style="color:${ruleColor[day.rule]}">${day.grade}</strong>` : '';
+                return `<tr style="${dim ? 'opacity:0.55' : ''}">
+                    <td style="white-space:nowrap">${esc(day.date)} <span style="color:#94a3b8">${weekday(day.date)}</span></td>
+                    <td style="color:${color};font-weight:600">${label}</td>
+                    <td>${att}</td>
+                    ${cols.map(k => workCell(day, k)).join('')}
+                    <td style="text-align:center;white-space:nowrap">${credit}</td>
+                    <td style="text-align:center">${g}</td>
+                    <td style="font-size:0.75rem;color:#475569">${esc(day.why)}</td>
+                </tr>`;
+            }).join('');
+
+            return head + rules + notes + `
+                <div class="roster-wrap" style="margin-bottom:0.5rem"><table class="roster-table">
+                    <thead><tr><th>Date</th><th>Status</th><th>PS code</th>
+                        ${cols.map(k => `<th style="text-align:center">${LABEL[k]}${reqKeys.includes(k) ? '' : ' <span style="font-weight:400;color:#94a3b8">(not req.)</span>'}</th>`).join('')}
+                        <th style="text-align:center">Credit</th><th style="text-align:center">Day grade</th><th>Why</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table></div>
+                <p class="lookup-note" style="margin:0">Work counts are qualifying submissions for this class
+                    (bold), plus <span style="color:#d97706">✗ non-qualifying</span> (wrong / below KenKen threshold) and
+                    <span style="color:#dc2626">other</span> (logged under a different class). Days are UTC days.</p>`;
         }
 
         // ── CSV import ────────────────────────────────────────────────────────

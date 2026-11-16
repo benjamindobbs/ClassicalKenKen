@@ -487,7 +487,19 @@ function attendanceRatio(programId, classId, studentId, from, to) {
 // number (the import maps ps_dcid → raw student_id) while wbl_called_outs and
 // the rest of WBL use normalizeStudentId(), so this resolves both.
 function excusedAbsenceDates(classId, studentId, from, to) {
-    if (!from || !to) return new Set();
+    const exempt = new Set();
+    for (const [date, a] of attendanceDetail(classId, studentId, from, to))
+        if (a.excused) exempt.add(date);
+    return exempt;
+}
+
+// Every pulled PS attendance row for a student in [from, to], as
+// date → { code, excused, reason }. The single definition of the excusal rule
+// above: excusedAbsenceDates is just the excused subset, and the teacher
+// grade-debug view (GET /api/teacher/grades/debug) shows every row with why.
+function attendanceDetail(classId, studentId, from, to) {
+    const out = new Map();
+    if (!from || !to) return out;
     const norm = normalizeStudentId(studentId);
     const rawIds = db.prepare('SELECT student_id FROM class_students WHERE class_id = ?').all(classId)
         .map(r => r.student_id).filter(id => normalizeStudentId(id) === norm);
@@ -496,25 +508,33 @@ function excusedAbsenceDates(classId, studentId, from, to) {
         SELECT date, code FROM wbl_attendance
         WHERE class_id = ? AND student_id IN (${rawIds.map(() => '?').join(',')}) AND date BETWEEN ? AND ?
     `).all(classId, ...rawIds, from, to);
-    if (!rows.length) return new Set();
+    if (!rows.length) return out;
 
     const program = db.prepare(`
         SELECT p.id FROM wbl_class_programs cp JOIN wbl_programs p ON p.id = cp.program_id
         WHERE cp.class_id = ? AND p.archived_at IS NULL LIMIT 1
     `).get(classId);
 
-    const exempt = new Set();
     for (const r of rows) {
+        let excused = false, reason = '';
         if (r.code.startsWith('EX') && r.code !== 'EXT') {
-            exempt.add(r.date);
-        } else if (r.code === 'UNV' && program) {
-            const calledOut = db.prepare(
+            excused = true; reason = `excused absence (${r.code})`;
+        } else if (r.code === 'UNV') {
+            const calledOut = program && db.prepare(
                 'SELECT 1 FROM wbl_called_outs WHERE program_id = ? AND student_id = ? AND date = ?'
             ).get(program.id, norm, r.date);
-            if (calledOut) exempt.add(r.date);
+            if (calledOut) { excused = true; reason = 'UNV voided by WBL "Called Out"'; }
+            else reason = program ? 'unverified absence, no Called Out on file — still graded'
+                                  : 'unverified absence — still graded (no WBL program, so no Called Out override)';
+        } else if (r.code === 'EXT') {
+            reason = 'tardy — still graded';
+        } else if (r.code) {
+            reason = `code ${r.code} — still graded`;
         }
+        // Two raw IDs on one date (rare) — an excused row wins, matching the old Set behaviour.
+        if (!out.has(r.date) || excused) out.set(r.date, { code: r.code, excused, reason });
     }
-    return exempt;
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -648,5 +668,5 @@ module.exports = {
     credentialProgress, recomputeAttainment,
     rotationQueue, qcFloorReport,
     checkCitation, checkNovelty,
-    attendanceRatio, excusedAbsenceDates, dispositionalScore, hasSkillEvidence,
+    attendanceRatio, excusedAbsenceDates, attendanceDetail, dispositionalScore, hasSkillEvidence,
 };

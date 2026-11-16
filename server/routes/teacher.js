@@ -411,14 +411,326 @@ router.delete('/users/:userKey', requireTeacher, (req, res) => {
 });
 
 // ── Computed grades for a class + date range (used by Chrome extension) ───────
-// required_kenken_count/required_sat_count/required_sat_math_count on `classes`
-// are PER-DAY requirements — same ones /daily-progress checks against "today"
-// (server/routes/student.js) — so this grades each day in range independently
-// and averages the results, rather than summing actual across the whole range
-// against one un-multiplied requirement. A day is dropped from the average
+// Everything a class's grade run needs that doesn't vary per student.
+function gradeContext(cls, teacherKey, start, end) {
+    const settings = db.prepare('SELECT * FROM gradebook_settings WHERE teacher_key = ?')
+        .get(teacherKey)
+        ?? { assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0 };
+    // Requirements are per-class now — cls already carries them.
+    const asgn = cls;
+    const reqSet = Activities.parse(asgn.required_activity);
+    return {
+        cid: cls.id, asgn, settings, start, end, reqSet,
+        maxScore:   settings.assignment_max_score,
+        noSubGrade: Math.round(settings.assignment_max_score * settings.no_submission_score_pct / 100),
+        either:     Activities.isEither(asgn.required_activity),
+        reqCount:   key => asgn[Activities.ACTIVITIES.find(a => a.key === key).countField] ?? 1,
+        // In SAT accuracy mode an SAT activity's day is met via server/satAccuracy.js
+        // (correct count AND recent accuracy), not by the correct count alone.
+        accuracyKeys: [...reqSet].filter(key => Activities.usesAccuracy(asgn, key)),
+        // Meeting-day calendar for this class, when PS attendance has been pulled
+        // for it (server/wbl/logic.js:meetingDates — dates only ever exist there
+        // for days PS actually held class). Falls back to every calendar day in a
+        // student's own enrolled window when nothing's been pulled yet — so this
+        // is safe for every class regardless of attendance-pull history.
+        meetDates: meetingDates(cls.id, start, end),
+    };
+}
+
+// Group-by-day bucketing in SQL, using the same UTC-midnight day boundary
+// /daily-progress uses for "today" — one query per activity, not one per
+// date. SQLite's integer '/' truncates ms to whole seconds for unixepoch.
+const dayCol = "strftime('%Y-%m-%d', submitted_at / 1000, 'unixepoch')";
+
+// Per-activity score tables and the condition a row must meet to count.
+// SAT/SAT-Math/Ruler/Projections only count correct answers — matches
+// /daily-progress; KenKen counts games at or above the student's all-time average.
+const GRADE_TABLES = {
+    'kenken':      { table: 'kenken_scores',      qualifies: 'score >= ?' },
+    'sat':         { table: 'sat_scores',         qualifies: 'correct = 1' },
+    'sat-math':    { table: 'sat_math_scores',    qualifies: 'correct = 1' },
+    'measurement': { table: 'measurement_scores', qualifies: 'correct = 1' },
+    'projection':  { table: 'projection_scores',  qualifies: 'correct = 1' },
+};
+
+// One student's Daily Practice grade over ctx's window. required_*_count on
+// `classes` are PER-DAY requirements — same ones /daily-progress checks against
+// "today" (server/routes/student.js) — so this grades each day in range
+// independently and averages the results. A day is dropped from the average
 // entirely (not zero-filled) when it's outside the student's enrollment span
-// or their PS attendance code excuses it (L.excusedAbsenceDates) — see
-// .refs/todo item 1 and the WBL "Called Out" override on wbl_called_outs.
+// or their PS attendance code excuses it (L.excusedAbsenceDates).
+//
+// With `trace`, also returns a `trace` object explaining every calendar day in
+// the requested window — what GET /grades/debug serves. Same code path as the
+// real grade, so the debug view can never disagree with what gets synced.
+function gradeStudent(ctx, student, trace = false) {
+    const { cid, asgn, settings, start, end, reqSet, maxScore, noSubGrade, either, reqCount, accuracyKeys, meetDates } = ctx;
+    const base = {
+        student_id: student.student_id, student_name: student.student_name,
+        enrolled_on: student.enrolled_on, exited_on: student.exited_on,
+    };
+    const tr = trace ? {
+        window: { start, end, eff_start: null, eff_end: null },
+        calendar_source: meetDates.length ? 'attendance' : 'calendar-fallback',
+        linked: !!student.user_key,
+        days: [], notes: [],
+    } : null;
+    const withTrace = r => (tr ? { ...r, trace: tr } : r);
+
+    // Clamp the grading window to the student's enrollment span. enrolled_on
+    // NULL means "enrolled since before we tracked dates" → whole window.
+    const effStart = maxDate(start, student.enrolled_on || start);
+    const effEnd   = minDate(end,   student.exited_on   || end);
+    if (tr) { tr.window.eff_start = effStart; tr.window.eff_end = effEnd; }
+
+    if (effStart > effEnd) {
+        // Enrollment span doesn't overlap the window — exempt entirely.
+        // The extension skips students whose grade is null.
+        if (tr) tr.notes.push('Enrollment span does not overlap this window — student is exempt (no grade synced).');
+        return withTrace({ ...base, grade: null, exempt: true });
+    }
+
+    if (!student.user_key) {
+        if (tr) tr.notes.push(`Roster row is not linked to an app account — every student in this state gets the no-submission grade (${noSubGrade}) regardless of work done.`);
+        return withTrace({ ...base, grade: noSubGrade, unlinked: true });
+    }
+
+    // A real partial-enrollment sub-window should never be skipped just
+    // because attendance happens to carry no rows in that narrow slice —
+    // fall back to every calendar day in it when that happens, even
+    // though meetDates above is meeting-day based for the full window.
+    let studentDates = meetDates.filter(d => d >= effStart && d <= effEnd);
+    const usedFallback = !studentDates.length;
+    if (usedFallback) studentDates = L.datesBetween(effStart, effEnd);
+    if (tr && usedFallback) {
+        tr.calendar_source = 'calendar-fallback';
+        tr.notes.push('No PowerSchool attendance pulled for this class in the window — EVERY calendar day (weekends included) is graded. Pull attendance to fix.');
+    }
+
+    const attendance   = L.attendanceDetail(cid, student.student_id, effStart, effEnd);
+    const exemptDates  = L.excusedAbsenceDates(cid, student.student_id, effStart, effEnd);
+    const countedDates = studentDates.filter(d => !exemptDates.has(d));
+    // All excused: nothing to grade, so skip the queries unless tracing.
+    if (!countedDates.length && !tr)
+        return { ...base, grade: null, exempt: true, days_excused: studentDates.length };
+
+    const sMs = new Date(effStart + 'T00:00:00').getTime();
+    const eMs = new Date(effEnd   + 'T23:59:59').getTime();
+
+    // All-time average determines qualifying threshold for KenKen submissions
+    const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
+    const threshold = avgRow?.avg ?? 0;
+    const qualArgs  = key => (key === 'kenken' ? [threshold] : []);
+
+    // Only submissions attributed to this class count toward its grade.
+    // Pre-feature rows for single-class students were backfilled (server/db.js);
+    // genuinely multi-class students' historical rows stay NULL and don't count.
+    const byDay = {};
+    for (const [key, t] of Object.entries(GRADE_TABLES)) {
+        byDay[key] = new Map(db.prepare(`
+            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM ${t.table}
+            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND ${t.qualifies} AND class_id = ?
+            GROUP BY day
+        `).all(student.user_key, sMs, eMs, ...qualArgs(key), cid).map(r => [r.day, r.cnt]));
+    }
+
+    // SAT accuracy mode needs each day's full answer sequence, not a
+    // count of correct ones (server/satAccuracy.js) — same as /daily-progress.
+    const answersByDay = table => {
+        const m = new Map();
+        for (const r of db.prepare(`
+            SELECT ${dayCol} AS day, correct FROM ${table}
+            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND class_id = ?
+            ORDER BY submitted_at, id
+        `).all(student.user_key, sMs, eMs, cid)) {
+            if (!m.has(r.day)) m.set(r.day, []);
+            m.get(r.day).push(r.correct);
+        }
+        return m;
+    };
+    const accuracyAnswers = {};
+    for (const key of accuracyKeys) accuracyAnswers[key] = answersByDay(GRADE_TABLES[key].table);
+
+    // One graded day → { done, dayRequired, dayActual, dayGrade, rule }.
+    const gradeDay = date => {
+        const done = {};
+        for (const key of Object.keys(GRADE_TABLES)) done[key] = byDay[key].get(date) ?? 0;
+        const raw = { ...done };
+
+        // Accuracy-mode SAT activities contribute their progress fraction
+        // scaled to the correct count, so they pool with the rest below on
+        // the same "units done vs. units required" footing.
+        for (const key of accuracyKeys) {
+            const need = reqCount(key);
+            done[key] = need * accuracyProgress(accuracyAnswers[key].get(date) ?? [], need,
+                asgn.sat_accuracy_window, asgn.sat_accuracy_pct).fraction;
+        }
+
+        // Required activities pool together: the day's requirement is the
+        // sum of their counts, met by the sum of their completions.
+        // Legacy 'either' is KenKen OR SAT English, whichever is higher.
+        let dayRequired = 0, dayActual = 0;
+        if (either) {
+            dayRequired = Math.max(reqCount('kenken'), reqCount('sat'));
+            dayActual   = Math.max(done.kenken, done.sat);
+        } else {
+            for (const key of reqSet) { dayRequired += reqCount(key); dayActual += done[key]; }
+        }
+
+        // completion_score_pct floors a PARTIAL day (some, not all, of the
+        // requirement done); no_submission_score_pct floors a day with
+        // nothing submitted at all; meeting/exceeding the requirement is
+        // simply full credit for that day.
+        let dayGrade, rule;
+        if (dayActual === 0) {
+            dayGrade = noSubGrade; rule = 'none';
+        } else if (dayActual < dayRequired) {
+            const ratio = Math.round((dayActual / dayRequired) * maxScore);
+            const floor = Math.round(maxScore * settings.completion_score_pct / 100);
+            dayGrade = Math.max(ratio, floor); rule = ratio >= floor ? 'partial-ratio' : 'partial-floor';
+        } else {
+            dayGrade = maxScore; rule = 'full';
+        }
+        return { done, raw, dayRequired, dayActual, dayGrade: Math.min(dayGrade, maxScore), rule };
+    };
+
+    const totals = Object.fromEntries(Object.keys(GRADE_TABLES).map(k => [k, 0]));
+    const dayGrades = [];
+    const graded = new Map();
+    for (const date of countedDates) {
+        const g = gradeDay(date);
+        for (const k of Object.keys(totals)) totals[k] += g.raw[k];
+        dayGrades.push(g.dayGrade);
+        graded.set(date, g);
+    }
+
+    const grade = dayGrades.length
+        ? Math.min(maxScore, Math.round(dayGrades.reduce((a, b) => a + b, 0) / dayGrades.length))
+        : null;
+
+    if (tr) fillTrace(tr, ctx, student, {
+        effStart, effEnd, studentDates, attendance, exemptDates, graded, threshold,
+        dayGrades, grade,
+    });
+
+    if (!countedDates.length) {
+        // Every day in this student's window was excused — nothing to
+        // grade. Same "extension skips null" convention as above.
+        if (tr) tr.notes.push('Every day in the window was excused — student is exempt (no grade synced).');
+        return withTrace({ ...base, grade: null, exempt: true, days_excused: studentDates.length });
+    }
+
+    return withTrace({
+        ...base,
+        grade,
+        kenken_count:      totals.kenken,
+        sat_count:         totals.sat,
+        sat_math_count:    totals['sat-math'],
+        measurement_count: totals.measurement,
+        projection_count:  totals.projection,
+        days_counted:      countedDates.length,
+        days_excused:      studentDates.length - countedDates.length,
+    });
+}
+
+// Debug-only: lay out every calendar day in the requested window with its
+// status, plus the submissions that DIDN'T count and why (wrong class, below
+// the KenKen threshold, incorrect answers, or landing on an ungraded day).
+function fillTrace(tr, ctx, student, s) {
+    const { cid, start, end, reqSet, either, reqCount, accuracyKeys, maxScore, settings, asgn } = ctx;
+    const required = either ? ['kenken', 'sat'] : [...reqSet];
+    tr.required = required.map(key => ({
+        key, label: Activities.ACTIVITIES.find(a => a.key === key).label,
+        per_day: reqCount(key), accuracy_mode: accuracyKeys.includes(key),
+    }));
+    tr.either = either;
+    tr.settings = {
+        max_score: maxScore,
+        completion_score_pct: settings.completion_score_pct,
+        no_submission_score_pct: settings.no_submission_score_pct,
+        sat_accuracy_window: asgn.sat_accuracy_window, sat_accuracy_pct: asgn.sat_accuracy_pct,
+    };
+    tr.kenken_threshold = Math.round(s.threshold * 10) / 10;
+
+    // Every submission across the whole requested window, any class, bucketed
+    // by UTC day, split into counts that qualified for THIS class vs. not.
+    const sMs = new Date(start + 'T00:00:00').getTime();
+    const eMs = new Date(end   + 'T23:59:59').getTime();
+    const all = {};   // day -> key -> { qualifying, other_class, not_qualifying }
+    for (const [key, t] of Object.entries(GRADE_TABLES)) {
+        const rows = db.prepare(`
+            SELECT ${dayCol} AS day,
+                   SUM(class_id = ? AND ${t.qualifies})                         AS qualifying,
+                   SUM(class_id IS NULL OR class_id != ?)                       AS other_class,
+                   SUM(class_id = ? AND NOT (${t.qualifies}))                   AS not_qualifying
+            FROM ${t.table}
+            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ?
+            GROUP BY day
+        `).all(cid, ...(key === 'kenken' ? [s.threshold] : []), cid, cid,
+               ...(key === 'kenken' ? [s.threshold] : []), student.user_key, sMs, eMs);
+        for (const r of rows) {
+            (all[r.day] ??= {})[key] = {
+                qualifying: r.qualifying || 0, other_class: r.other_class || 0, not_qualifying: r.not_qualifying || 0,
+            };
+        }
+    }
+
+    const inSchedule = new Set(s.studentDates);
+    const attendanceAll = L.attendanceDetail(cid, student.student_id, start, end);
+    const workSummary = d => all[d] || {};
+
+    let missedWork = 0, otherClassDays = 0;
+    for (const date of L.datesBetween(start, end)) {
+        const att = attendanceAll.get(date) || null;
+        const day = { date, attendance: att, work: workSummary(date) };
+        if (date < s.effStart || date > s.effEnd) {
+            day.status = 'not-enrolled';
+            day.why = date < s.effStart ? `before enrollment (${student.enrolled_on})` : `after withdrawal (${student.exited_on})`;
+        } else if (!inSchedule.has(date)) {
+            day.status = 'no-class';
+            day.why = 'not a meeting day (no PS attendance for anyone in the class)';
+        } else if (s.exemptDates.has(date)) {
+            day.status = 'excused';
+            day.why = att?.reason || 'excused';
+        } else {
+            const g = s.graded.get(date);
+            day.status = 'graded';
+            day.required = g.dayRequired;
+            day.actual   = Math.round(g.dayActual * 100) / 100;
+            day.done     = Object.fromEntries(required.map(k => [k, Math.round(g.done[k] * 100) / 100]));
+            day.grade    = g.dayGrade;
+            day.rule     = g.rule;
+            day.why = {
+                'full':          'requirement met',
+                'partial-ratio': `partial: ${day.actual}/${g.dayRequired} of ${maxScore}`,
+                'partial-floor': `partial: raised to ${settings.completion_score_pct}% completion floor`,
+                'none':          `nothing qualifying — no-submission score (${settings.no_submission_score_pct}%)`,
+            }[g.rule];
+            if (att && !att.excused && att.code) day.why += ` · ${att.reason}`;
+        }
+        const w = day.work;
+        const qual = Object.values(w).reduce((a, x) => a + x.qualifying, 0);
+        const other = Object.values(w).reduce((a, x) => a + x.other_class, 0);
+        if (day.status !== 'graded' && qual > 0) missedWork++;
+        if (day.status === 'graded' && other > 0) otherClassDays++;
+        tr.days.push(day);
+    }
+
+    if (missedWork)
+        tr.notes.push(`${missedWork} day(s) have qualifying work on a day that isn't graded (no class / not enrolled / excused). Days bucket by UTC midnight — work done after 7pm EST (8pm EDT) lands on the NEXT day.`);
+    if (otherClassDays)
+        tr.notes.push(`${otherClassDays} graded day(s) have submissions attributed to another class (or no class). Those never count here — the student may have had the wrong class picked.`);
+    if (accuracyKeys.length)
+        tr.notes.push(`SAT accuracy mode: ${accuracyKeys.join(', ')} credit is (required count × accuracy progress), so it can be fractional.`);
+
+    tr.summary = {
+        days_graded: s.dayGrades.length,
+        days_excused: s.studentDates.filter(d => s.exemptDates.has(d)).length,
+        sum: s.dayGrades.reduce((a, b) => a + b, 0),
+        grade: s.grade,
+    };
+}
+
 router.get('/grades', requireTeacher, (req, res) => {
     const { class_id, start, end } = req.query;
     if (!class_id || !start || !end)
@@ -429,220 +741,40 @@ router.get('/grades', requireTeacher, (req, res) => {
         .get(cid, req.teacherKey);
     if (!cls) return res.status(404).json({ error: 'Class not found' });
 
-    const settings = db.prepare('SELECT * FROM gradebook_settings WHERE teacher_key = ?')
-        .get(req.teacherKey)
-        ?? { assignment_max_score: 100, completion_score_pct: 100, no_submission_score_pct: 0 };
-
-    // Requirements are per-class now — cls already carries them.
-    const asgn = cls;
-
+    const ctx = gradeContext(cls, req.teacherKey, start, end);
     const students = db.prepare(
         'SELECT * FROM class_students WHERE class_id = ? ORDER BY student_name'
     ).all(cid);
 
-    const maxScore   = settings.assignment_max_score;
-    const noSubGrade = Math.round(maxScore * settings.no_submission_score_pct / 100);
-    const either     = Activities.isEither(asgn.required_activity);
-    const reqSet     = Activities.parse(asgn.required_activity);
-    const reqCount   = key => asgn[Activities.ACTIVITIES.find(a => a.key === key).countField] ?? 1;
-    // In SAT accuracy mode an SAT activity's day is met via server/satAccuracy.js
-    // (correct count AND recent accuracy), not by the correct count alone.
-    const accuracyKeys = [...reqSet].filter(key => Activities.usesAccuracy(asgn, key));
-
-    // Meeting-day calendar for this class, when PS attendance has been pulled
-    // for it (server/wbl/logic.js:meetingDates — dates only ever exist there
-    // for days PS actually held class). Falls back to every calendar day in a
-    // student's own enrolled window when nothing's been pulled yet — so this
-    // is safe for every class regardless of attendance-pull history.
-    const meetDates = meetingDates(cid, start, end);
-
-    // Group-by-day bucketing in SQL, using the same UTC-midnight day boundary
-    // /daily-progress uses for "today" — one query per activity, not one per
-    // date. SQLite's integer '/' truncates ms to whole seconds for unixepoch.
-    const dayCol = "strftime('%Y-%m-%d', submitted_at / 1000, 'unixepoch')";
-
-    const results = students.map(student => {
-        // Clamp the grading window to the student's enrollment span. enrolled_on
-        // NULL means "enrolled since before we tracked dates" → whole window.
-        const effStart = maxDate(start, student.enrolled_on || start);
-        const effEnd   = minDate(end,   student.exited_on   || end);
-        if (effStart > effEnd) {
-            // Enrollment span doesn't overlap the window — exempt entirely.
-            // The extension skips students whose grade is null.
-            return {
-                student_id: student.student_id, student_name: student.student_name,
-                grade: null, exempt: true,
-                enrolled_on: student.enrolled_on, exited_on: student.exited_on,
-            };
-        }
-
-        if (!student.user_key)
-            return {
-                student_id: student.student_id, student_name: student.student_name,
-                grade: noSubGrade, unlinked: true,
-                enrolled_on: student.enrolled_on, exited_on: student.exited_on,
-            };
-
-        // A real partial-enrollment sub-window should never be skipped just
-        // because attendance happens to carry no rows in that narrow slice —
-        // fall back to every calendar day in it when that happens, even
-        // though meetDates above is meeting-day based for the full window.
-        let studentDates = meetDates.filter(d => d >= effStart && d <= effEnd);
-        if (!studentDates.length) studentDates = L.datesBetween(effStart, effEnd);
-
-        const exemptDates  = L.excusedAbsenceDates(cid, student.student_id, effStart, effEnd);
-        const countedDates = studentDates.filter(d => !exemptDates.has(d));
-
-        if (!countedDates.length) {
-            // Every day in this student's window was excused — nothing to
-            // grade. Same "extension skips null" convention as above.
-            return {
-                student_id: student.student_id, student_name: student.student_name,
-                grade: null, exempt: true,
-                enrolled_on: student.enrolled_on, exited_on: student.exited_on,
-                days_excused: studentDates.length,
-            };
-        }
-
-        const sMs = new Date(effStart + 'T00:00:00').getTime();
-        const eMs = new Date(effEnd   + 'T23:59:59').getTime();
-
-        // All-time average determines qualifying threshold for KenKen submissions
-        const avgRow    = db.prepare('SELECT AVG(score) AS avg FROM kenken_scores WHERE user_key = ?').get(student.user_key);
-        const threshold = avgRow?.avg ?? 0;
-
-        // Only submissions attributed to this class count toward its grade.
-        // Pre-feature rows for single-class students were backfilled (server/db.js);
-        // genuinely multi-class students' historical rows stay NULL and don't count.
-        // SAT/SAT-Math only count correct answers — matches /daily-progress.
-        const kenkenByDay = new Map(db.prepare(`
-            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM kenken_scores
-            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND score >= ? AND class_id = ?
-            GROUP BY day
-        `).all(student.user_key, sMs, eMs, threshold, cid).map(r => [r.day, r.cnt]));
-
-        const satByDay = new Map(db.prepare(`
-            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM sat_scores
-            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
-            GROUP BY day
-        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
-
-        const satMathByDay = new Map(db.prepare(`
-            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM sat_math_scores
-            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
-            GROUP BY day
-        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
-
-        const measurementByDay = new Map(db.prepare(`
-            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM measurement_scores
-            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
-            GROUP BY day
-        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
-
-        const projectionByDay = new Map(db.prepare(`
-            SELECT ${dayCol} AS day, COUNT(*) AS cnt FROM projection_scores
-            WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND correct = 1 AND class_id = ?
-            GROUP BY day
-        `).all(student.user_key, sMs, eMs, cid).map(r => [r.day, r.cnt]));
-
-        // SAT accuracy mode needs each day's full answer sequence, not a
-        // count of correct ones (server/satAccuracy.js) — same as /daily-progress.
-        const answersByDay = table => {
-            const m = new Map();
-            for (const r of db.prepare(`
-                SELECT ${dayCol} AS day, correct FROM ${table}
-                WHERE user_key = ? AND submitted_at >= ? AND submitted_at <= ? AND class_id = ?
-                ORDER BY submitted_at, id
-            `).all(student.user_key, sMs, eMs, cid)) {
-                if (!m.has(r.day)) m.set(r.day, []);
-                m.get(r.day).push(r.correct);
-            }
-            return m;
-        };
-        const accuracyAnswers = {};
-        if (accuracyKeys.includes('sat'))      accuracyAnswers['sat']      = answersByDay('sat_scores');
-        if (accuracyKeys.includes('sat-math')) accuracyAnswers['sat-math'] = answersByDay('sat_math_scores');
-
-        let kenkenTotal = 0, satTotal = 0, satMathTotal = 0, measurementTotal = 0, projectionTotal = 0;
-        const dayGrades = [];
-
-        for (const date of countedDates) {
-            const done = {
-                'kenken':      kenkenByDay.get(date) ?? 0,
-                'sat':         satByDay.get(date) ?? 0,
-                'sat-math':    satMathByDay.get(date) ?? 0,
-                'measurement': measurementByDay.get(date) ?? 0,
-                'projection':  projectionByDay.get(date) ?? 0,
-            };
-            kenkenTotal += done.kenken; satTotal += done.sat;
-            satMathTotal += done['sat-math']; measurementTotal += done.measurement;
-            projectionTotal += done.projection;
-
-            // Accuracy-mode SAT activities contribute their progress fraction
-            // scaled to the correct count, so they pool with the rest below on
-            // the same "units done vs. units required" footing.
-            for (const key of accuracyKeys) {
-                const need = reqCount(key);
-                done[key] = need * accuracyProgress(accuracyAnswers[key].get(date) ?? [], need,
-                    asgn.sat_accuracy_window, asgn.sat_accuracy_pct).fraction;
-            }
-
-            // Required activities pool together: the day's requirement is the
-            // sum of their counts, met by the sum of their completions.
-            // Legacy 'either' is KenKen OR SAT English, whichever is higher.
-            let dayRequired = 0, dayActual = 0;
-            if (either) {
-                dayRequired = Math.max(reqCount('kenken'), reqCount('sat'));
-                dayActual   = Math.max(done.kenken, done.sat);
-            } else {
-                for (const key of reqSet) { dayRequired += reqCount(key); dayActual += done[key]; }
-            }
-
-            // completion_score_pct floors a PARTIAL day (some, not all, of the
-            // requirement done); no_submission_score_pct floors a day with
-            // nothing submitted at all; meeting/exceeding the requirement is
-            // simply full credit for that day.
-            let dayGrade;
-            if (dayActual === 0) {
-                dayGrade = noSubGrade;
-            } else if (dayActual < dayRequired) {
-                dayGrade = Math.max(
-                    Math.round((dayActual / dayRequired) * maxScore),
-                    Math.round(maxScore * settings.completion_score_pct / 100)
-                );
-            } else {
-                dayGrade = maxScore;
-            }
-            dayGrades.push(Math.min(dayGrade, maxScore));
-        }
-
-        const grade = Math.min(
-            maxScore,
-            Math.round(dayGrades.reduce((a, b) => a + b, 0) / dayGrades.length)
-        );
-
-        return {
-            student_id:      student.student_id,
-            student_name:    student.student_name,
-            grade,
-            kenken_count:    kenkenTotal,
-            sat_count:       satTotal,
-            sat_math_count:  satMathTotal,
-            measurement_count: measurementTotal,
-            projection_count:  projectionTotal,
-            enrolled_on:    student.enrolled_on,
-            exited_on:       student.exited_on,
-            days_counted:    countedDates.length,
-            days_excused:    studentDates.length - countedDates.length,
-        };
-    });
-
     res.json({
         class_id:  cid,
         start, end,
-        max_score: settings.assignment_max_score,
-        students:  results
+        max_score: ctx.maxScore,
+        students:  students.map(s => gradeStudent(ctx, s)),
     });
+});
+
+// One student's /grades result with a per-day breakdown of how it was reached
+// (attendance codes, excusals, per-activity completions, the scoring rule
+// applied each day, and work that didn't count). For debugging "why didn't
+// this student get full credit" — read-only, nothing is synced.
+router.get('/grades/debug', requireTeacher, (req, res) => {
+    const { class_id, student_id, start, end } = req.query;
+    if (!class_id || !student_id || !isDateStr(start) || !isDateStr(end))
+        return res.status(400).json({ error: 'class_id, student_id, start, end (YYYY-MM-DD) required' });
+    if (start > end) return res.status(400).json({ error: 'start must be on or before end' });
+    if (L.dayCount(start, end) > 400) return res.status(400).json({ error: 'window too long (max 400 days)' });
+
+    const cid = Number(class_id);
+    const cls = db.prepare('SELECT * FROM classes WHERE id = ? AND teacher_key = ?')
+        .get(cid, req.teacherKey);
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+    const student = db.prepare('SELECT * FROM class_students WHERE class_id = ? AND student_id = ?')
+        .get(cid, String(student_id));
+    if (!student) return res.status(404).json({ error: 'Student not on this roster' });
+
+    const ctx = gradeContext(cls, req.teacherKey, start, end);
+    res.json({ class_id: cid, class_name: cls.name, max_score: ctx.maxScore, ...gradeStudent(ctx, student, true) });
 });
 
 // ── All data ──────────────────────────────────────────────────────────────────
